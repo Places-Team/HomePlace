@@ -39,7 +39,7 @@ repository.
 ## Quick start
 
 ```bash
-git clone https://github.com/Olmae/HomePlace.git
+git clone https://github.com/Places-Team/HomePlace.git
 cd HomePlace
 cp .env.example .env
 docker compose up -d --build

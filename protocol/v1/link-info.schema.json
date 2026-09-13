@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:homeplace:link:protocol:v1:link-info",
+  "title": "HomePlace Link server information",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["product", "server", "applicationVersion", "protocol", "serverTime", "features"],
+  "properties": {
+    "product": { "const": "HomePlace" },
+    "server": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "name"],
+      "properties": {
+        "id": { "type": "string", "format": "uuid" },
+        "name": { "type": "string", "minLength": 1, "maxLength": 80 }
+      }
+    },
+    "applicationVersion": { "type": "string", "minLength": 1 },
+    "protocol": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["min", "max"],
+      "properties": {
+        "min": { "type": "integer", "minimum": 1 },
+        "max": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "serverTime": { "type": "string", "format": "date-time" },
+    "features": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["pairing", "realtime"],
+      "properties": {
+        "pairing": { "type": "boolean" },
+        "realtime": { "type": "boolean" }
+      }
+    }
+  }
+}

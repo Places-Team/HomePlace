@@ -135,6 +135,8 @@ Full reference with comments: [`.env.example`](.env.example). In short:
 | Variable | What it does |
 |---|---|
 | `APP_URL` | Public address; used for OAuth redirects and cookie security |
+| `HOMEPLACE_NAME` | Installation name shown to devices before pairing |
+| `HOMEPLACE_SERVER_ID` | Optional UUID override for a restored installation identity |
 | `AUTH_SECRET` | Session signing key — `make secret` generates one |
 | `HOST_DATA_DIR` | Where the SQLite database lives on the host |
 | `DOCKER_API_URL` / `DOCKER_HOSTS` | Docker endpoint, or several |
@@ -258,7 +260,8 @@ are described in [HomePlace Link roadmap](docs/homeplace-link-roadmap.md).
 
 ### Apps and agents
 
-- [ ] HomePlace Link protocol, device registry and secure pairing
+- [x] HomePlace Link v1 discovery endpoint and base protocol schemas
+- [ ] Device registry and secure pairing
 - [ ] Windows, macOS and Linux agents
 - [ ] Android and iOS applications with share extensions
 - [ ] Device actions, clipboard, file transfer and cross-device notifications

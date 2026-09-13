@@ -34,6 +34,8 @@ services:
 
       # ── Identity ──────────────────────────────────────────────────────
       APP_URL: "${APP_URL:-http://localhost:3200}"
+      HOMEPLACE_NAME: "${HOMEPLACE_NAME:-HomePlace}"
+      HOMEPLACE_SERVER_ID: "${HOMEPLACE_SERVER_ID:-}"
       AUTH_SECRET: "${AUTH_SECRET:-}"
       SECURE_COOKIES: "${SECURE_COOKIES:-}"
       SESSION_DAYS: "${SESSION_DAYS:-30}"

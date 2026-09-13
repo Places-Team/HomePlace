@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:homeplace:link:protocol:v1:capability",
+  "title": "HomePlace Link capability",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["name", "version"],
+  "properties": {
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:\\.[a-z][a-z0-9]*)+$",
+      "maxLength": 80
+    },
+    "version": { "type": "integer", "minimum": 1 },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": true,
+      "maxProperties": 32
+    }
+  }
+}

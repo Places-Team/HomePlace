@@ -1,0 +1,21 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:homeplace:link:protocol:v1:envelope",
+  "title": "HomePlace Link realtime envelope",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["protocol", "id", "type", "deviceId", "sentAt", "payload"],
+  "properties": {
+    "protocol": { "const": 1 },
+    "id": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "type": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:\\.[a-z][a-z0-9]*)+$",
+      "maxLength": 80
+    },
+    "deviceId": { "type": "string", "minLength": 1, "maxLength": 128 },
+    "sentAt": { "type": "string", "format": "date-time" },
+    "expiresAt": { "type": "string", "format": "date-time" },
+    "payload": { "type": "object" }
+  }
+}

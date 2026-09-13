@@ -5,6 +5,7 @@ import { inQuietHours } from "../src/lib/quietHours";
 import { bytes, duration, latency, percent } from "../src/lib/format";
 import { dashboardIconSlugs, dashboardIconUrl, guessKey, guessIcon, autoIcon, faviconUrl } from "../src/lib/icons";
 import { nextOccurrence } from "../src/lib/recurrence";
+import { createLinkInfo, isLinkServerId, LINK_PROTOCOL_MAX, LINK_PROTOCOL_MIN } from "../src/lib/linkProtocol";
 
 /** Small pure helpers that everything else leans on. */
 
@@ -137,4 +138,31 @@ test("nextOccurrence lands in the future, however long it was ignored", () => {
   // A one-off never moves: it is due when it is due.
   const once = nextOccurrence(lastMonth, "none");
   assert.equal(once.getTime(), lastMonth.getTime());
+});
+
+// ────────────────────────────── HomePlace Link ──────────────────────────
+
+test("link info exposes a versioned, secret-free discovery document", () => {
+  const info = createLinkInfo({
+    serverId: "018f2b5c-7d9a-7e11-8a22-123456789abc",
+    serverName: "Home server",
+    applicationVersion: "1.2.3",
+    now: new Date("2026-09-13T12:00:00.000Z"),
+  });
+
+  assert.deepEqual(info, {
+    product: "HomePlace",
+    server: { id: "018f2b5c-7d9a-7e11-8a22-123456789abc", name: "Home server" },
+    applicationVersion: "1.2.3",
+    protocol: { min: LINK_PROTOCOL_MIN, max: LINK_PROTOCOL_MAX },
+    serverTime: "2026-09-13T12:00:00.000Z",
+    features: { pairing: false, realtime: false },
+  });
+  assert.equal("token" in info, false);
+});
+
+test("link server IDs accept UUIDs and reject arbitrary installation names", () => {
+  assert.equal(isLinkServerId("018f2b5c-7d9a-7e11-8a22-123456789abc"), true);
+  assert.equal(isLinkServerId("homeplace-at-home"), false);
+  assert.equal(isLinkServerId("00000000-0000-0000-0000-000000000000"), false);
 });

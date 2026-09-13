@@ -71,7 +71,7 @@ export function Tile({
   if (item.kind === "widget") {
     return (
       <div className="relative h-full">
-        {canEdit && !inFolder && <ItemActions item={item} d={d} />}
+        {canEdit && !inFolder && <ItemActions item={item} d={d} iconPack={iconPack} />}
         <Widget
           widget={item.widget ?? "notes"}
           config={parseConfig(item.config)}
@@ -87,7 +87,7 @@ export function Tile({
   if (item.kind === "section") {
     return (
       <div className="relative flex h-full items-end pb-1">
-        {canEdit && !inFolder && <ItemActions item={item} d={d} />}
+        {canEdit && !inFolder && <ItemActions item={item} d={d} iconPack={iconPack} />}
         <div className="w-full border-b border-line pb-1">
           <h2 className="flex items-center gap-2 text-sm font-semibold tracking-tight">
             {item.icon && <TileIcon icon={item.icon} title={item.title} size="sm" />}
@@ -109,7 +109,7 @@ export function Tile({
     if (str(parseConfig(item.config).display) === "panel") {
       return (
         <Card className="relative flex h-full flex-col p-3">
-          {canEdit && !inFolder && <ItemActions item={item} d={d} />}
+          {canEdit && !inFolder && <ItemActions item={item} d={d} iconPack={iconPack} />}
           <div className="mb-2 flex items-center gap-2">
             {item.icon && <TileIcon icon={item.icon} title={item.title} size="sm" />}
             <span className="min-w-0 flex-1 truncate text-sm font-semibold">{item.title}</span>
@@ -149,7 +149,7 @@ export function Tile({
     const roomy = item.w >= 3;
     return (
       <Card className="relative flex h-full flex-col p-3">
-        {canEdit && !inFolder && <ItemActions item={item} d={d} />}
+        {canEdit && !inFolder && <ItemActions item={item} d={d} iconPack={iconPack} />}
 
         <div className="mb-2 flex items-center gap-2">
           <TileIcon icon={item.icon || GLYPH.folder} title={item.title} color={item.color} />
@@ -332,7 +332,7 @@ export function Tile({
 
   return (
     <Card className="group relative flex h-full flex-col overflow-hidden transition-shadow hover:shadow-pop">
-      {canEdit && !inFolder && <ItemActions item={item} d={d} />}
+      {canEdit && !inFolder && <ItemActions item={item} d={d} iconPack={iconPack} />}
 
       {/* Attached to a container: an arrow into its detail view — logs, mounts,
           restarts. Hidden until hover so the tile stays a clean link, and gone

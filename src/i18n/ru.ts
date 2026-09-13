@@ -146,6 +146,11 @@ export const ru: Dictionary = {
     iconGeneral: "Общие",
     iconLogo: "Логотип",
     iconImage: "Своя картинка",
+    iconCatalog: "Dashboard Icons",
+    iconCatalogHint: "Ищите по названию сервиса во всём онлайн-каталоге. Показываются первые 96 совпадений.",
+    iconCatalogDisabled: "Включите онлайн-набор в Настройки → Система, чтобы открыть этот каталог.",
+    iconCatalogUnavailable: "Онлайн-каталог иконок недоступен. Встроенные иконки продолжают работать.",
+    iconCatalogEmpty: "Подходящих иконок нет.",
 
     tileIconHint: "Эмодзи или ссылка на картинку",
     tileOpenNewTab: "Открывать в новой вкладке",
@@ -672,6 +677,9 @@ export const ru: Dictionary = {
     rulesEntityHint: "Сущность Home Assistant с числовым значением — скопируйте её id со страницы «Умный дом».",
 
     about: "О программе",
+    aboutDescription: "Self-hosted центр управления личной инфраструктурой, устройствами, приложениями и сервисами.",
+    dashboardIconsCredit: "Логотипы сервисов предоставляет Dashboard Icons. Спасибо команде Homarr Labs и всем участникам проекта.",
+    dashboardIconsLicense: "Исходный код Dashboard Icons и лицензия Apache 2.0",
     role: "Роль",
     roleOwner: "Владелец",
     roleAdmin: "Администратор",

@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { slugify, uniqueSlug } from "../src/lib/slug";
 import { inQuietHours } from "../src/lib/quietHours";
 import { bytes, duration, latency, percent } from "../src/lib/format";
-import { guessKey, guessIcon, autoIcon, faviconUrl } from "../src/lib/icons";
+import { dashboardIconSlugs, dashboardIconUrl, guessKey, guessIcon, autoIcon, faviconUrl } from "../src/lib/icons";
 import { nextOccurrence } from "../src/lib/recurrence";
 
 /** Small pure helpers that everything else leans on. */
@@ -106,7 +106,21 @@ test("autoIcon: prefers the site's own favicon, falls back to the emoji", () => 
 
 test("autoIcon: the logo pack wins when it is switched on", () => {
   const icon = autoIcon({ name: "grafana", url: "http://box:3000", pack: true });
-  assert.match(icon, /dashboard-icons\/png\/grafana\.png$/);
+  assert.match(icon, /dashboard-icons@[a-f0-9]{40}\/png\/grafana\.png$/);
+});
+
+test("dashboard icons: catalogue input is validated and deduplicated", () => {
+  assert.deepEqual(
+    dashboardIconSlugs({ png: ["plex.png", "plex.png", "nextcloud-calendar.png", "../bad.png", 42] }),
+    ["nextcloud-calendar", "plex"],
+  );
+  assert.deepEqual(dashboardIconSlugs({ png: "plex.png" }), []);
+});
+
+test("dashboard icons: unsafe slugs never become CDN URLs", () => {
+  assert.match(dashboardIconUrl("Plex"), /\/plex\.png$/);
+  assert.equal(dashboardIconUrl("../secret"), "");
+  assert.equal(dashboardIconUrl("plex.svg"), "");
 });
 
 test("nextOccurrence lands in the future, however long it was ignored", () => {

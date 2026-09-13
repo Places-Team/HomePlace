@@ -21,7 +21,7 @@ import type { Dictionary } from "@/i18n";
  * back in — otherwise the pencil is there but nothing happens when it is
  * clicked.
  */
-export function ItemActions({ item, d }: { item: Item; d: Dictionary }) {
+export function ItemActions({ item, d, iconPack = false }: { item: Item; d: Dictionary; iconPack?: boolean }) {
   const { editing: modeEditing } = useEditMode();
   const [editing, setEditing] = useState(false);
   const [pending, startTransition] = useTransition();
@@ -60,7 +60,7 @@ export function ItemActions({ item, d }: { item: Item; d: Dictionary }) {
         </IconButton>
       </div>
 
-      {editing && <ItemDialog d={d} mode="edit" item={item} onClose={() => setEditing(false)} />}
+      {editing && <ItemDialog d={d} mode="edit" item={item} iconPack={iconPack} onClose={() => setEditing(false)} />}
     </>
   );
 }

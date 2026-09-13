@@ -149,6 +149,11 @@ export const en = {
     iconGeneral: "General",
     iconLogo: "Logo",
     iconImage: "Your own image",
+    iconCatalog: "Dashboard Icons",
+    iconCatalogHint: "Search the complete online catalogue by service name. The first 96 matches are shown.",
+    iconCatalogDisabled: "Enable the online icon pack in Settings → System to browse this catalogue.",
+    iconCatalogUnavailable: "The online icon catalogue is unavailable. Built-in icons still work.",
+    iconCatalogEmpty: "No matching icons.",
 
     tileIconHint: "An emoji or an image URL",
     tileOpenNewTab: "Open in a new tab",
@@ -675,6 +680,9 @@ export const en = {
     rulesEntityHint: "A Home Assistant entity with a numeric state — copy its id from the Smart home page.",
 
     about: "About",
+    aboutDescription: "A self-hosted control centre for personal infrastructure, devices, applications and services.",
+    dashboardIconsCredit: "Service logos are provided by Dashboard Icons. Thank you to the Homarr Labs team and every contributor.",
+    dashboardIconsLicense: "Dashboard Icons source and Apache 2.0 license",
     role: "Role",
     roleOwner: "Owner",
     roleAdmin: "Administrator",

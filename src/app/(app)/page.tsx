@@ -214,7 +214,7 @@ export default async function DashboardPage({
               }}
             />
             <EditToggle d={d} />
-            <AddButton d={d} dashboardId={active.id} containers={containers} folders={folders} />
+            <AddButton d={d} dashboardId={active.id} containers={containers} folders={folders} iconPack={iconPack} />
           </div>
         )}
       </div>

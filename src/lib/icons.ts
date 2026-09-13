@@ -147,6 +147,38 @@ export const GENERAL_ICONS: string[] = [
 ];
 
 /**
+ * Dashboard Icons is pinned to a reviewed revision. This keeps icon rendering
+ * reproducible and prevents a moving CDN branch from changing an installation
+ * without a HomePlace update.
+ */
+export const DASHBOARD_ICONS_REF = "ce550a844bad92ea19b5926cb887285c46bac01a";
+export const DASHBOARD_ICONS_REPOSITORY = "https://github.com/homarr-labs/dashboard-icons";
+
+/** A safe CDN URL for one Dashboard Icons slug. */
+export function dashboardIconUrl(slug: string): string {
+  const normalized = slug.trim().toLowerCase();
+  if (!/^[a-z0-9][a-z0-9-]*$/.test(normalized)) return "";
+  return `https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons@${DASHBOARD_ICONS_REF}/png/${normalized}.png`;
+}
+
+/**
+ * Turn the upstream tree.json payload into a stable, deduplicated list.
+ * Parsing stays strict because this data crosses a public network boundary.
+ */
+export function dashboardIconSlugs(payload: unknown): string[] {
+  if (!payload || typeof payload !== "object") return [];
+  const png = (payload as { png?: unknown }).png;
+  if (!Array.isArray(png)) return [];
+
+  return [...new Set(
+    png
+      .filter((entry): entry is string => typeof entry === "string")
+      .filter((entry) => /^[a-z0-9][a-z0-9-]*\.png$/.test(entry))
+      .map((entry) => entry.slice(0, -4)),
+  )].sort((a, b) => a.localeCompare(b));
+}
+
+/**
  * Which known service this looks like, or "".
  *
  * Longest key first: several keys can match one string, and the most specific
@@ -205,7 +237,7 @@ const LOGO_SLUG: Record<string, string> = {
 export function serviceLogo(key: string | undefined): string {
   if (!key) return "";
   const slug = LOGO_SLUG[key] ?? key;
-  return `https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/${slug}.png`;
+  return dashboardIconUrl(slug);
 }
 
 /**

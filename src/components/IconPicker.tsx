@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Dialog } from "./Dialog";
 import { Input, Button } from "./form";
 import { TileIcon } from "./TileIcon";
 import { ImagePicker } from "./ImagePicker";
-import { SERVICE_ICONS, GENERAL_ICONS, iconPackUrl } from "@/lib/icons";
+import { SERVICE_ICONS, GENERAL_ICONS, dashboardIconUrl, iconPackUrl } from "@/lib/icons";
 import type { Dictionary } from "@/i18n";
 
 /**
@@ -24,15 +24,36 @@ export function IconPicker({
   value,
   onChange,
   hintName,
+  online = false,
 }: {
   d: Dictionary;
   value: string;
   onChange: (icon: string) => void;
   /** Tile title or container name, used to suggest the matching service icons. */
   hintName?: string;
+  /** The administrator explicitly enabled public Dashboard Icons requests. */
+  online?: boolean;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [catalog, setCatalog] = useState<string[] | null>(null);
+  const [catalogFailed, setCatalogFailed] = useState(false);
+
+  useEffect(() => {
+    if (!open || !online || catalog || catalogFailed) return;
+    const controller = new AbortController();
+    fetch("/api/icons", { signal: controller.signal })
+      .then(async (response) => {
+        if (!response.ok) throw new Error("catalogue unavailable");
+        const body = (await response.json()) as { icons?: unknown };
+        if (!Array.isArray(body.icons)) throw new Error("invalid catalogue");
+        setCatalog(body.icons.filter((entry): entry is string => typeof entry === "string"));
+      })
+      .catch((error: unknown) => {
+        if ((error as { name?: string }).name !== "AbortError") setCatalogFailed(true);
+      });
+    return () => controller.abort();
+  }, [open, online, catalog, catalogFailed]);
 
   const services = useMemo(() => {
     const needle = (query || hintName || "").toLowerCase().trim();
@@ -47,6 +68,14 @@ export function IconPicker({
     if (!query.trim()) return GENERAL_ICONS;
     return GENERAL_ICONS.filter((icon) => icon.includes(query.trim()));
   }, [query]);
+
+  const catalogMatches = useMemo(() => {
+    if (!catalog) return [];
+    const needle = (query || hintName || "").toLowerCase().trim().replace(/[^a-z0-9]+/g, "-");
+    if (!needle) return catalog.slice(0, 72);
+    const words = needle.split("-").filter((word) => word.length > 1);
+    return catalog.filter((slug) => slug.includes(needle) || words.some((word) => slug.includes(word))).slice(0, 96);
+  }, [catalog, query, hintName]);
 
   function choose(icon: string) {
     onChange(icon);
@@ -94,6 +123,35 @@ export function IconPicker({
                 </div>
               </section>
             )}
+
+            <section>
+              <div className="mb-1.5 flex items-center justify-between gap-3">
+                <p className="text-xs font-medium text-muted">{d.dashboard.iconCatalog}</p>
+                {catalog && <span className="text-[11px] text-faint">{catalog.length}</span>}
+              </div>
+              {!online && <p className="text-xs text-muted">{d.dashboard.iconCatalogDisabled}</p>}
+              {online && !catalog && !catalogFailed && <p className="text-xs text-muted">{d.common.loading}</p>}
+              {online && catalogFailed && <p className="text-xs text-muted">{d.dashboard.iconCatalogUnavailable}</p>}
+              {catalogMatches.length > 0 && (
+                <div className="grid grid-cols-8 gap-1 sm:grid-cols-12">
+                  {catalogMatches.map((slug) => (
+                    <button
+                      key={slug}
+                      type="button"
+                      title={slug}
+                      onClick={() => choose(dashboardIconUrl(slug))}
+                      className="flex h-10 w-10 items-center justify-center rounded-control border border-line transition-colors hover:border-accent hover:bg-raised"
+                    >
+                      <TileIcon icon={dashboardIconUrl(slug)} title={slug} size="md" />
+                    </button>
+                  ))}
+                </div>
+              )}
+              {catalog && catalogMatches.length === 0 && (
+                <p className="text-xs text-muted">{d.dashboard.iconCatalogEmpty}</p>
+              )}
+              {online && <p className="mt-2 text-[11px] text-faint">{d.dashboard.iconCatalogHint}</p>}
+            </section>
 
             <section>
               <p className="mb-1.5 text-xs font-medium text-muted">{d.dashboard.iconGeneral}</p>

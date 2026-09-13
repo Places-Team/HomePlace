@@ -11,11 +11,13 @@ export function AddButton({
   dashboardId,
   containers,
   folders,
+  iconPack = false,
 }: {
   d: Dictionary;
   dashboardId: string;
   containers: ContainerOption[];
   folders: { id: string; title: string }[];
+  iconPack?: boolean;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -31,6 +33,7 @@ export function AddButton({
           dashboardId={dashboardId}
           containers={containers}
           folders={folders}
+          iconPack={iconPack}
           onClose={() => setOpen(false)}
         />
       )}

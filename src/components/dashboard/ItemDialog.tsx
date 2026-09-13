@@ -69,6 +69,7 @@ export function ItemDialog({
   initialKind,
   containers = [],
   folders = [],
+  iconPack = false,
   onClose,
 }: {
   d: Dictionary;
@@ -78,6 +79,7 @@ export function ItemDialog({
   initialKind?: Kind;
   containers?: ContainerOption[];
   folders?: { id: string; title: string }[];
+  iconPack?: boolean;
   onClose: () => void;
 }) {
   const [kind, setKind] = useState<Kind>((item?.kind as Kind) ?? initialKind ?? "link");
@@ -1033,6 +1035,7 @@ export function ItemDialog({
               value={form.icon}
               onChange={(icon) => set("icon", icon)}
               hintName={form.containerName || form.title}
+              online={iconPack}
             />
           </Field>
         )}

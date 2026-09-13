@@ -276,6 +276,8 @@ async function AccountSection({
         )}
       </Card>
 
+      <AboutCard d={d} />
+
       {isAdmin && (
         <Card>
           <CardHeader title={`${d.settings.users} · ${users.length}`} />
@@ -332,6 +334,26 @@ async function SystemSection({ d, userId }: { d: ReturnType<typeof dict>; userId
       <KumaImportCard d={d} />
       <BackupCard d={d} initial={backups} />
     </div>
+  );
+}
+
+function AboutCard({ d }: { d: ReturnType<typeof dict> }) {
+  return (
+    <Card className="max-w-2xl">
+      <CardHeader title={d.settings.about} />
+      <div className="space-y-3 p-4 text-sm text-muted">
+        <p>{d.settings.aboutDescription}</p>
+        <p>{d.settings.dashboardIconsCredit}</p>
+        <a
+          href="https://github.com/homarr-labs/dashboard-icons"
+          target="_blank"
+          rel="noreferrer"
+          className="inline-flex text-accent hover:underline"
+        >
+          {d.settings.dashboardIconsLicense}
+        </a>
+      </div>
+    </Card>
   );
 }
 

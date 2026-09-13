@@ -205,6 +205,9 @@ A few conventions worth knowing before changing things:
 
 Where this is going, roughly in order.
 
+The device hub, native applications, connection model and staged delivery plan
+are described in [HomePlace Link roadmap](docs/homeplace-link-roadmap.md).
+
 ### Next
 
 - [x] Settings split into sections — the page had outgrown one column
@@ -255,12 +258,11 @@ Where this is going, roughly in order.
 
 ### Apps and agents
 
-- [ ] Android and iOS clients, sharing this API
-- [ ] Push notifications on the phone
-- [ ] Home-screen widgets
-- [ ] A small desktop agent, and/or a browser extension, that feeds
-      `/api/now-playing` automatically — the endpoint is already there, what is
-      missing is something on the PC to talk to it
+- [ ] HomePlace Link protocol, device registry and secure pairing
+- [ ] Windows, macOS and Linux agents
+- [ ] Android and iOS applications with share extensions
+- [ ] Device actions, clipboard, file transfer and cross-device notifications
+- [ ] Event-driven automations across devices and connected services
 
 ### Housekeeping
 
@@ -274,3 +276,6 @@ Where this is going, roughly in order.
 ## License
 
 [Apache-2.0](LICENSE)
+
+Third-party acknowledgements are listed in
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).

@@ -1,6 +1,7 @@
 import "server-only";
 import { headers } from "next/headers";
-import { appUrl } from "./config";
+import { appUrl, settings } from "./config";
+import { safeRequestOrigin } from "./security";
 
 /**
  * The address this panel is actually being used at.
@@ -10,22 +11,13 @@ import { appUrl } from "./config";
  * at its default, and a wrong one is invisible until an OAuth round-trip sends
  * somebody to `localhost:3200` from their laptop.
  *
- * So: when there is a request, believe the request. `x-forwarded-*` is what a
- * reverse proxy sets, and `host` is what a direct connection gives.
+ * Request headers are accepted only when they match APP_URL, or while the
+ * untouched localhost default is used with a private LAN address. Forwarding
+ * headers require an explicit trusted-proxy setting.
  */
-export function requestOrigin(): string | null {
+export async function requestOrigin(): Promise<string | null> {
   try {
-    const h = headers();
-    const host = h.get("x-forwarded-host") ?? h.get("host");
-    if (!host) return null;
-
-    const proto =
-      h.get("x-forwarded-proto")?.split(",")[0]?.trim() ??
-      // A LAN panel is almost always plain HTTP; assuming HTTPS here would
-      // produce a redirect URI nothing answers.
-      (host.startsWith("localhost") || /^\d+\.\d+\.\d+\.\d+/.test(host) ? "http" : "https");
-
-    return `${proto}://${host}`.replace(/\/+$/, "");
+    return safeRequestOrigin(await headers(), appUrl(), settings.trustProxyHeaders());
   } catch {
     // Called outside a request (a background job): there is no origin to read.
     return null;
@@ -36,6 +28,6 @@ export function requestOrigin(): string | null {
  * Origin to build user-facing links with: the current request when there is
  * one, the configured APP_URL otherwise.
  */
-export function effectiveOrigin(): string {
-  return requestOrigin() ?? appUrl();
+export async function effectiveOrigin(): Promise<string> {
+  return (await requestOrigin()) ?? appUrl();
 }

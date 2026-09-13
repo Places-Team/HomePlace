@@ -15,6 +15,7 @@ export async function pushPublicKey(): Promise<string> {
 
 export async function subscribePush(input: { endpoint: string; p256dh: string; auth: string }): Promise<void> {
   const user = await requireUser();
+  const requestHeaders = await headers();
   await prisma.pushSubscription.upsert({
     where: { endpoint: input.endpoint },
     // The endpoint is the identity, so re-subscribing on the same browser
@@ -25,7 +26,7 @@ export async function subscribePush(input: { endpoint: string; p256dh: string; a
       userId: user.id,
       p256dh: input.p256dh,
       auth: input.auth,
-      userAgent: headers().get("user-agent")?.slice(0, 200) ?? null,
+      userAgent: requestHeaders.get("user-agent")?.slice(0, 200) ?? null,
     },
   });
   revalidatePath("/settings");

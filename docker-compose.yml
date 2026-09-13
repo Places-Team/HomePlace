@@ -39,6 +39,7 @@ services:
       AUTH_SECRET: "${AUTH_SECRET:-}"
       SECURE_COOKIES: "${SECURE_COOKIES:-}"
       SESSION_DAYS: "${SESSION_DAYS:-30}"
+      TRUST_PROXY_HEADERS: "${TRUST_PROXY_HEADERS:-false}"
 
       # ── Docker ────────────────────────────────────────────────────────
       # Points at the proxy below, not at the socket.

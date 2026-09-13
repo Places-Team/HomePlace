@@ -114,6 +114,8 @@ export const settings = {
   /** Cookies over plain HTTP need the Secure flag off — LAN installs are http. */
   secureCookies: () => bool("SECURE_COOKIES", appUrl().startsWith("https://")),
   sessionDays: () => int("SESSION_DAYS", 30),
+  /** Trust forwarding headers only behind a proxy that overwrites them. */
+  trustProxyHeaders: () => bool("TRUST_PROXY_HEADERS", false),
 };
 
 // "What can this installation do right now?" lives in integrations.ts, because

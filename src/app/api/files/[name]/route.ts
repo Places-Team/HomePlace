@@ -9,8 +9,9 @@ import { readStored } from "@/lib/uploads";
  * break them as CSS backgrounds and in an installed PWA. Nothing private is
  * ever stored here — the upload endpoint accepts images and nothing else.
  */
-export async function GET(_req: Request, { params }: { params: { name: string } }) {
-  const file = await readStored(params.name);
+export async function GET(_req: Request, { params }: { params: Promise<{ name: string }> }) {
+  const { name } = await params;
+  const file = await readStored(name);
   if (!file) return new NextResponse("not found", { status: 404 });
 
   // Buffer is a Uint8Array, but the Response types only accept the latter —

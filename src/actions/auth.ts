@@ -8,6 +8,7 @@ import { createSession, destroySession, currentUser } from "@/lib/session";
 import { settings } from "@/lib/config";
 import { headers } from "next/headers";
 import { checkAttempt, recordFailure, clearAttempts } from "@/lib/rateLimit";
+import { clientAddress } from "@/lib/security";
 
 export type FormState = { error?: string; ok?: boolean };
 
@@ -67,7 +68,7 @@ export async function signIn(_prev: FormState, form: FormData): Promise<FormStat
   // Limited per login name and per source address together: one wrong password
   // typed twice should not lock out the household, and one address trying every
   // name in turn should still run into the wall.
-  const source = headers().get("x-forwarded-for")?.split(",")[0]?.trim() || "local";
+  const source = clientAddress(await headers(), settings.trustProxyHeaders());
   const key = `${parsed.data.login}|${source}`;
   const limit = checkAttempt(key);
   if (!limit.allowed) return { error: "auth.tooManyAttempts" };
@@ -98,7 +99,7 @@ export async function signIn(_prev: FormState, form: FormData): Promise<FormStat
 }
 
 export async function signOut(): Promise<void> {
-  destroySession();
+  await destroySession();
   redirect("/login");
 }
 
@@ -151,6 +152,6 @@ export async function signOutEverywhere(): Promise<void> {
   const user = await currentUser();
   if (!user) return;
   await prisma.user.update({ where: { id: user.id }, data: { tokenVersion: { increment: 1 } } });
-  destroySession();
+  await destroySession();
   redirect("/login");
 }

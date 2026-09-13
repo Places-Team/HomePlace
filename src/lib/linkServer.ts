@@ -1,6 +1,5 @@
 import "server-only";
 import { randomUUID } from "node:crypto";
-import packageJson from "../../package.json";
 import { prisma } from "./db";
 import { createLinkInfo, isLinkServerId } from "./linkProtocol";
 
@@ -62,6 +61,5 @@ export async function linkInfo() {
   return createLinkInfo({
     serverId: await linkServerId(),
     serverName: serverName(),
-    applicationVersion: packageJson.version,
   });
 }

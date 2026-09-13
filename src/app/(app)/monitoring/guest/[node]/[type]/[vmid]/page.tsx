@@ -23,16 +23,17 @@ export const dynamic = "force-dynamic";
 export default async function GuestDetailPage({
   params,
 }: {
-  params: { node: string; type: string; vmid: string };
+  params: Promise<{ node: string; type: string; vmid: string }>;
 }) {
   const user = await pageUser();
   const d = dict(user.locale);
+  const route = await params;
 
   if (!(await proxmoxConfig())) notFound();
 
-  const node = decodeURIComponent(params.node);
-  const type = params.type === "lxc" ? "lxc" : "qemu";
-  const vmid = Number(params.vmid);
+  const node = decodeURIComponent(route.node);
+  const type = route.type === "lxc" ? "lxc" : "qemu";
+  const vmid = Number(route.vmid);
   if (!Number.isFinite(vmid)) notFound();
 
   const [status, config, rrd] = await Promise.all([

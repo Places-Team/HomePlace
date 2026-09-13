@@ -48,7 +48,9 @@ export async function saveImage(file: File): Promise<SaveResult> {
 
   const dir = uploadsDir();
   await mkdir(dir, { recursive: true });
-  const target = path.join(dir, name);
+  // Runtime data lives on the mounted volume and must not be followed by the
+  // standalone build tracer into the project tree.
+  const target = path.join(/* turbopackIgnore: true */ dir, name);
   if (!(await exists(target))) await writeFile(target, bytes);
 
   return { ok: true, url: `/api/files/${name}` };
@@ -61,7 +63,7 @@ export async function readStored(name: string): Promise<{ bytes: Buffer; type: s
   if (!/^[a-f0-9]{8,64}\.(jpg|png|webp|avif|gif)$/.test(name)) return null;
 
   try {
-    const bytes = await readFile(path.join(uploadsDir(), name));
+    const bytes = await readFile(path.join(/* turbopackIgnore: true */ uploadsDir(), name));
     const extension = path.extname(name);
     const type = Object.entries(TYPES).find(([, ext]) => ext === extension)?.[0] ?? "application/octet-stream";
     return { bytes, type };

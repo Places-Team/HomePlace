@@ -55,8 +55,8 @@ export async function saveGoogleConfig(clientId: string, clientSecret: string): 
  * match what is registered, which is why it is displayed for copying instead of
  * described in prose.
  */
-export function redirectUri(): string {
-  return `${effectiveOrigin()}${REDIRECT_PATH}`;
+export async function redirectUri(): Promise<string> {
+  return `${await effectiveOrigin()}${REDIRECT_PATH}`;
 }
 
 export async function authorizeUrl(state: string): Promise<string | null> {
@@ -64,7 +64,7 @@ export async function authorizeUrl(state: string): Promise<string | null> {
   if (!cfg) return null;
   const params = new URLSearchParams({
     client_id: cfg.clientId,
-    redirect_uri: redirectUri(),
+    redirect_uri: await redirectUri(),
     response_type: "code",
     scope: SCOPES.join(" "),
     // Offline plus a forced consent screen is the only reliable way to be given
@@ -108,7 +108,7 @@ export async function linkAccount(userId: string, code: string): Promise<{ ok: b
     code,
     client_id: cfg.clientId,
     client_secret: cfg.clientSecret,
-    redirect_uri: redirectUri(),
+    redirect_uri: await redirectUri(),
     grant_type: "authorization_code",
   });
   if (!token?.refresh_token) {

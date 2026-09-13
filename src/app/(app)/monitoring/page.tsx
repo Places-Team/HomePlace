@@ -50,11 +50,12 @@ function resolveRange(key?: string) {
 export default async function MonitoringPage({
   searchParams,
 }: {
-  searchParams: { host?: string; range?: string };
+  searchParams: Promise<{ host?: string; range?: string }>;
 }) {
   const user = await pageUser();
   const d = dict(user.locale);
-  const range = resolveRange(searchParams.range);
+  const queryParams = await searchParams;
+  const range = resolveRange(queryParams.range);
 
   const hasProm = (await prometheusConfig()) !== null;
   const hasPve = (await proxmoxConfig()) !== null;
@@ -74,7 +75,7 @@ export default async function MonitoringPage({
     ? Array.from(new Set((await query(Q.instances())).map((s) => s.metric.instance).filter(Boolean))).sort()
     : [];
 
-  const view = searchParams.host ?? "overview";
+  const view = queryParams.host ?? "overview";
 
   const tabs = [
     { key: "overview", label: d.monitoring.allHosts },

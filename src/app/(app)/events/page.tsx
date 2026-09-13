@@ -18,14 +18,15 @@ export const dynamic = "force-dynamic";
 export default async function EventsPage({
   searchParams,
 }: {
-  searchParams: { type?: string; q?: string; severity?: string };
+  searchParams: Promise<{ type?: string; q?: string; severity?: string }>;
 }) {
   const user = await pageUser();
   const d = dict(user.locale);
+  const query = await searchParams;
 
-  const type = searchParams.type ?? "";
-  const severity = searchParams.severity ?? "";
-  const q = (searchParams.q ?? "").trim();
+  const type = query.type ?? "";
+  const severity = query.severity ?? "";
+  const q = (query.q ?? "").trim();
 
   // "What happened with jellyfin this week" is the question this page exists
   // for, and unfiltered rows do not answer it. The feed keeps everything now —

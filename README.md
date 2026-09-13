@@ -137,7 +137,8 @@ Full reference with comments: [`.env.example`](.env.example). In short:
 | `APP_URL` | Public address; used for OAuth redirects and cookie security |
 | `HOMEPLACE_NAME` | Installation name shown to devices before pairing |
 | `HOMEPLACE_SERVER_ID` | Optional UUID override for a restored installation identity |
-| `AUTH_SECRET` | Session signing key — `make secret` generates one |
+| `AUTH_SECRET` | Session signing key, at least 32 bytes — `make secret` generates one |
+| `TRUST_PROXY_HEADERS` | Trust forwarding headers from a sanitizing reverse proxy |
 | `HOST_DATA_DIR` | Where the SQLite database lives on the host |
 | `DOCKER_API_URL` / `DOCKER_HOSTS` | Docker endpoint, or several |
 | `ALLOW_CONTAINER_CONTROL` | `0` makes the panel read-only (use `1` to allow control; the bundled socket proxy needs a numeric flag, not true/false) |
@@ -166,7 +167,7 @@ Full reference with comments: [`.env.example`](.env.example). In short:
 
 ## Development
 
-Node 20 or newer.
+Node 20.9 or newer.
 
 ```bash
 npm install
@@ -282,3 +283,6 @@ are described in [HomePlace Link roadmap](docs/homeplace-link-roadmap.md).
 
 Third-party acknowledgements are listed in
 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+
+Security reporting and deployment guidance are documented in
+[SECURITY.md](SECURITY.md).

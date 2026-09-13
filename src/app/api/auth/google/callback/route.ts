@@ -6,8 +6,8 @@ import { linkAccount, STATE_COOKIE } from "@/lib/google";
 
 export const dynamic = "force-dynamic";
 
-function back(status: string) {
-  const url = new URL("/settings", effectiveOrigin());
+async function back(status: string) {
+  const url = new URL("/settings", await effectiveOrigin());
   url.searchParams.set("google", status);
   return NextResponse.redirect(url);
 }
@@ -28,8 +28,9 @@ export async function GET(req: NextRequest) {
 
   const code = params.get("code");
   const state = params.get("state");
-  const cookie = cookies().get(STATE_COOKIE)?.value ?? "";
-  cookies().set(STATE_COOKIE, "", { path: "/", maxAge: 0 });
+  const cookieStore = await cookies();
+  const cookie = cookieStore.get(STATE_COOKIE)?.value ?? "";
+  cookieStore.set(STATE_COOKIE, "", { path: "/", maxAge: 0 });
 
   const [expectedState, expectedUser] = cookie.split(":");
   if (!code || !state || state !== expectedState || expectedUser !== user.id) return back("state");

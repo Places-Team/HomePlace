@@ -12,12 +12,13 @@ export const dynamic = "force-dynamic";
  * The connection is closed when the client goes away, which is what stops the
  * `docker logs --follow` behind it.
  */
-export async function GET(req: NextRequest, { params }: { params: { host: string; id: string } }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ host: string; id: string }> }) {
   const user = await currentUser();
   if (!user) return new Response("unauthorized", { status: 401 });
 
+  const { host, id } = await params;
   const tail = Number(req.nextUrl.searchParams.get("tail") ?? 200);
-  const upstream = await streamLogs(params.host, params.id, Number.isFinite(tail) ? tail : 200, req.signal);
+  const upstream = await streamLogs(host, id, Number.isFinite(tail) ? tail : 200, req.signal);
   if (!upstream) return new Response("not found", { status: 404 });
 
   const encoder = new TextEncoder();

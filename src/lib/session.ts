@@ -2,8 +2,9 @@ import "server-only";
 import { cookies } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import { randomBytes } from "node:crypto";
-import { prisma, getSetting, setSetting } from "./db";
+import { prisma } from "./db";
 import { settings } from "./config";
+import { hasMinimumSecretLength } from "./security";
 
 export const SESSION_COOKIE = "hp_session";
 
@@ -27,22 +28,39 @@ async function secret(): Promise<Uint8Array> {
   if (cachedSecret) return cachedSecret;
   const fromEnv = process.env.AUTH_SECRET?.trim();
   if (fromEnv) {
+    if (!hasMinimumSecretLength(fromEnv)) throw new Error("AUTH_SECRET must be at least 32 bytes");
     cachedSecret = new TextEncoder().encode(fromEnv);
     return cachedSecret;
   }
-  const stored = await getSetting<string | null>("auth.secret", null);
-  if (stored) {
+  const row = await prisma.setting.findUnique({ where: { key: "auth.secret" } });
+  const stored = row ? storedSecret(row.value) : null;
+  if (stored && hasMinimumSecretLength(stored)) {
     cachedSecret = new TextEncoder().encode(stored);
     return cachedSecret;
   }
   const generated = randomBytes(32).toString("hex");
-  await setSetting("auth.secret", generated);
+  const winner = await prisma.setting.upsert({
+    where: { key: "auth.secret" },
+    update: {},
+    create: { key: "auth.secret", value: JSON.stringify(generated) },
+  });
+  const persisted = storedSecret(winner.value);
+  if (!persisted || !hasMinimumSecretLength(persisted)) throw new Error("Stored AUTH_SECRET is invalid");
   console.warn(
     "AUTH_SECRET is not set — a key was generated and stored in the database. " +
       "Set AUTH_SECRET in .env for a stable one."
   );
-  cachedSecret = new TextEncoder().encode(generated);
+  cachedSecret = new TextEncoder().encode(persisted);
   return cachedSecret;
+}
+
+function storedSecret(serialized: string): string | null {
+  try {
+    const value: unknown = JSON.parse(serialized);
+    return typeof value === "string" ? value : null;
+  } catch {
+    return null;
+  }
 }
 
 export async function createSession(userId: string): Promise<void> {
@@ -54,7 +72,7 @@ export async function createSession(userId: string): Promise<void> {
     .setExpirationTime(`${days}d`)
     .sign(await secret());
 
-  cookies().set(SESSION_COOKIE, token, {
+  (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: settings.secureCookies(),
@@ -63,16 +81,16 @@ export async function createSession(userId: string): Promise<void> {
   });
 }
 
-export function destroySession(): void {
-  cookies().set(SESSION_COOKIE, "", { path: "/", maxAge: 0 });
+export async function destroySession(): Promise<void> {
+  (await cookies()).set(SESSION_COOKIE, "", { path: "/", maxAge: 0 });
 }
 
 /** The signed-in user, or null. Every server action starts here. */
 export async function currentUser() {
-  const token = cookies().get(SESSION_COOKIE)?.value;
+  const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
   try {
-    const { payload } = await jwtVerify(token, await secret());
+    const { payload } = await jwtVerify(token, await secret(), { algorithms: ["HS256"] });
     const uid = (payload as SessionPayload).uid;
     if (!uid) return null;
     const user = await prisma.user.findUnique({ where: { id: uid } });

@@ -7,7 +7,6 @@ export type LinkInfo = {
     id: string;
     name: string;
   };
-  applicationVersion: string;
   protocol: {
     min: number;
     max: number;
@@ -22,7 +21,6 @@ export type LinkInfo = {
 type LinkInfoInput = {
   serverId: string;
   serverName: string;
-  applicationVersion: string;
   now?: Date;
 };
 
@@ -34,7 +32,6 @@ export function createLinkInfo(input: LinkInfoInput): LinkInfo {
       id: input.serverId,
       name: input.serverName,
     },
-    applicationVersion: input.applicationVersion,
     protocol: {
       min: LINK_PROTOCOL_MIN,
       max: LINK_PROTOCOL_MAX,

@@ -6,6 +6,7 @@ import { bytes, duration, latency, percent } from "../src/lib/format";
 import { dashboardIconSlugs, dashboardIconUrl, guessKey, guessIcon, autoIcon, faviconUrl } from "../src/lib/icons";
 import { nextOccurrence } from "../src/lib/recurrence";
 import { createLinkInfo, isLinkServerId, LINK_PROTOCOL_MAX, LINK_PROTOCOL_MIN } from "../src/lib/linkProtocol";
+import { clientAddress, hasMinimumSecretLength, isLocalHostname, safeRequestOrigin, secretsEqual } from "../src/lib/security";
 
 /** Small pure helpers that everything else leans on. */
 
@@ -146,14 +147,12 @@ test("link info exposes a versioned, secret-free discovery document", () => {
   const info = createLinkInfo({
     serverId: "018f2b5c-7d9a-7e11-8a22-123456789abc",
     serverName: "Home server",
-    applicationVersion: "1.2.3",
     now: new Date("2026-09-13T12:00:00.000Z"),
   });
 
   assert.deepEqual(info, {
     product: "HomePlace",
     server: { id: "018f2b5c-7d9a-7e11-8a22-123456789abc", name: "Home server" },
-    applicationVersion: "1.2.3",
     protocol: { min: LINK_PROTOCOL_MIN, max: LINK_PROTOCOL_MAX },
     serverTime: "2026-09-13T12:00:00.000Z",
     features: { pairing: false, realtime: false },
@@ -165,4 +164,45 @@ test("link server IDs accept UUIDs and reject arbitrary installation names", () 
   assert.equal(isLinkServerId("018f2b5c-7d9a-7e11-8a22-123456789abc"), true);
   assert.equal(isLinkServerId("homeplace-at-home"), false);
   assert.equal(isLinkServerId("00000000-0000-0000-0000-000000000000"), false);
+});
+
+// ───────────────────────────────── Security ─────────────────────────────
+
+test("secret comparison handles equal, different and empty values", () => {
+  assert.equal(secretsEqual("correct horse battery staple", "correct horse battery staple"), true);
+  assert.equal(secretsEqual("correct horse battery staple", "correct horse battery staplf"), false);
+  assert.equal(secretsEqual("", ""), false);
+});
+
+test("session secrets require at least 32 bytes", () => {
+  assert.equal(hasMinimumSecretLength("a".repeat(31)), false);
+  assert.equal(hasMinimumSecretLength("a".repeat(32)), true);
+  assert.equal(hasMinimumSecretLength("пароль-длиной-в-тридцать-два-байта"), true);
+});
+
+test("forwarded client addresses are ignored unless a sanitizing proxy is trusted", () => {
+  const requestHeaders = new Headers({ "x-forwarded-for": "203.0.113.8, 10.0.0.2", "x-real-ip": "203.0.113.9" });
+  assert.equal(clientAddress(requestHeaders, false), "untrusted-proxy");
+  assert.equal(clientAddress(requestHeaders, true), "203.0.113.8");
+  assert.equal(clientAddress(new Headers({ "x-forwarded-for": "not-an-address" }), true), "unknown");
+});
+
+test("local hostname detection is limited to loopback and private networks", () => {
+  for (const host of ["localhost", "homeplace.local", "127.0.0.1", "10.0.0.5", "172.16.0.1", "192.168.1.5", "::1", "fd00::1"]) {
+    assert.equal(isLocalHostname(host), true, host);
+  }
+  for (const host of ["example.com", "172.15.0.1", "172.32.0.1", "8.8.8.8", "2001:4860:4860::8888"]) {
+    assert.equal(isLocalHostname(host), false, host);
+  }
+});
+
+test("request origins reject spoofed hosts and trust forwarding only when enabled", () => {
+  const spoofed = new Headers({ host: "home.example", "x-forwarded-host": "evil.example", "x-forwarded-proto": "http" });
+  assert.equal(safeRequestOrigin(spoofed, "https://home.example", false), "https://home.example");
+  assert.equal(safeRequestOrigin(spoofed, "https://home.example", true), null);
+
+  const proxied = new Headers({ host: "127.0.0.1:3200", "x-forwarded-host": "home.example", "x-forwarded-proto": "https" });
+  assert.equal(safeRequestOrigin(proxied, "https://home.example", true), "https://home.example");
+  assert.equal(safeRequestOrigin(new Headers({ host: "192.168.1.20:3200" }), "http://localhost:3200", false), "http://192.168.1.20:3200");
+  assert.equal(safeRequestOrigin(new Headers({ host: "attacker.example" }), "http://localhost:3200", false), null);
 });

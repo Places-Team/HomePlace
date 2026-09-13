@@ -4,7 +4,7 @@
   "title": "HomePlace Link server information",
   "type": "object",
   "additionalProperties": false,
-  "required": ["product", "server", "applicationVersion", "protocol", "serverTime", "features"],
+  "required": ["product", "server", "protocol", "serverTime", "features"],
   "properties": {
     "product": { "const": "HomePlace" },
     "server": {
@@ -16,7 +16,6 @@
         "name": { "type": "string", "minLength": 1, "maxLength": 80 }
       }
     },
-    "applicationVersion": { "type": "string", "minLength": 1 },
     "protocol": {
       "type": "object",
       "additionalProperties": false,

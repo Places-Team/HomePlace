@@ -25,17 +25,18 @@ export const dynamic = "force-dynamic";
  * did it stop". Everything here is read from Docker at request time, plus the
  * container's own metrics when Prometheus and cAdvisor are around.
  */
-export default async function ContainerDetailPage({ params }: { params: { host: string; id: string } }) {
+export default async function ContainerDetailPage({ params }: { params: Promise<{ host: string; id: string }> }) {
   const user = await pageUser();
   const d = dict(user.locale);
   const editable = canEdit(user);
+  const route = await params;
 
-  const container = await inspectContainer(params.host, params.id);
+  const container = await inspectContainer(route.host, route.id);
   if (!container) notFound();
 
   const running = container.state === "running";
   const [logs, cpu, mem] = await Promise.all([
-    containerLogs(params.host, params.id, 200),
+    containerLogs(route.host, route.id, 200),
     (await prometheusConfig()) ? queryRange(Q.containerCpu(container.name), 180, 90) : Promise.resolve([]),
     (await prometheusConfig()) ? queryRange(Q.containerMemory(container.name), 180, 90) : Promise.resolve([]),
   ]);

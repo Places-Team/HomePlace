@@ -12,13 +12,14 @@ export const dynamic = "force-dynamic";
  * before it is ever joined to a path — a download endpoint that takes a
  * filename is exactly where a "../" would try to walk out of the folder.
  */
-export async function GET(_req: NextRequest, { params }: { params: { name: string } }) {
+export async function GET(_req: NextRequest, { params }: { params: Promise<{ name: string }> }) {
   const user = await currentUser();
   if (!user || (user.role !== "admin" && user.role !== "owner")) {
     return new Response("forbidden", { status: 403 });
   }
 
-  const file = backupFile(params.name);
+  const { name } = await params;
+  const file = backupFile(name);
   if (!file) return new Response("not found", { status: 404 });
 
   try {
@@ -26,7 +27,7 @@ export async function GET(_req: NextRequest, { params }: { params: { name: strin
     return new Response(new Uint8Array(data), {
       headers: {
         "content-type": "application/octet-stream",
-        "content-disposition": `attachment; filename="${params.name}"`,
+      "content-disposition": `attachment; filename="${name}"`,
         "cache-control": "no-store",
       },
     });

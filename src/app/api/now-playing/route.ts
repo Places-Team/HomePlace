@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { getSetting, setSetting } from "@/lib/db";
+import { secretsEqual } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 
@@ -45,7 +46,7 @@ export async function POST(req: NextRequest) {
 
   const header = req.headers.get("authorization") ?? "";
   const provided = header.toLowerCase().startsWith("bearer ") ? header.slice(7).trim() : "";
-  if (provided !== token) {
+  if (!secretsEqual(token, provided)) {
     return NextResponse.json({ error: "invalid token" }, { status: 401 });
   }
 

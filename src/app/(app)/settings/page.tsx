@@ -48,13 +48,14 @@ type Section = "integrations" | "services" | "alerts" | "account" | "system";
 
 const SECTIONS: Section[] = ["integrations", "services", "alerts", "account", "system"];
 
-export default async function SettingsPage({ searchParams }: { searchParams: { section?: string } }) {
+export default async function SettingsPage({ searchParams }: { searchParams: Promise<{ section?: string }> }) {
   const user = await pageUser();
   const d = dict(user.locale);
   const isAdmin = atLeast(user.role, "admin");
+  const query = await searchParams;
 
-  const section: Section = SECTIONS.includes(searchParams.section as Section)
-    ? (searchParams.section as Section)
+  const section: Section = SECTIONS.includes(query.section as Section)
+    ? (query.section as Section)
     : "integrations";
 
   // Only what this section needs is fetched. Health checks are real network
@@ -179,7 +180,7 @@ async function IntegrationsSection({
       {isAdmin && <DockerHostsForm d={d} env={dockerHostsDisplay.env} stored={dockerHostsDisplay.stored} />}
 
       {isAdmin && (
-        <IntegrationForms d={d} display={display} nowPlayingToken="" appUrl={effectiveOrigin()} iconPack={iconPack} />
+        <IntegrationForms d={d} display={display} nowPlayingToken="" appUrl={await effectiveOrigin()} iconPack={iconPack} />
       )}
     </div>
   );
@@ -326,7 +327,7 @@ async function SystemSection({ d, userId }: { d: ReturnType<typeof dict>; userId
         d={d}
         display={display}
         nowPlayingToken={npToken}
-        appUrl={effectiveOrigin()}
+        appUrl={await effectiveOrigin()}
         iconPack={iconPack}
         only="system"
       />

@@ -242,7 +242,7 @@ export async function integrationStatus() {
 
 /** Settings as the form should show them: secrets masked, never sent raw. */
 export async function integrationsForDisplay(userId?: string) {
-  const [prom, pve, tg, google, linked, tgCommands, fatsecret] = await Promise.all([
+  const [prom, pve, tg, google, linked, tgCommands, fatsecret, googleRedirect] = await Promise.all([
     prometheusConfig(),
     proxmoxConfig(),
     telegramConfig(),
@@ -250,6 +250,7 @@ export async function integrationsForDisplay(userId?: string) {
     userId ? linkedAccount(userId) : Promise.resolve(null),
     getSetting<boolean>("telegram.commands", false),
     fatSecretConfig(),
+    googleRedirectUri(),
   ]);
   return {
     fatsecret: { clientId: fatsecret?.clientId ?? "", hasSecret: !!fatsecret?.secret },
@@ -258,7 +259,7 @@ export async function integrationsForDisplay(userId?: string) {
       hasSecret: !!google?.clientSecret,
       source: (google?.source ?? "none") as Source,
       linkedEmail: linked?.email ?? null,
-      redirectUri: googleRedirectUri(),
+      redirectUri: googleRedirect,
     },
     prometheus: prom
       ? { url: prom.url, username: prom.username ?? "", hasPassword: !!prom.password, source: prom.source }

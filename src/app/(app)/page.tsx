@@ -35,14 +35,15 @@ function parseConfig(raw: string | null): Record<string, unknown> {
  * panel pinned in a browser all day, "Home · HomePlace" is what makes it
  * findable among twenty other tabs.
  */
-export async function generateMetadata({ searchParams }: { searchParams: { tab?: string } }) {
+export async function generateMetadata({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
+  const query = await searchParams;
   const dashboards = await prisma.dashboard.findMany({
     orderBy: { order: "asc" },
     select: { id: true, name: true, slug: true },
   });
   const active =
-    dashboards.find((x) => x.slug === searchParams.tab) ??
-    dashboards.find((x) => x.id === searchParams.tab) ??
+    dashboards.find((x) => x.slug === query.tab) ??
+    dashboards.find((x) => x.id === query.tab) ??
     dashboards[0];
   return { title: active ? `${active.name} · HomePlace` : "HomePlace" };
 }
@@ -57,11 +58,12 @@ export async function generateMetadata({ searchParams }: { searchParams: { tab?:
 export default async function DashboardPage({
   searchParams,
 }: {
-  searchParams: { tab?: string; edit?: string };
+  searchParams: Promise<{ tab?: string; edit?: string }>;
 }) {
   const user = await pageUser();
   const d = dict(user.locale);
   const editable = canEdit(user);
+  const query = await searchParams;
 
   // Self-healing for data written before slugs and positions existed. Both are
   // no-ops after the first run.
@@ -75,8 +77,8 @@ export default async function DashboardPage({
   // The tab is addressed by its slug; ids still resolve so old bookmarks and
   // links from elsewhere keep working.
   const active =
-    dashboards.find((x) => x.slug === searchParams.tab) ??
-    dashboards.find((x) => x.id === searchParams.tab) ??
+    dashboards.find((x) => x.slug === query.tab) ??
+    dashboards.find((x) => x.id === query.tab) ??
     dashboards[0];
 
   if (!active) {

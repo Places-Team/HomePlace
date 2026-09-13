@@ -1,7 +1,7 @@
 # HomePlace
 
-**HomePlace is the hub of the Places ecosystem — a self-hosted dashboard and
-monitoring panel for your home server.**
+**HomePlace is a self-hosted dashboard and monitoring panel for your home
+server.**
 
 One page to open in the morning: every service you run, whether it is up, how
 the machine is doing, and one click to get anywhere. Containers appear on their
@@ -270,12 +270,6 @@ Where this is going, roughly in order.
 - [ ] A test suite worth the name
 
 ---
-
-## The Places ecosystem
-
-- **[FriendPlace](https://github.com/Olmae/FriendPlace)** — a private site for a
-  group of friends; also the identity provider
-- **HomePlace** — this: the hub, and the panel for the server it all runs on
 
 ## License
 

@@ -2,7 +2,7 @@
   "name": "homeplace",
   "version": "0.1.0",
   "private": true,
-  "description": "HomePlace — the hub of the Places ecosystem: a self-hosted dashboard and monitoring panel for your home server.",
+  "description": "HomePlace — a self-hosted dashboard and monitoring panel for your home server.",
   "scripts": {
     "dev": "next dev -p 3200",
     "build": "prisma generate && next build",

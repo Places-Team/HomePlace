@@ -38,6 +38,13 @@ export const en = {
     ok: "Works",
     failed: "Failed",
   },
+  updates: {
+    title: "HomePlace update",
+    available: "HomePlace {version} is available.",
+    current: "You are using {version}.",
+    review: "Review update",
+    dismiss: "Dismiss update notice",
+  },
   nav: {
     dashboard: "Dashboard",
     monitoring: "Monitoring",

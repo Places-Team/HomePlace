@@ -7,6 +7,7 @@ import { dashboardIconSlugs, dashboardIconUrl, guessKey, guessIcon, autoIcon, fa
 import { nextOccurrence } from "../src/lib/recurrence";
 import { createLinkInfo, isLinkServerId, LINK_PROTOCOL_MAX, LINK_PROTOCOL_MIN } from "../src/lib/linkProtocol";
 import { clientAddress, hasMinimumSecretLength, isLocalHostname, safeRequestOrigin, secretsEqual } from "../src/lib/security";
+import { compareVersions, releaseUpdateFrom } from "../src/lib/updates";
 
 /** Small pure helpers that everything else leans on. */
 
@@ -205,4 +206,42 @@ test("request origins reject spoofed hosts and trust forwarding only when enable
   assert.equal(safeRequestOrigin(proxied, "https://home.example", true), "https://home.example");
   assert.equal(safeRequestOrigin(new Headers({ host: "192.168.1.20:3200" }), "http://localhost:3200", false), "http://192.168.1.20:3200");
   assert.equal(safeRequestOrigin(new Headers({ host: "attacker.example" }), "http://localhost:3200", false), null);
+});
+
+// ──────────────────────────────── Updates ───────────────────────────────
+
+test("version comparison handles prefixes, numeric components and prereleases", () => {
+  assert.equal(compareVersions("v1.2.3", "1.2.3"), 0);
+  assert.equal(compareVersions("1.9.9", "1.10.0"), -1);
+  assert.equal(compareVersions("2.0.0", "1.99.99"), 1);
+  assert.equal(compareVersions("1.0.0-beta.1", "1.0.0"), -1);
+  assert.equal(compareVersions("not-a-version", "1.0.0"), null);
+});
+
+test("release updates accept only newer HomePlace GitHub release links", () => {
+  assert.deepEqual(
+    releaseUpdateFrom(
+      { tag_name: "v1.2.0", html_url: "https://github.com/Places-Team/HomePlace/releases/tag/v1.2.0" },
+      "1.1.0",
+    ),
+    {
+      currentVersion: "1.1.0",
+      latestVersion: "1.2.0",
+      releaseUrl: "https://github.com/Places-Team/HomePlace/releases/tag/v1.2.0",
+    },
+  );
+  assert.equal(
+    releaseUpdateFrom(
+      { tag_name: "v1.2.0", html_url: "https://evil.example/Places-Team/HomePlace/releases/tag/v1.2.0" },
+      "1.1.0",
+    ),
+    null,
+  );
+  assert.equal(
+    releaseUpdateFrom(
+      { tag_name: "v1.0.0", html_url: "https://github.com/Places-Team/HomePlace/releases/tag/v1.0.0" },
+      "1.1.0",
+    ),
+    null,
+  );
 });

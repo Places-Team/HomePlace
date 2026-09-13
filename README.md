@@ -149,6 +149,8 @@ Full reference with comments: [`.env.example`](.env.example). In short:
 | `UPLOADS_DIR` | Where uploaded pictures live; inside `DATA_DIR` by default |
 | `FRIENDPLACE_*` | Optional SSO |
 | `DEFAULT_LOCALE` | `en` or `ru` |
+| `CHECK_FOR_UPDATES` | Check the public GitHub releases feed and suggest newer versions to owners and administrators; never installs them automatically |
+| `HOMEPLACE_VERSION` | Optional deployed version override for custom image build pipelines |
 
 ### What each integration adds
 

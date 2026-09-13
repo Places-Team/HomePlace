@@ -35,6 +35,13 @@ export const ru: Dictionary = {
     ok: "Работает",
     failed: "Не вышло",
   },
+  updates: {
+    title: "Обновление HomePlace",
+    available: "Доступна новая версия HomePlace: {version}.",
+    current: "Установлена версия {version}.",
+    review: "Посмотреть обновление",
+    dismiss: "Скрыть уведомление об обновлении",
+  },
   nav: {
     dashboard: "Дашборд",
     monitoring: "Мониторинг",

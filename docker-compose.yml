@@ -77,6 +77,8 @@ services:
 
       # ── Behaviour ─────────────────────────────────────────────────────
       DEFAULT_LOCALE: "${DEFAULT_LOCALE:-en}"
+      CHECK_FOR_UPDATES: "${CHECK_FOR_UPDATES:-true}"
+      HOMEPLACE_VERSION: "${HOMEPLACE_VERSION:-}"
       MONITOR_ENABLED: "${MONITOR_ENABLED:-true}"
       MIN_CHECK_INTERVAL: "${MIN_CHECK_INTERVAL:-15}"
       UPTIME_RETENTION_DAYS: "${UPTIME_RETENTION_DAYS:-30}"

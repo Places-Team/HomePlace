@@ -1,11 +1,12 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { generateKeyPairSync } from "node:crypto";
 import { slugify, uniqueSlug } from "../src/lib/slug";
 import { inQuietHours } from "../src/lib/quietHours";
 import { bytes, duration, latency, percent } from "../src/lib/format";
 import { dashboardIconSlugs, dashboardIconUrl, guessKey, guessIcon, autoIcon, faviconUrl } from "../src/lib/icons";
 import { nextOccurrence } from "../src/lib/recurrence";
-import { createLinkInfo, isLinkServerId, LINK_PROTOCOL_MAX, LINK_PROTOCOL_MIN } from "../src/lib/linkProtocol";
+import { createLinkInfo, isLinkServerId, LINK_PROTOCOL_MAX, LINK_PROTOCOL_MIN, parseLinkPairRequest } from "../src/lib/linkProtocol";
 import { clientAddress, hasMinimumSecretLength, isLocalHostname, safeRequestOrigin, secretsEqual } from "../src/lib/security";
 import { compareVersions, releaseUpdateFrom } from "../src/lib/updates";
 
@@ -156,7 +157,7 @@ test("link info exposes a versioned, secret-free discovery document", () => {
     server: { id: "018f2b5c-7d9a-7e11-8a22-123456789abc", name: "Home server" },
     protocol: { min: LINK_PROTOCOL_MIN, max: LINK_PROTOCOL_MAX },
     serverTime: "2026-09-13T12:00:00.000Z",
-    features: { pairing: false, realtime: false },
+    features: { pairing: true, realtime: false },
   });
   assert.equal("token" in info, false);
 });
@@ -165,6 +166,20 @@ test("link server IDs accept UUIDs and reject arbitrary installation names", () 
   assert.equal(isLinkServerId("018f2b5c-7d9a-7e11-8a22-123456789abc"), true);
   assert.equal(isLinkServerId("homeplace-at-home"), false);
   assert.equal(isLinkServerId("00000000-0000-0000-0000-000000000000"), false);
+});
+
+test("link pairing accepts only supported capabilities and protocol versions", () => {
+  const { publicKey } = generateKeyPairSync("ec", { namedCurve: "prime256v1" });
+  const valid = {
+    protocol: 1,
+    device: { name: "Pixel", platform: "android", platformVersion: "15", appVersion: "0.1.0" },
+    publicKey: publicKey.export({ type: "spki", format: "der" }).toString("base64"),
+    capabilities: [{ name: "notification.receive", version: 1, constraints: {} }],
+  };
+  assert.deepEqual(parseLinkPairRequest(valid), valid);
+  assert.equal(parseLinkPairRequest({ ...valid, protocol: 2 }), null);
+  assert.equal(parseLinkPairRequest({ ...valid, capabilities: [{ name: "system.shell", version: 1, constraints: {} }] }), null);
+  assert.equal(parseLinkPairRequest({ ...valid, publicKey: Buffer.alloc(65).toString("base64") }), null);
 });
 
 // ───────────────────────────────── Security ─────────────────────────────

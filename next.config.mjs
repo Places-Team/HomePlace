@@ -1,5 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  agentRules: false,
   reactStrictMode: true,
   poweredByHeader: false,
   // Standalone output keeps the runtime image small: only the files the server

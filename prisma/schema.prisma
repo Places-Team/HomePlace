@@ -392,3 +392,65 @@ model Setting {
   value     String
   updatedAt DateTime @updatedAt
 }
+
+// A native client approved for this HomePlace installation. Credentials are
+// represented only by a one-way hash; the raw bearer token is returned once.
+model LinkDevice {
+  id              String   @id @default(cuid())
+  name            String
+  platform        String
+  platformVersion String
+  appVersion      String
+  publicKey       String
+  credentialHash  String   @unique
+  capabilities    String
+  lastSeenAt      DateTime?
+  revokedAt       DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  pairings LinkPairing[]
+  events   LinkDeviceEvent[]
+
+  @@index([revokedAt, lastSeenAt])
+}
+
+// A short-lived request waiting for approval in the web interface.
+model LinkPairing {
+  id                  String   @id @default(cuid())
+  code                String?  @unique
+  claimSecretHash     String   @unique
+  status              String   @default("pending")
+  name                String
+  platform            String
+  platformVersion     String
+  appVersion          String
+  publicKey           String
+  capabilities        String
+  expiresAt           DateTime
+  approvedById        String?
+  encryptedCredential String?
+  claimedAt           DateTime?
+  createdAt           DateTime @default(now())
+
+  deviceId String?
+  device   LinkDevice? @relation(fields: [deviceId], references: [id], onDelete: SetNull)
+
+  @@index([status, expiresAt])
+}
+
+// A bounded queue of messages for a device. The first Android slice receives
+// these through authenticated heartbeats; a realtime gateway can replace the
+// transport later without changing the event envelope.
+model LinkDeviceEvent {
+  id          String   @id @default(cuid())
+  deviceId    String
+  kind        String
+  payload     String
+  deliveredAt DateTime?
+  createdAt   DateTime @default(now())
+
+  device LinkDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+
+  @@index([deviceId, deliveredAt, createdAt])
+}

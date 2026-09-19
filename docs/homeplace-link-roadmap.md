@@ -38,12 +38,11 @@ mobile toolchains.
   protocol schemas and administrator documentation.
 - `HomePlace-Agent`: shared agent core, Windows application, macOS application,
   Linux daemon and packaging.
-- `HomePlace-Mobile`: Android and iOS applications, share extensions and store
-  metadata.
+- `HomePlace-Mobile`: one Flutter application for Android and iOS, native
+  security and system integrations, share extensions and store metadata.
 
-The canonical protocol schemas live in `HomePlace`. Release automation exports
-them as a versioned package and generates Rust, C#, Swift and Kotlin types.
-Client repositories pin a protocol release rather than copying payload shapes.
+The canonical protocol schemas live in `HomePlace`. Client repositories pin a
+protocol release rather than defining incompatible payload shapes.
 
 ## System topology
 
@@ -62,19 +61,19 @@ Docker/Proxmox/media services ───────▶│ automation engine │
                                       └───────────────────┘
 ```
 
-Agents establish one authenticated WebSocket connection and maintain it with
-heartbeats. Ordinary REST endpoints handle pairing, uploads, downloads and
-history. Web push or platform push wakes mobile applications when background
-execution is restricted.
+Protocol version 1 starts with authenticated HTTP heartbeats. A later realtime
+gateway may add WebSocket transport without changing event envelopes. Ordinary
+REST endpoints handle pairing and revocation. Platform push will be required
+to wake mobile applications where background execution is restricted.
 
 ## Server connection onboarding
 
 Every native application starts in an unpaired state and presents these
 connection methods:
 
-1. **Scan a QR code.** The HomePlace web interface creates a short-lived
-   pairing payload containing the server URL, one-time token, server identifier
-   and certificate fingerprint when needed.
+1. **Scan a QR code.** The application accepts a HomePlace server URL or a
+   versioned connection payload. The current server does not generate pairing
+   QR codes yet.
 2. **Enter an address.** Accept a full URL such as
    `https://home.example.net`, `https://homeplace.lan` or
    `http://192.168.1.20:3200`.
@@ -105,15 +104,19 @@ both endpoints prove the same server ID and key fingerprint.
 
 ## Pairing and device identity
 
-1. An administrator opens **Devices → Add device** in HomePlace.
-2. HomePlace creates a single-use token with a five-minute expiry and displays
-   a QR code plus a human-readable code.
-3. The agent creates a device key pair locally and submits its public key,
-   platform information, requested display name and capability manifest.
-4. HomePlace shows the request and requested permissions to the administrator.
-5. Approval issues a scoped device credential. Only its hash and public key are
-   stored by HomePlace.
-6. The agent reconnects with proof of possession and receives its device ID.
+1. The application validates `/api/link/info` and displays the server identity.
+2. It creates a P-256 device key in platform-secure storage and submits the
+   SubjectPublicKeyInfo DER public key as canonical Base64 with platform details
+   and its capability manifest.
+3. HomePlace creates a five-minute pairing session and returns a confirmation
+   code plus a high-entropy claim secret.
+4. The application and **Devices** page display the same confirmation code.
+5. An administrator reviews the requested capabilities and approves or rejects
+   the request.
+6. Approval issues a scoped device credential. The claim secret retrieves it
+   exactly once; HomePlace stores only its hash and the public key.
+7. The application validates the returned server ID and begins authenticated
+   heartbeats.
 
 Revocation is immediate. Re-pairing creates a new identity. Device credentials
 cannot create users, approve other devices or expand their own capability set.
@@ -156,8 +159,8 @@ Capabilities use stable names and optional constraints:
   "name": "file.receive",
   "version": 1,
   "constraints": {
-    "maxBytes": 1073741824,
-    "requiresConfirmation": true
+    "maxBytes": "1073741824",
+    "requiresConfirmation": "true"
   }
 }
 ```
@@ -197,13 +200,22 @@ Add persistent models for:
 Frequently changing telemetry such as active application and battery remains a
 latest-state record. Only meaningful transitions become history events.
 
-### API and gateway
+### Implemented protocol v1 API
 
 - `GET /api/link/info`: unauthenticated server identity and supported protocol
   range, with no installation secrets.
-- `POST /api/link/pairing`: administrator creates a pairing request.
-- `POST /api/link/pair`: agent submits a pairing request.
-- `POST /api/link/pairing/:id/approve`: administrator approval.
+- `POST /api/link/pair`: device submits a bounded, rate-limited pairing request.
+- `POST /api/link/pairing/:id/claim`: device polls with its claim secret and
+  receives an approved credential once.
+- `POST /api/link/heartbeat`: authenticated presence, event delivery and event
+  acknowledgement.
+- `DELETE /api/link/device`: revoke the authenticated device.
+
+Administrator approval, rejection, test notification and revocation are server
+actions protected by the existing HomePlace administrator session.
+
+### Future API and gateway
+
 - `GET /api/link/connect`: authenticated WebSocket upgrade.
 - `POST /api/link/files`: create a bounded transfer.
 - `PUT/GET /api/link/files/:id`: authenticated streaming transfer.
@@ -313,11 +325,18 @@ reporting broken controls.
 
 ## Mobile applications
 
+### Shared Flutter application
+
+Use Flutter for shared UI, state, networking, protocol models and application
+logic. Keep Android Keystore, iOS Keychain, notifications, background work, QR,
+sharing, files and clipboard integrations native where platform behavior
+differs.
+
 ### Android
 
-Use Kotlin and Jetpack Compose. A foreground service maintains reliable local
-connectivity when the user enables continuous operation; push wakes the app for
-lower-power remote delivery.
+Use a Kotlin host for Android-specific integrations. A foreground service may
+maintain reliable local connectivity when the user enables continuous
+operation; push wakes the app for lower-power remote delivery.
 
 Initial features:
 
@@ -336,9 +355,10 @@ websocket-only operation must remain possible.
 
 ### iOS and iPadOS
 
-Use SwiftUI with a Share Extension. iOS does not allow a permanent arbitrary
-background connection or silent global clipboard monitoring, so the capability
-manifest must reflect foreground/background state honestly.
+Use a Swift host and a native Share Extension around the shared Flutter
+application. iOS does not allow a permanent arbitrary background connection or
+silent global clipboard monitoring, so the capability manifest must reflect
+foreground/background state honestly.
 
 Initial features:
 

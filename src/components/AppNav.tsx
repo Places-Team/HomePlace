@@ -31,6 +31,7 @@ export function AppNav({
     { href: "/monitoring", label: d.nav.monitoring },
     { href: "/containers", label: d.nav.containers },
     { href: "/home", label: d.nav.home },
+    ...(user.role === "viewer" ? [] : [{ href: "/devices", label: d.nav.devices }]),
     { href: "/events", label: d.nav.events },
   ];
 
@@ -113,6 +114,15 @@ export function AppNav({
                   onClick={() => setMenuOpen(false)}
                 />
                 <div className="absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-card border border-line bg-surface py-1 shadow-pop">
+                  {user.role !== "viewer" && (
+                    <Link
+                      href="/devices"
+                      onClick={() => setMenuOpen(false)}
+                      className="block px-3 py-2 text-sm text-muted transition-colors hover:bg-raised hover:text-text sm:hidden"
+                    >
+                      {d.nav.devices}
+                    </Link>
+                  )}
                   <Link
                     href="/settings"
                     onClick={() => setMenuOpen(false)}

@@ -30,7 +30,7 @@ export async function sampleContainersToDb(): Promise<void> {
   try {
     const running = (await listContainers()).filter((c) => c.state === "running");
     if (running.length === 0) return;
-    const stats = await statsForContainers(running, 60);
+    const stats = await statsForContainers(running, 60, 4);
     if (stats.length === 0) return;
     const at = new Date();
     recordContainerHistory(stats, running.map((container) => container.name), at.getTime());

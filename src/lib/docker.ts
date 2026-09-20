@@ -373,14 +373,26 @@ export async function containerStats(hostKey: string, id: string, name: string):
 /** Stats for several containers at once, capped so a busy host is not hammered. */
 export async function statsForContainers(
   containers: { id: string; name: string; hostKey: string }[],
-  limit = 12
+  limit = 12,
+  concurrency = 8
 ): Promise<ContainerStats[]> {
-  const results = await Promise.allSettled(
-    containers.slice(0, limit).map((c) => containerStats(c.hostKey, c.id, c.name))
-  );
-  return results
-    .map((r) => (r.status === "fulfilled" ? r.value : null))
-    .filter((s): s is ContainerStats => s !== null);
+  const selected = containers.slice(0, limit);
+  const width = Math.max(1, Math.min(concurrency, selected.length || 1));
+  const out: ContainerStats[] = [];
+
+  // Docker's one-shot stats responses are sizeable. Parsing dozens in one
+  // Promise.all caused a short 100% CPU burst every sampling minute. Small
+  // batches trade a few seconds of background latency for a much flatter load.
+  for (let offset = 0; offset < selected.length; offset += width) {
+    const results = await Promise.allSettled(
+      selected.slice(offset, offset + width).map((container) => containerStats(container.hostKey, container.id, container.name))
+    );
+    for (const result of results) {
+      if (result.status === "fulfilled" && result.value) out.push(result.value);
+    }
+  }
+
+  return out;
 }
 
 /**

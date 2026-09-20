@@ -14,7 +14,7 @@ import { Dialog } from "@/components/Dialog";
 import { Button, Field, Input, Select, Textarea } from "@/components/form";
 import type { Dictionary } from "@/i18n";
 
-const MAX_FILE_BYTES = 64 * 1024 * 1024;
+const MAX_FILE_BYTES = 500 * 1024 * 1024;
 
 export function PairingActions({ id, d }: { id: string; d: Dictionary }) {
   const [pending, startTransition] = useTransition();
@@ -119,10 +119,10 @@ export function DeviceActions({
       setProgress(0);
       upload.current = null;
     });
-    const body = new FormData();
-    body.set("targetDeviceId", id);
-    body.set("file", selected);
-    request.send(body);
+    request.setRequestHeader("Content-Type", selected.type || "application/octet-stream");
+    request.setRequestHeader("x-homeplace-target", id);
+    request.setRequestHeader("x-homeplace-filename-base64", utf8Base64(selected.name));
+    request.send(selected);
   }
 
   function closeShare() {
@@ -259,4 +259,11 @@ export function DeviceActions({
       </Dialog>
     </div>
   );
+}
+
+function utf8Base64(value: string) {
+  const bytes = new TextEncoder().encode(value);
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return window.btoa(binary);
 }

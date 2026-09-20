@@ -16,15 +16,21 @@ export async function POST(request: Request) {
   const targetDeviceId = validDeviceId(request.headers.get("x-homeplace-target"));
   const filename = safeFilename(decodeFilename(request.headers));
   const announced = Number(request.headers.get("content-length") ?? 0);
-  if (!targetDeviceId || !Number.isFinite(announced) || announced < 1 || announced > MAX_SHARE_FILE_BYTES) {
+  if (!targetDeviceId || !Number.isSafeInteger(announced) || announced < 1 || announced > MAX_SHARE_FILE_BYTES) {
     return NextResponse.json({ error: "invalid file offer" }, { status: 400 });
   }
   const target = await resolveShareTarget(auth.device, targetDeviceId, "file");
   if (!target) return NextResponse.json({ error: "target device is unavailable" }, { status: 404 });
-  const bytes = Buffer.from(await request.arrayBuffer());
-  if (!bytes.length || bytes.length > MAX_SHARE_FILE_BYTES) return NextResponse.json({ error: "invalid file offer" }, { status: 400 });
+  if (!request.body) return NextResponse.json({ error: "invalid file offer" }, { status: 400 });
   const mimeType = (request.headers.get("content-type") || "application/octet-stream").slice(0, 120);
-  const transfer = await createFileTransfer({ sourceDeviceId: auth.device.id, targetDeviceId, filename, mimeType, bytes });
+  const transfer = await createFileTransfer({
+    sourceDeviceId: auth.device.id,
+    targetDeviceId,
+    filename,
+    mimeType,
+    size: announced,
+    stream: request.body,
+  });
   const queued = await queueShareOffer(target.id, {
     type: "file",
     transferId: transfer.id,

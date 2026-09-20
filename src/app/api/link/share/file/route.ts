@@ -10,8 +10,6 @@ import { currentUser } from "@/lib/session";
 
 export const dynamic = "force-dynamic";
 
-const MAX_MULTIPART_OVERHEAD = 1024 * 1024;
-
 export async function POST(request: NextRequest) {
   const user = await currentUser();
   if (!canEdit(user)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
@@ -19,7 +17,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "invalid request origin" }, { status: 403 });
   }
   const announced = Number(request.headers.get("content-length") ?? 0);
-  if (Number.isFinite(announced) && announced > MAX_SHARE_FILE_BYTES + MAX_MULTIPART_OVERHEAD) {
+  if (!Number.isSafeInteger(announced) || announced < 1 || announced > MAX_SHARE_FILE_BYTES) {
     return NextResponse.json({ error: "file is too large" }, { status: 413 });
   }
   const rate = checkDeviceActionRateLimit(user!.id, "dashboard-share-file", 10);
@@ -30,19 +28,10 @@ export async function POST(request: NextRequest) {
     );
   }
 
-  let form: FormData;
-  try {
-    form = await request.formData();
-  } catch {
-    return NextResponse.json({ error: "expected multipart form" }, { status: 400 });
-  }
-  const targetDeviceId = validDeviceId(form.get("targetDeviceId"));
-  const file = form.get("file");
-  if (!targetDeviceId || !(file instanceof File) || file.size < 1) {
+  const targetDeviceId = validDeviceId(request.headers.get("x-homeplace-target"));
+  const filename = safeFilename(decodeFilename(request.headers));
+  if (!targetDeviceId || !request.body) {
     return NextResponse.json({ error: "invalid file offer" }, { status: 400 });
-  }
-  if (file.size > MAX_SHARE_FILE_BYTES) {
-    return NextResponse.json({ error: "file is too large" }, { status: 413 });
   }
   const target = await resolveShareTarget(
     {
@@ -58,9 +47,10 @@ export async function POST(request: NextRequest) {
   const transfer = await createFileTransfer({
     sourceDeviceId: `dashboard:${user!.id}`,
     targetDeviceId,
-    filename: safeFilename(file.name),
-    mimeType: (file.type || "application/octet-stream").slice(0, 120),
-    bytes: Buffer.from(await file.arrayBuffer()),
+    filename,
+    mimeType: (request.headers.get("content-type") || "application/octet-stream").slice(0, 120),
+    size: announced,
+    stream: request.body,
   });
   const queued = await queueShareOffer(target.id, {
     type: "file",
@@ -76,4 +66,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "target device has too many pending offers" }, { status: 429 });
   }
   return NextResponse.json({ ok: true }, { status: 201 });
+}
+
+function decodeFilename(headers: Headers) {
+  const encoded = headers.get("x-homeplace-filename-base64");
+  if (encoded && /^[A-Za-z0-9+/]{1,512}={0,2}$/.test(encoded)) {
+    try {
+      const decoded = Buffer.from(encoded, "base64").toString("utf8");
+      if (decoded && !decoded.includes("\uFFFD")) return decoded;
+    } catch {
+      // Fall back to a safe default below.
+    }
+  }
+  return "shared-file";
 }

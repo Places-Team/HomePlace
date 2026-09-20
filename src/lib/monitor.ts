@@ -33,6 +33,8 @@ let timer: NodeJS.Timeout | null = null;
 let running = false;
 let lastRuleEval = 0;
 let lastMaintenance = 0;
+type LatestCheck = { at: Date; ok: boolean; error: string | null };
+const latestChecks = new Map<string, LatestCheck>();
 
 /**
  * Started from the first server render rather than from an instrumentation
@@ -110,22 +112,38 @@ type ProbeResult = { ok: boolean; latency?: number; status?: number; error?: str
 async function probeDue(): Promise<void> {
   const items = await prisma.item.findMany({
     where: { checkKind: { not: "none" } },
-    include: { checks: { orderBy: { at: "desc" }, take: 1 } },
   });
   if (items.length === 0) return;
+
+  // Load one indexed row only for newly seen items. Prisma's nested relation
+  // include can materialise a large part of the rolling uptime table on SQLite;
+  // doing that every tick caused periodic CPU and memory spikes.
+  const ids = new Set(items.map((item) => item.id));
+  for (const id of latestChecks.keys()) if (!ids.has(id)) latestChecks.delete(id);
+  await Promise.all(
+    items.map(async (item) => {
+      if (latestChecks.has(item.id)) return;
+      const check = await prisma.uptimeCheck.findFirst({
+        where: { itemId: item.id },
+        orderBy: { at: "desc" },
+        select: { at: true, ok: true, error: true },
+      });
+      if (check) latestChecks.set(item.id, check);
+    })
+  );
 
   // Everything watched, seeded with what was already known. Tiles that are not
   // due this tick still take part in alerting: an outage does not pause because
   // the check interval is five minutes.
   const latest = new Map<string, { id: string; title: string; ok: boolean; error: string | null }>();
   for (const item of items) {
-    const last = item.checks[0];
+    const last = latestChecks.get(item.id);
     if (last) latest.set(item.id, { id: item.id, title: item.title, ok: last.ok, error: last.error });
   }
 
   const now = Date.now();
   const due = items.filter((item) => {
-    const last = item.checks[0];
+    const last = latestChecks.get(item.id);
     const interval = Math.max(settings.minCheckInterval(), item.checkInterval) * 1000;
     return !last || now - last.at.getTime() >= interval;
   });
@@ -137,21 +155,24 @@ async function probeDue(): Promise<void> {
 
   await Promise.all(
     due.map(async (item) => {
-      const previous = item.checks[0]?.ok ?? null;
+      const previous = latestChecks.get(item.id)?.ok ?? null;
       const result =
         item.checkKind === "docker"
           ? probeContainer(item.containerName, item.hostKey, containers)
           : await probeHttp(item.checkUrl || item.internalUrl || item.url);
 
+      const at = new Date();
       await prisma.uptimeCheck.create({
         data: {
           itemId: item.id,
+          at,
           ok: result.ok,
           latency: result.latency ?? null,
           status: result.status ?? null,
           error: result.error?.slice(0, 300) ?? null,
         },
       });
+      latestChecks.set(item.id, { at, ok: result.ok, error: result.error?.slice(0, 300) ?? null });
 
       latest.set(item.id, { id: item.id, title: item.title, ok: result.ok, error: result.error ?? null });
 

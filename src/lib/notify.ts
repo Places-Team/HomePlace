@@ -5,6 +5,7 @@ import { sendPush, alertRecipients } from "./push";
 import { send as sendTelegram } from "./telegram";
 import { inQuietHours } from "./quietHours";
 import { telegramConfig } from "./integrations";
+import { queueLinkNotifications } from "./linkDevices";
 import {
   NOTIFY_POLICY_KEY,
   normalizePolicy,
@@ -176,6 +177,7 @@ export type Notification = {
 
 export type DeliveryResult = {
   push: number;
+  link: number;
   telegram: boolean;
   ntfy: boolean;
   webhook: boolean;
@@ -192,7 +194,7 @@ export async function notifyPolicy(): Promise<NotifyPolicy> {
 /** Send to every configured route. Never throws — a notifier that can take the
  *  monitor down with it is worse than a missed message. */
 export async function notify(message: Notification): Promise<DeliveryResult> {
-  const result: DeliveryResult = { push: 0, telegram: false, ntfy: false, webhook: false, email: false, quiet: false, suppressed: false };
+  const result: DeliveryResult = { push: 0, link: 0, telegram: false, ntfy: false, webhook: false, email: false, quiet: false, suppressed: false };
 
   // The policy decides what a phone hears; the event has already been recorded.
   if (message.type) {
@@ -214,10 +216,18 @@ export async function notify(message: Notification): Promise<DeliveryResult> {
   const jobs: Promise<void>[] = [];
 
   if (!message.skipPush) {
+    const recipients = await alertRecipients();
     jobs.push(
-      sendPush(await alertRecipients(), { title: message.title, body: message.body, tag: message.tag })
+      sendPush(recipients, { title: message.title, body: message.body, tag: message.tag })
         .then((r) => {
           result.push = r.sent;
+        })
+        .catch(() => {})
+    );
+    jobs.push(
+      queueLinkNotifications(recipients, { title: message.title, body: message.body, tag: message.tag })
+        .then((queued) => {
+          result.link = queued;
         })
         .catch(() => {})
     );

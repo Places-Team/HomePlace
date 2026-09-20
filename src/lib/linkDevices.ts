@@ -217,6 +217,35 @@ export async function queueTestNotification(deviceId: string) {
   return true;
 }
 
+/** Queue an alert for every paired, capable device owned by these users. */
+export async function queueLinkNotifications(
+  userIds: string[],
+  message: { title: string; body: string; tag?: string },
+): Promise<number> {
+  if (userIds.length === 0) return 0;
+  const devices = await prisma.linkDevice.findMany({
+    where: { userId: { in: userIds }, revokedAt: null },
+    select: { id: true, capabilities: true },
+  });
+  const capable = devices.filter((device) => parsedCapabilities(device.capabilities).has("notification.receive"));
+  let queued = 0;
+  for (const device of capable) {
+    const pending = await prisma.linkDeviceEvent.count({
+      where: { deviceId: device.id, kind: "notification.deliver", deliveredAt: null },
+    });
+    if (pending >= MAX_PENDING_EVENTS) continue;
+    await prisma.linkDeviceEvent.create({
+      data: {
+        deviceId: device.id,
+        kind: "notification.deliver",
+        payload: JSON.stringify(message),
+      },
+    });
+    queued += 1;
+  }
+  return queued;
+}
+
 /** Relay clipboard text only to the same user's explicitly capable devices. */
 export async function relayClipboard(source: { id: string; userId: string | null; name: string }, text: string) {
   if (!source.userId) return 0;

@@ -13,6 +13,7 @@ import { prometheusConfig } from "./integrations";
 import { checkSmartDrift } from "./smart";
 import { probeInternet } from "./netmon";
 import { checkContainerUpdatesDue } from "./imageUpdates";
+import { checkTelegramBotsDue } from "./telegramHealth";
 
 /**
  * The availability prober.
@@ -77,6 +78,9 @@ async function tick(): Promise<void> {
     // Once a day, ask each container's registry whether a newer image exists, so
     // the update badges are there on arrival rather than only after a click.
     await checkContainerUpdatesDue().catch((e) => console.error("update check failed:", e));
+    // Bot identity and webhook health are independent from Telegram being a
+    // notification route: a broken Telegram bot must still alert Link devices.
+    await checkTelegramBotsDue();
     // The Telegram bot runs its own long-polling loop (startTelegramPolling) so
     // replies are instant rather than up to a tick late — it is not driven from
     // here any more.

@@ -52,12 +52,23 @@ export type TelegramSettings = {
   proxyUrl: string;
 };
 
+export type TelegramBotMonitor = {
+  id: string;
+  label: string;
+  enabled: boolean;
+  botToken: string;
+  proxyUrl: string;
+};
+
 const KEY = {
   prometheus: "integration.prometheus",
   proxmox: "integration.proxmox",
   telegram: "integration.telegram",
+  telegramBots: "integration.telegramBots",
   dockerHosts: "integration.dockerHosts",
 };
+
+type StoredTelegramBotMonitor = TelegramBotMonitor;
 
 /**
  * Every Docker endpoint: the ones pinned in .env, then the ones added in the
@@ -229,6 +240,50 @@ export async function saveTelegram(input: Partial<TelegramSettings>): Promise<vo
   });
 }
 
+/** Additional bots whose Telegram API identity and webhook delivery are watched. */
+export async function telegramBotMonitors(): Promise<TelegramBotMonitor[]> {
+  const stored = await getSetting<StoredTelegramBotMonitor[]>(KEY.telegramBots, []);
+  const result: TelegramBotMonitor[] = [];
+  for (const bot of stored.slice(0, 32)) {
+    if (!bot?.id || !bot.label || !bot.botToken) continue;
+    try {
+      result.push({ ...bot, botToken: await decrypt(bot.botToken) });
+    } catch {
+      // A damaged secret is treated as an unavailable configuration, never
+      // exposed to the settings page or monitor log.
+    }
+  }
+  return result;
+}
+
+export async function saveTelegramBotMonitors(input: TelegramBotMonitor[]): Promise<void> {
+  const stored = await getSetting<StoredTelegramBotMonitor[]>(KEY.telegramBots, []);
+  const existing = new Map(stored.map((bot) => [bot.id, bot]));
+  const ids = new Set<string>();
+  const next: StoredTelegramBotMonitor[] = [];
+
+  for (const [index, raw] of input.slice(0, 32).entries()) {
+    const label = raw.label.trim().slice(0, 80);
+    if (!label) continue;
+    const candidate = raw.id.trim().replace(/[^a-zA-Z0-9_-]/g, "").slice(0, 80);
+    let id = candidate || `bot-${Date.now().toString(36)}-${index}`;
+    while (ids.has(id)) id = `${id}-${index}`;
+    ids.add(id);
+
+    const old = existing.get(raw.id);
+    const botToken = raw.botToken.trim() ? await encrypt(raw.botToken.trim()) : old?.botToken ?? "";
+    if (!botToken) continue;
+    next.push({
+      id,
+      label,
+      enabled: raw.enabled !== false,
+      botToken,
+      proxyUrl: raw.proxyUrl.trim().slice(0, 500),
+    });
+  }
+  await setSetting(KEY.telegramBots, next);
+}
+
 /** One place to ask "what can this installation actually do right now?". */
 export async function integrationStatus() {
   const [prom, pve, tg] = await Promise.all([prometheusConfig(), proxmoxConfig(), telegramConfig()]);
@@ -242,10 +297,11 @@ export async function integrationStatus() {
 
 /** Settings as the form should show them: secrets masked, never sent raw. */
 export async function integrationsForDisplay(userId?: string) {
-  const [prom, pve, tg, google, linked, tgCommands, fatsecret, googleRedirect] = await Promise.all([
+  const [prom, pve, tg, telegramBots, google, linked, tgCommands, fatsecret, googleRedirect] = await Promise.all([
     prometheusConfig(),
     proxmoxConfig(),
     telegramConfig(),
+    telegramBotMonitors(),
     googleConfig(),
     userId ? linkedAccount(userId) : Promise.resolve(null),
     getSetting<boolean>("telegram.commands", false),
@@ -290,5 +346,12 @@ export async function integrationsForDisplay(userId?: string) {
           source: "none" as Source,
           commands: tgCommands ?? false,
         },
+    telegramBots: telegramBots.map((bot) => ({
+      id: bot.id,
+      label: bot.label,
+      enabled: bot.enabled,
+      hasToken: !!bot.botToken,
+      proxyUrl: bot.proxyUrl,
+    })),
   };
 }

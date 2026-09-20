@@ -4,11 +4,11 @@ import { revalidatePath } from "next/cache";
 import { randomBytes } from "node:crypto";
 import { requireRole } from "@/lib/auth";
 import { setSetting, getSetting } from "@/lib/db";
-import { savePrometheus, saveProxmox, saveTelegram, telegramConfig, saveDockerHosts } from "@/lib/integrations";
+import { savePrometheus, saveProxmox, saveTelegram, telegramConfig, saveDockerHosts, saveTelegramBotMonitors, telegramBotMonitors, type TelegramBotMonitor } from "@/lib/integrations";
 import type { DockerHost } from "@/lib/config";
 import { prometheusHealth } from "@/lib/prometheus";
 import { proxmoxHealth } from "@/lib/proxmox";
-import { sendWith } from "@/lib/telegram";
+import { checkTelegramBot, sendWith } from "@/lib/telegram";
 import { saveGoogleConfig, unlinkAccount } from "@/lib/google";
 import { saveFatSecret } from "@/lib/fatsecret";
 import { saveNtfy, ntfyConfig, sendNtfy, saveWebhook, webhookConfig, sendWebhook, saveEmail, emailConfig, sendEmail, type EmailSettings } from "@/lib/notify";
@@ -73,6 +73,22 @@ export async function saveTelegramSettings(input: {
   await requireRole("admin");
   await saveTelegram(input);
   revalidatePath("/settings");
+  return { ok: true };
+}
+
+export async function saveTelegramBotMonitorSettings(input: TelegramBotMonitor[]): Promise<TestResult> {
+  await requireRole("admin");
+  await saveTelegramBotMonitors(input);
+  const bots = (await telegramBotMonitors()).filter((bot) => bot.enabled);
+  const results = await Promise.all(bots.map(async (bot) => ({ bot, health: await checkTelegramBot(bot) })));
+  revalidatePath("/settings");
+  const failed = results.filter((result) => !result.health.ok);
+  if (failed.length > 0) {
+    return {
+      ok: false,
+      error: failed.map(({ bot, health }) => `${bot.label}: ${health.error ?? "unavailable"}`).join("; "),
+    };
+  }
   return { ok: true };
 }
 

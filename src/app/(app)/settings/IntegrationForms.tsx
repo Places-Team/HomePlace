@@ -7,6 +7,7 @@ import {
   savePrometheusSettings,
   saveProxmoxSettings,
   saveTelegramSettings,
+  saveTelegramBotMonitorSettings,
   testTelegram,
   setTelegramCommands,
   rotateNowPlayingToken,
@@ -48,6 +49,7 @@ type Display = {
     source: string;
     commands: boolean;
   };
+  telegramBots: { id: string; label: string; enabled: boolean; hasToken: boolean; proxyUrl: string }[];
   fatsecret: { clientId: string; hasSecret: boolean };
 };
 
@@ -86,6 +88,7 @@ export function IntegrationForms({
       <PrometheusForm d={d} value={display.prometheus} />
       <ProxmoxForm d={d} value={display.proxmox} />
       <TelegramForm d={d} value={display.telegram} />
+      <TelegramBotMonitorForm d={d} value={display.telegramBots} />
       <GoogleCard d={d} value={display.google} />
       <FatSecretForm d={d} value={display.fatsecret} />
     </div>
@@ -464,6 +467,87 @@ function TelegramForm({ d, value }: { d: Dictionary; value: Display["telegram"] 
 }
 
 // ─────────────────────────────── Now playing ─────────────────────────────
+
+function TelegramBotMonitorForm({ d, value }: { d: Dictionary; value: Display["telegramBots"] }) {
+  const [rows, setRows] = useState(() => value.map((bot) => ({ ...bot, botToken: "" })));
+  const [result, setResult] = useState<TestResult | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  function update(index: number, patch: Partial<(typeof rows)[number]>) {
+    setResult(null);
+    setRows((current) => current.map((row, rowIndex) => rowIndex === index ? { ...row, ...patch } : row));
+  }
+
+  function add() {
+    setRows((current) => [
+      ...current,
+      { id: `bot-${Date.now().toString(36)}`, label: "", enabled: true, hasToken: false, botToken: "", proxyUrl: "" },
+    ]);
+  }
+
+  function save() {
+    startTransition(async () => {
+      const saved = await saveTelegramBotMonitorSettings(rows.map(({ hasToken: _hasToken, ...row }) => row));
+      setResult(saved);
+      if (saved.ok) setRows((current) => current.map((row) => ({ ...row, botToken: "", hasToken: true })));
+    });
+  }
+
+  return (
+    <Card>
+      <CardHeader title={d.settings.telegramMonitors} action={<Badge tone={rows.length > 0 ? "ok" : "neutral"}>{rows.length}</Badge>} />
+      <div className="space-y-3 p-4">
+        <p className="text-sm text-muted">{d.settings.telegramMonitorsHint}</p>
+        {rows.map((row, index) => (
+          <div key={row.id} className="space-y-2 rounded-control border border-line p-3">
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={row.enabled}
+                onChange={(event) => update(index, { enabled: event.target.checked })}
+                aria-label={d.common.enabled}
+              />
+              <Input
+                value={row.label}
+                onChange={(event) => update(index, { label: event.target.value })}
+                placeholder={d.settings.telegramMonitorName}
+                className="flex-1"
+              />
+              <Button variant="quiet" onClick={() => setRows((current) => current.filter((_, rowIndex) => rowIndex !== index))} title={d.common.delete}>
+                ×
+              </Button>
+            </div>
+            <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+              <SecretField
+                d={d}
+                label={d.settings.telegramBotToken}
+                hasSecret={row.hasToken}
+                value={row.botToken}
+                onChange={(botToken) => update(index, { botToken })}
+                placeholder="123456:ABC…"
+              />
+              <Field label={d.settings.telegramProxy} hint={d.common.optional}>
+                <Input
+                  value={row.proxyUrl}
+                  onChange={(event) => update(index, { proxyUrl: event.target.value })}
+                  placeholder="socks5://192.168.0.10:1080"
+                  className="font-mono text-xs"
+                />
+              </Field>
+            </div>
+          </div>
+        ))}
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <Button variant="ghost" onClick={add}>＋ {d.settings.telegramMonitorAdd}</Button>
+          <div className="flex items-center gap-2">
+            <Result result={result} d={d} />
+            <Button variant="primary" disabled={pending} onClick={save}>{d.settings.telegramMonitorSave}</Button>
+          </div>
+        </div>
+      </div>
+    </Card>
+  );
+}
 
 function NowPlayingCard({ d, token, appUrl }: { d: Dictionary; token: string; appUrl: string }) {
   const [current, setCurrent] = useState(token);

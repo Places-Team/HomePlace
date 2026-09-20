@@ -16,8 +16,9 @@ own; you decide which ones become tiles.
 - 📊 **Hardware** — CPU, memory, disks, temperatures, network, plus per-container
   CPU and memory, from Prometheus
 - 🖥 **Proxmox** — guests, physical disks and SMART, storages
-- 🔔 **Telegram alerts** — with a delay before crying wolf, quiet hours, and a
-  proxy for servers that cannot reach Telegram directly
+- 🔔 **Telegram alerts and bot health** — monitor the main bot and additional
+  bot tokens, including recent webhook failures, and alert paired phones without
+  relying on Telegram itself
 - 🎨 **A home page, not a NOC screen** — background photos from your phone's
   gallery, a slideshow, weather, a calendar, a now-playing tile
 - 🔔 **Alerts that are not just "it is down"** — rules on any metric, held for a

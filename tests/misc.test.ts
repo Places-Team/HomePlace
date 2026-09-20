@@ -11,6 +11,7 @@ import { parseShareMessage, safeFilename, safeSharedUrl } from "../src/lib/linkS
 import { checkDeviceActionRateLimit } from "../src/lib/linkRateLimit";
 import { clientAddress, hasMinimumSecretLength, isLocalHostname, safeRequestOrigin, secretsEqual } from "../src/lib/security";
 import { compareVersions, releaseUpdateFrom } from "../src/lib/updates";
+import { NOTIFY_EVENT_TYPES, shouldNotify } from "../src/lib/notifyPolicy";
 
 /** Small pure helpers that everything else leans on. */
 
@@ -288,4 +289,10 @@ test("release updates accept only newer HomePlace GitHub release links", () => {
     ),
     null,
   );
+});
+
+test("Telegram bot outages participate in the phone notification policy", () => {
+  assert.equal(NOTIFY_EVENT_TYPES.includes("telegram-bot"), true);
+  assert.equal(shouldNotify("telegram-bot", "error", { minSeverity: "error", types: {} }), true);
+  assert.equal(shouldNotify("telegram-bot", "error", { minSeverity: "info", types: { "telegram-bot": "never" } }), false);
 });

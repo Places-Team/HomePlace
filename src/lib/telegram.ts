@@ -72,6 +72,67 @@ function proxyDispatcher(proxyUrl: string): unknown {
 
 export type SendResult = { ok: boolean; error?: string };
 
+export type TelegramBotHealth = {
+  ok: boolean;
+  username?: string;
+  mode?: "polling" | "webhook";
+  error?: string;
+};
+
+type TelegramApiEnvelope<T> = { ok?: boolean; result?: T; description?: string };
+
+async function botApiWith<T>(
+  cfg: Pick<TelegramSettings, "botToken" | "proxyUrl">,
+  method: string,
+): Promise<{ ok: true; result: T } | { ok: false; error: string }> {
+  if (!/^\d+:[A-Za-z0-9_-]{20,}$/.test(cfg.botToken)) return { ok: false, error: "invalid bot token format" };
+  try {
+    const response = await fetch(`https://api.telegram.org/bot${cfg.botToken}/${method}`, {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: "{}",
+      cache: "no-store",
+      signal: AbortSignal.timeout(20_000),
+      // @ts-expect-error — undici's dispatcher option is not in the DOM types.
+      dispatcher: proxyDispatcher(cfg.proxyUrl ?? ""),
+    });
+    const body = (await response.json().catch(() => null)) as TelegramApiEnvelope<T> | null;
+    if (!response.ok || !body?.ok || body.result === undefined) {
+      return { ok: false, error: body?.description?.slice(0, 200) || `Telegram API HTTP ${response.status}` };
+    }
+    return { ok: true, result: body.result };
+  } catch (error) {
+    return { ok: false, error: describeNetworkError(error, !!cfg.proxyUrl) };
+  }
+}
+
+/** Verify a bot token and surface recent webhook delivery failures. */
+export async function checkTelegramBot(
+  cfg: Pick<TelegramSettings, "botToken" | "proxyUrl">,
+): Promise<TelegramBotHealth> {
+  const me = await botApiWith<{ username?: string }>(cfg, "getMe");
+  if (!me.ok) return me;
+
+  const webhook = await botApiWith<{
+    url?: string;
+    last_error_date?: number;
+    last_error_message?: string;
+  }>(cfg, "getWebhookInfo");
+  if (!webhook.ok) return { ...webhook, username: me.result.username };
+
+  const mode = webhook.result.url ? "webhook" : "polling";
+  const recentError = Number(webhook.result.last_error_date ?? 0) * 1000 > Date.now() - 10 * 60_000;
+  if (mode === "webhook" && recentError) {
+    return {
+      ok: false,
+      username: me.result.username,
+      mode,
+      error: webhook.result.last_error_message?.slice(0, 200) || "Telegram reports a recent webhook delivery error",
+    };
+  }
+  return { ok: true, username: me.result.username, mode };
+}
+
 /** Send a message with an explicit configuration — used by the "test" button. */
 export async function sendWith(
   cfg: Pick<TelegramSettings, "botToken" | "chatId" | "proxyUrl">,

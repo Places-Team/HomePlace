@@ -31,7 +31,7 @@ export const DEFAULT_POLICY: NotifyPolicy = { minSeverity: "info", types: {} };
  * lists them. Reminders are deliberately absent: they belong to whoever set
  * them and are never gated by a household-wide policy.
  */
-export const NOTIFY_EVENT_TYPES = ["down", "up", "restart", "rule", "command", "system", "login"] as const;
+export const NOTIFY_EVENT_TYPES = ["down", "up", "restart", "rule", "command", "system", "login", "telegram-bot"] as const;
 export type NotifyEventType = (typeof NOTIFY_EVENT_TYPES)[number];
 
 const RANK: Record<Severity, number> = { info: 0, warn: 1, error: 2 };

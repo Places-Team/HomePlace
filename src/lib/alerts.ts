@@ -90,7 +90,7 @@ async function deliver(text: string, quietHours: string, itemId: string, state: 
     // policy that deliberately withheld the message is not a failure — it must
     // not make the loop retry forever.
     const anything =
-      delivered.suppressed || delivered.push > 0 || delivered.telegram || delivered.ntfy || delivered.webhook || delivered.email;
+      delivered.suppressed || delivered.push > 0 || delivered.link > 0 || delivered.telegram || delivered.ntfy || delivered.webhook || delivered.email;
     if (!anything && state === "down") return;
   }
   if (state === "down") {

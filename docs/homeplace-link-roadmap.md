@@ -72,8 +72,8 @@ Every native application starts in an unpaired state and presents these
 connection methods:
 
 1. **Scan a QR code.** The application accepts a HomePlace server URL or a
-   versioned connection payload. The current server does not generate pairing
-   QR codes yet.
+   versioned connection payload. The Devices page generates a QR code for the
+   request-validated server URL currently used to access HomePlace.
 2. **Enter an address.** Accept a full URL such as
    `https://home.example.net`, `https://homeplace.lan` or
    `http://192.168.1.20:3200`.

@@ -74,6 +74,11 @@ export const en = {
   devices: {
     title: "Devices",
     intro: "Approve phones that show the same confirmation code, review their capabilities, and revoke access at any time.",
+    connectTitle: "Connect a new device",
+    connectHint: "In HomePlace Mobile, choose Scan QR code. The app verifies this server and then sends a pairing request for your approval.",
+    scanQr: "HomePlace server connection QR code",
+    serverAddress: "Server address",
+    httpHint: "Plain HTTP is intended for a trusted local network. Use HTTPS when connecting over the internet.",
     pending: "Waiting for approval",
     connected: "Connected devices",
     empty: "No HomePlace devices are connected yet",

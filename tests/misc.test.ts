@@ -6,7 +6,7 @@ import { inQuietHours } from "../src/lib/quietHours";
 import { bytes, duration, latency, percent } from "../src/lib/format";
 import { dashboardIconSlugs, dashboardIconUrl, guessKey, guessIcon, autoIcon, faviconUrl } from "../src/lib/icons";
 import { nextOccurrence } from "../src/lib/recurrence";
-import { createLinkInfo, isLinkServerId, LINK_PROTOCOL_MAX, LINK_PROTOCOL_MIN, parseLinkPairRequest } from "../src/lib/linkProtocol";
+import { createLinkInfo, isLinkServerId, LINK_PROTOCOL_MAX, LINK_PROTOCOL_MIN, parseLinkCapabilities, parseLinkPairRequest } from "../src/lib/linkProtocol";
 import { parseShareMessage, safeFilename, safeSharedUrl } from "../src/lib/linkShare";
 import { checkDeviceActionRateLimit } from "../src/lib/linkRateLimit";
 import { clientAddress, hasMinimumSecretLength, isLocalHostname, isSameOriginRequest, safeRequestOrigin, secretsEqual } from "../src/lib/security";
@@ -225,6 +225,21 @@ test("link pairing accepts only supported capabilities and protocol versions", (
   assert.equal(parseLinkPairRequest({ ...valid, capabilities: [{ name: "system.shell", version: 1, constraints: {} }] }), null);
   assert.equal(parseLinkPairRequest({ ...valid, permissions: ["system.shell"] }), null);
   assert.equal(parseLinkPairRequest({ ...valid, publicKey: Buffer.alloc(65).toString("base64") }), null);
+});
+
+test("authenticated heartbeats can refresh only supported capabilities", () => {
+  const capabilities = [
+    { name: "notification.receive", version: 1, constraints: {} },
+    { name: "url.open", version: 1, constraints: { confirmation: "required" } },
+    { name: "text.receive", version: 1, constraints: { confirmation: "required" } },
+  ];
+  assert.deepEqual(parseLinkCapabilities(capabilities), capabilities);
+  assert.equal(parseLinkCapabilities([{ name: "system.shell", version: 1, constraints: {} }]), null);
+  assert.equal(parseLinkCapabilities([{ name: "url.open", version: 0, constraints: {} }]), null);
+  assert.equal(parseLinkCapabilities([
+    { name: "url.open", version: 1, constraints: {} },
+    { name: "url.open", version: 1, constraints: {} },
+  ]), null);
 });
 
 test("shared content accepts bounded text and safe web links", () => {

@@ -99,6 +99,8 @@ export default async function DevicesPage() {
                   <DeviceActions
                     id={device.id}
                     canNotify={capabilities.some((capability) => capability.name === "notification.receive")}
+                    canOpenUrl={capabilities.some((capability) => capability.name === "url.open")}
+                    canReceiveText={capabilities.some((capability) => capability.name === "text.receive")}
                     d={d}
                   />
                 </div>

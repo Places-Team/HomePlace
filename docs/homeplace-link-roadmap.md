@@ -288,6 +288,12 @@ maximum concurrency and loop detection before multi-step rules are released.
 
 ## Desktop applications
 
+Current implementation supports paired multi-server desktop profiles, native
+notifications and consent-gated `url.open`, `text.receive` and
+`clipboard.receive` offers. HomePlace can queue a link or text directly from the
+Devices page; the desktop payload remains in the Rust core until the user opens,
+copies or declines it.
+
 ### Shared core
 
 Use Rust for transport, protocol handling, cryptographic identity, reconnect

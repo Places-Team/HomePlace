@@ -266,9 +266,10 @@ are described in [HomePlace Link roadmap](docs/homeplace-link-roadmap.md).
 
 - [x] HomePlace Link v1 discovery endpoint and base protocol schemas
 - [x] Device registry and secure pairing
+- [x] Consent-gated link and text delivery from Devices to desktop agents
 - [ ] Windows, macOS and Linux agents
 - [ ] Android and iOS applications with share extensions
-- [ ] Device actions, clipboard, file transfer and cross-device notifications
+- [ ] File transfer, clipboard send and approved system actions
 - [ ] Event-driven automations across devices and connected services
 
 ### Housekeeping

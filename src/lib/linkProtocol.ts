@@ -106,18 +106,8 @@ export function parseLinkPairRequest(value: unknown): LinkPairRequest | null {
     : null;
   if (!name || !platform || !platformVersion || !appVersion || !publicKey || !Array.isArray(input.capabilities)) return null;
 
-  const capabilities: LinkCapability[] = [];
-  const seen = new Set<string>();
-  for (const raw of input.capabilities) {
-    if (!raw || typeof raw !== "object") return null;
-    const item = raw as Record<string, unknown>;
-    if (typeof item.name !== "string" || !LINK_CAPABILITIES.has(item.name) || seen.has(item.name)) return null;
-    if (!Number.isInteger(item.version) || Number(item.version) < 1 || Number(item.version) > 10) return null;
-    if (!plainStringMap(item.constraints)) return null;
-    seen.add(item.name);
-    capabilities.push({ name: item.name, version: Number(item.version), constraints: item.constraints });
-  }
-  if (capabilities.length > 16) return null;
+  const capabilities = parseLinkCapabilities(input.capabilities);
+  if (!capabilities) return null;
   const permissions = parsePermissions(input.permissions);
   if (!permissions) return null;
   return {
@@ -127,6 +117,23 @@ export function parseLinkPairRequest(value: unknown): LinkPairRequest | null {
     capabilities,
     permissions,
   };
+}
+
+export function parseLinkCapabilities(value: unknown): LinkCapability[] | null {
+  if (!Array.isArray(value)) return null;
+  const capabilities: LinkCapability[] = [];
+  const seen = new Set<string>();
+  for (const raw of value) {
+    if (!raw || typeof raw !== "object") return null;
+    const item = raw as Record<string, unknown>;
+    if (typeof item.name !== "string" || !LINK_CAPABILITIES.has(item.name) || seen.has(item.name)) return null;
+    if (!Number.isInteger(item.version) || Number(item.version) < 1 || Number(item.version) > 10) return null;
+    if (!plainStringMap(item.constraints)) return null;
+    seen.add(item.name);
+    capabilities.push({ name: item.name, version: Number(item.version), constraints: item.constraints });
+  }
+  if (capabilities.length > 16) return null;
+  return capabilities;
 }
 
 function parsePermissions(value: unknown): LinkPermission[] | null {

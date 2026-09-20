@@ -2,7 +2,7 @@ import "server-only";
 import { createHash, randomBytes, randomInt } from "node:crypto";
 import { prisma } from "./db";
 import { decrypt, encrypt } from "./secretBox";
-import type { LinkPairRequest } from "./linkProtocol";
+import type { LinkCapability, LinkPairRequest } from "./linkProtocol";
 import { LINK_PROTOCOL_MAX } from "./linkProtocol";
 import { linkServerId } from "./linkServer";
 import { secretsEqual } from "./security";
@@ -142,7 +142,7 @@ export function linkDeviceHasPermission(device: { permissions: string }, permiss
   }
 }
 
-export async function heartbeatLinkDevice(deviceId: string, acknowledgedEventIds: string[]) {
+export async function heartbeatLinkDevice(deviceId: string, acknowledgedEventIds: string[], capabilities?: LinkCapability[]) {
   await pruneExpiredFileTransfers();
   const now = new Date();
   const ephemeralCutoff = new Date(now.getTime() - 5 * 60_000);
@@ -151,7 +151,10 @@ export async function heartbeatLinkDevice(deviceId: string, acknowledgedEventIds
     select: { payload: true },
   }) : [];
   const events = await prisma.$transaction(async (tx) => {
-    await tx.linkDevice.update({ where: { id: deviceId }, data: { lastSeenAt: now } });
+    await tx.linkDevice.update({
+      where: { id: deviceId },
+      data: { lastSeenAt: now, ...(capabilities ? { capabilities: JSON.stringify(capabilities) } : {}) },
+    });
     await tx.linkDeviceEvent.deleteMany({
       where: { deviceId, kind: { in: ["clipboard.offer", "share.offer"] }, createdAt: { lt: ephemeralCutoff } },
     });
@@ -327,6 +330,26 @@ export async function queueShareOffer(
     data: { deviceId: targetDeviceId, kind: "share.offer", payload: JSON.stringify(payload) },
   });
   return true;
+}
+
+export async function queueDashboardShare(
+  targetDeviceId: string,
+  type: "text" | "url",
+  value: string,
+): Promise<"queued" | "unavailable" | "unsupported" | "full"> {
+  const target = await prisma.linkDevice.findFirst({
+    where: { id: targetDeviceId, revokedAt: null },
+    select: { id: true, capabilities: true },
+  });
+  if (!target) return "unavailable";
+  const required = type === "url" ? "url.open" : "text.receive";
+  if (!parsedCapabilities(target.capabilities).has(required)) return "unsupported";
+  const queued = await queueShareOffer(target.id, {
+    type,
+    value,
+    sourceName: "HomePlace",
+  });
+  return queued ? "queued" : "full";
 }
 
 function parsedCapabilities(value: string): Set<string> {

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { authenticateLinkDevice, heartbeatLinkDevice } from "@/lib/linkDevices";
 import { boundedJson } from "@/lib/linkRequest";
+import { parseLinkCapabilities } from "@/lib/linkProtocol";
 
 export const dynamic = "force-dynamic";
 
@@ -15,7 +16,14 @@ export async function POST(request: Request) {
   const acknowledged = Array.isArray(rawAcknowledged)
     ? rawAcknowledged.filter((id): id is string => typeof id === "string" && /^[A-Za-z0-9_-]{1,40}$/.test(id)).slice(0, 100)
     : [];
-  return NextResponse.json(await heartbeatLinkDevice(device.id, acknowledged), {
+  const rawCapabilities = (body as { capabilities?: unknown }).capabilities;
+  let capabilities;
+  if (rawCapabilities !== undefined) {
+    const parsed = parseLinkCapabilities(rawCapabilities);
+    if (!parsed) return NextResponse.json({ error: "invalid capabilities" }, { status: 400 });
+    capabilities = parsed;
+  }
+  return NextResponse.json(await heartbeatLinkDevice(device.id, acknowledged, capabilities), {
     headers: { "cache-control": "no-store" },
   });
 }

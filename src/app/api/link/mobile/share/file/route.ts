@@ -14,7 +14,7 @@ export async function POST(request: Request) {
     { status: 429, headers: { "retry-after": String(rate.retryAfterSeconds ?? 60) } },
   );
   const targetDeviceId = validDeviceId(request.headers.get("x-homeplace-target"));
-  const filename = safeFilename(decodeHeader(request.headers.get("x-homeplace-filename")));
+  const filename = safeFilename(decodeFilename(request.headers));
   const announced = Number(request.headers.get("content-length") ?? 0);
   if (!targetDeviceId || !Number.isFinite(announced) || announced < 1 || announced > MAX_SHARE_FILE_BYTES) {
     return NextResponse.json({ error: "invalid file offer" }, { status: 400 });
@@ -47,4 +47,17 @@ function decodeHeader(value: string | null) {
   } catch {
     return "shared-file";
   }
+}
+
+function decodeFilename(headers: Headers) {
+  const encoded = headers.get("x-homeplace-filename-base64");
+  if (encoded && /^[A-Za-z0-9+/]{1,512}={0,2}$/.test(encoded)) {
+    try {
+      const decoded = Buffer.from(encoded, "base64").toString("utf8");
+      if (decoded && !decoded.includes("\uFFFD")) return decoded;
+    } catch {
+      // Fall back to the legacy percent-encoded header below.
+    }
+  }
+  return decodeHeader(headers.get("x-homeplace-filename"));
 }

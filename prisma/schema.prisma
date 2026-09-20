@@ -410,6 +410,9 @@ model LinkDevice {
   // capabilities describe what the phone can do; permissions describe what
   // the phone may ask HomePlace to do.
   permissions     String   @default("[]")
+  // The owner can opt this device into receiving explicit shares from other
+  // HomePlace accounts. Clipboard sync remains owner-only.
+  allowHouseholdShares Boolean @default(false)
   userId          String?
   user            User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   lastSeenAt      DateTime?

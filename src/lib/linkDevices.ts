@@ -282,8 +282,20 @@ export async function relayClipboard(source: { id: string; userId: string | null
 export async function shareTargets(source: { id: string; userId: string | null }) {
   if (!source.userId) return [];
   const devices = await prisma.linkDevice.findMany({
-    where: { userId: source.userId, id: { not: source.id }, revokedAt: null },
-    select: { id: true, name: true, platform: true, capabilities: true, lastSeenAt: true },
+    where: {
+      id: { not: source.id },
+      revokedAt: null,
+      OR: [{ userId: source.userId }, { allowHouseholdShares: true }],
+    },
+    select: {
+      id: true,
+      name: true,
+      platform: true,
+      capabilities: true,
+      lastSeenAt: true,
+      userId: true,
+      user: { select: { name: true } },
+    },
     orderBy: { name: "asc" },
   });
   return devices.flatMap((device) => {
@@ -300,6 +312,8 @@ export async function shareTargets(source: { id: string; userId: string | null }
       supportsUrl,
       supportsFile,
       online: device.lastSeenAt !== null && device.lastSeenAt.getTime() > Date.now() - 90_000,
+      ownerName: device.user?.name ?? "HomePlace user",
+      ownedByCurrentUser: device.userId === source.userId,
     }];
   });
 }
@@ -311,12 +325,25 @@ export async function resolveShareTarget(
 ) {
   if (!source.userId || !parsedCapabilities(source.capabilities).has("share.send")) return null;
   const target = await prisma.linkDevice.findFirst({
-    where: { id: targetDeviceId, userId: source.userId, NOT: { id: source.id }, revokedAt: null },
+    where: {
+      id: targetDeviceId,
+      NOT: { id: source.id },
+      revokedAt: null,
+      OR: [{ userId: source.userId }, { allowHouseholdShares: true }],
+    },
     select: { id: true, capabilities: true },
   });
   if (!target) return null;
   const required = type === "text" ? "text.receive" : type === "url" ? "url.open" : "file.receive";
   return parsedCapabilities(target.capabilities).has(required) ? target : null;
+}
+
+export async function setHouseholdSharing(deviceId: string, enabled: boolean) {
+  const result = await prisma.linkDevice.updateMany({
+    where: { id: deviceId, revokedAt: null },
+    data: { allowHouseholdShares: enabled },
+  });
+  return result.count > 0;
 }
 
 export async function queueShareOffer(

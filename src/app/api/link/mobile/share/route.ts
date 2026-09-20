@@ -2,7 +2,16 @@ import { NextResponse } from "next/server";
 import { authorizeMobile } from "@/lib/linkMobile";
 import { boundedJson, checkDeviceActionRateLimit } from "@/lib/linkRequest";
 import { parseShareMessage } from "@/lib/linkShare";
-import { queueShareOffer, resolveShareTarget } from "@/lib/linkDevices";
+import { queueShareOffer, resolveShareTarget, shareTargets } from "@/lib/linkDevices";
+
+export async function GET(request: Request) {
+  const auth = await authorizeMobile(request, "share.relay");
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  return NextResponse.json(
+    { targets: await shareTargets(auth.device) },
+    { headers: { "cache-control": "no-store" } },
+  );
+}
 
 export async function POST(request: Request) {
   const auth = await authorizeMobile(request, "share.relay");

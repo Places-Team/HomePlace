@@ -7,6 +7,7 @@ import {
   revokeDevice,
   sendDeviceShare,
   sendDeviceTestNotification,
+  updateDeviceHouseholdSharing,
 } from "@/actions/linkDevices";
 import { Dialog } from "@/components/Dialog";
 import { Button, Field, Input, Select, Textarea } from "@/components/form";
@@ -34,6 +35,7 @@ export function DeviceActions({
   canOpenUrl,
   canReceiveText,
   canReceiveFile,
+  allowHouseholdShares,
   d,
 }: {
   id: string;
@@ -41,6 +43,7 @@ export function DeviceActions({
   canOpenUrl: boolean;
   canReceiveText: boolean;
   canReceiveFile: boolean;
+  allowHouseholdShares: boolean;
   d: Dictionary;
 }) {
   const [pending, startTransition] = useTransition();
@@ -148,6 +151,12 @@ export function DeviceActions({
           {d.devices.testNotification}
         </Button>
       )}
+      <Button
+        disabled={pending}
+        onClick={() => startTransition(() => updateDeviceHouseholdSharing(id, !allowHouseholdShares))}
+      >
+        {allowHouseholdShares ? d.devices.disableHouseholdSharing : d.devices.enableHouseholdSharing}
+      </Button>
       <Button
         variant="danger"
         disabled={pending}

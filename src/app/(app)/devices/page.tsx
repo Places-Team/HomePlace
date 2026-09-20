@@ -19,7 +19,11 @@ export default async function DevicesPage() {
   const now = Date.now();
   const [pairings, devices, serverUrl] = await Promise.all([
     prisma.linkPairing.findMany({ where: { status: "pending", expiresAt: { gt: new Date() } }, orderBy: { createdAt: "desc" } }),
-    prisma.linkDevice.findMany({ where: { revokedAt: null }, orderBy: { createdAt: "desc" } }),
+    prisma.linkDevice.findMany({
+      where: { revokedAt: null },
+      include: { user: { select: { name: true } } },
+      orderBy: { createdAt: "desc" },
+    }),
     effectiveOrigin(),
   ]);
 
@@ -87,6 +91,9 @@ export default async function DevicesPage() {
                     </div>
                     <p className="text-sm text-muted">{device.platform} {device.platformVersion} · {device.appVersion}</p>
                     <p className="mt-1 text-xs text-muted">
+                      {d.devices.owner}: {device.user?.name ?? d.devices.unassigned}
+                    </p>
+                    <p className="mt-1 text-xs text-muted">
                       {device.lastSeenAt ? `${d.devices.lastSeen} ${ago(device.lastSeenAt, d)}` : d.devices.neverConnected}
                     </p>
                     <div className="mt-2 flex flex-wrap gap-1">
@@ -102,6 +109,7 @@ export default async function DevicesPage() {
                     canOpenUrl={capabilities.some((capability) => capability.name === "url.open")}
                     canReceiveText={capabilities.some((capability) => capability.name === "text.receive")}
                     canReceiveFile={capabilities.some((capability) => capability.name === "file.receive")}
+                    allowHouseholdShares={device.allowHouseholdShares}
                     d={d}
                   />
                 </div>

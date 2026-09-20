@@ -8,6 +8,7 @@ import {
   queueTestNotification,
   rejectLinkPairing,
   revokeLinkDevice,
+  setHouseholdSharing,
 } from "@/lib/linkDevices";
 import { parseShareMessage } from "@/lib/linkShare";
 
@@ -32,6 +33,12 @@ export async function revokeDevice(id: string): Promise<void> {
 export async function sendDeviceTestNotification(id: string): Promise<void> {
   await requireRole("admin");
   await queueTestNotification(id);
+  revalidatePath("/devices");
+}
+
+export async function updateDeviceHouseholdSharing(id: string, enabled: boolean): Promise<void> {
+  await requireRole("admin");
+  await setHouseholdSharing(id, enabled);
   revalidatePath("/devices");
 }
 

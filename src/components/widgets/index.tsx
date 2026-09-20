@@ -43,6 +43,7 @@ import { smartDisks } from "@/lib/smart";
 import { internetSamples } from "@/lib/netmon";
 import { bytes, percent, duration, ago } from "@/lib/format";
 import { filesystemUsage } from "@/lib/filesystemUsage";
+import { groupRecentEvents } from "@/lib/eventGroups";
 import type { Dictionary } from "@/i18n";
 
 /**
@@ -1095,11 +1096,13 @@ async function EmbedWidget({ config, title, d }: { config: Record<string, unknow
 
 /** The latest entries from the event feed, on the board. */
 async function RecentEventsWidget({ config, title, d }: { config: Record<string, unknown>; title: string; d: Dictionary }) {
-  const events = await prisma.event.findMany({
+  const limit = num(config.limit, 8);
+  const rows = await prisma.event.findMany({
     orderBy: { at: "desc" },
-    take: num(config.limit, 8),
+    take: limit * 4,
     include: { item: { select: { title: true } } },
   });
+  const events = groupRecentEvents(rows).slice(0, limit);
 
   const label: Record<string, string> = {
     down: d.events.wentDown,
@@ -1131,7 +1134,10 @@ async function RecentEventsWidget({ config, title, d }: { config: Record<string,
                   <span className="text-muted">{label[e.type] ?? e.type}</span>
                 </p>
               </div>
-              <span className="shrink-0 text-[11px] text-faint">{ago(e.at, d)}</span>
+              <div className="flex shrink-0 items-center gap-1.5">
+                {e.count > 1 && <span className="text-[11px] text-faint">×{e.count}</span>}
+                <span className="text-[11px] text-faint">{ago(e.at, d)}</span>
+              </div>
             </div>
           ))
         )}

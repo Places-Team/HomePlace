@@ -1,6 +1,7 @@
 import "server-only";
 import { prisma } from "./db";
 import { authenticateLinkDevice, linkDeviceHasPermission } from "./linkDevices";
+import { groupRecentEvents } from "./eventGroups";
 
 export type MobilePermission = "dashboard.read" | "calendar.read" | "calendar.manage" | "reminder.manage" | "media.request" | "telegram.send" | "clipboard.relay" | "share.relay";
 
@@ -31,8 +32,8 @@ export async function monitoringSummary() {
     }),
     prisma.event.findMany({
       orderBy: { at: "desc" },
-      take: 8,
-      select: { id: true, type: true, severity: true, title: true, detail: true, at: true },
+      take: 32,
+      select: { id: true, type: true, severity: true, title: true, detail: true, itemId: true, actor: true, at: true },
     }),
   ]);
   const services = items.map((item) => ({
@@ -48,6 +49,14 @@ export async function monitoringSummary() {
     offline: services.filter((item) => item.status === "offline").length,
     unknown: services.filter((item) => item.status === "unknown").length,
     services,
-    recent: recent.map((event) => ({ ...event, at: event.at.toISOString() })),
+    recent: groupRecentEvents(recent).slice(0, 8).map((event) => ({
+      id: event.id,
+      type: event.type,
+      severity: event.severity,
+      title: event.title,
+      detail: event.detail,
+      at: event.at.toISOString(),
+      count: event.count,
+    })),
   };
 }

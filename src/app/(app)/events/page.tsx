@@ -5,6 +5,7 @@ import { Card, EmptyState, Badge } from "@/components/ui";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { EventFilters } from "./EventFilters";
 import { ago } from "@/lib/format";
+import { groupRecentEvents } from "@/lib/eventGroups";
 
 export const dynamic = "force-dynamic";
 
@@ -32,7 +33,7 @@ export default async function EventsPage({
   // for, and unfiltered rows do not answer it. The feed keeps everything now —
   // group commands, sign-ins, restarts — so the limit is higher and the filters
   // do more of the narrowing.
-  const events = await prisma.event.findMany({
+  const rows = await prisma.event.findMany({
     where: {
       ...(type ? { type } : {}),
       ...(severity ? { severity } : {}),
@@ -51,6 +52,7 @@ export default async function EventsPage({
     take: 400,
     include: { item: { select: { title: true } } },
   });
+  const events = groupRecentEvents(rows);
 
   const label: Record<string, string> = {
     down: d.events.wentDown,
@@ -98,6 +100,7 @@ export default async function EventsPage({
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 {event.actor && <Badge>{event.actor}</Badge>}
+                {event.count > 1 && <Badge>×{event.count}</Badge>}
                 <span className="whitespace-nowrap text-xs text-faint">{ago(event.at, d)}</span>
               </div>
             </li>

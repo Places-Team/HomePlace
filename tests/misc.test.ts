@@ -17,8 +17,33 @@ import { filesystemUsage } from "../src/lib/filesystemUsage";
 import { dockerCpuPercent } from "../src/lib/dockerMetrics";
 import { normalizeLinkCalendarEvents } from "../src/lib/linkCalendar";
 import { httpBaseUrl, limitedJson } from "../src/lib/outbound";
+import { groupRecentEvents } from "../src/lib/eventGroups";
 
 /** Small pure helpers that everything else leans on. */
+
+test("event grouping collapses only identical events inside the time window", () => {
+  const base = {
+    type: "down",
+    severity: "error",
+    title: "Jellyfin",
+    detail: "connection refused",
+    itemId: "service-1",
+    actor: null,
+  };
+  const events = [
+    { ...base, id: "newest", at: new Date("2026-09-21T12:10:00Z") },
+    { ...base, id: "nearby", at: new Date("2026-09-21T12:05:00Z") },
+    { ...base, id: "older", at: new Date("2026-09-21T11:45:00Z") },
+    { ...base, id: "different", detail: "timeout", at: new Date("2026-09-21T11:44:00Z") },
+  ];
+
+  const grouped = groupRecentEvents(events);
+  assert.deepEqual(grouped.map((event) => [event.id, event.count, event.eventIds]), [
+    ["newest", 2, ["newest", "nearby"]],
+    ["older", 1, ["older"]],
+    ["different", 1, ["different"]],
+  ]);
+});
 
 // ─────────────────────────────────── Slugs ───────────────────────────────
 

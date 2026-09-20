@@ -6,7 +6,7 @@ import { fetchNotifications, markNotificationsSeen } from "@/actions/notificatio
 import { ago } from "@/lib/format";
 import type { Dictionary } from "@/i18n";
 
-type Item = { id: string; type: string; severity: string; title: string; detail: string | null; at: number };
+type Item = { id: string; type: string; severity: string; title: string; detail: string | null; at: number; count: number };
 
 /**
  * The notification bell in the top bar.
@@ -120,7 +120,10 @@ export function NotificationBell({ d, initialUnread }: { d: Dictionary; initialU
                     }`}
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{it.title}</p>
+                    <p className="flex items-center gap-1.5 truncate text-sm font-medium">
+                      <span className="truncate">{it.title}</span>
+                      {it.count > 1 && <span className="shrink-0 text-[11px] text-faint">×{it.count}</span>}
+                    </p>
                     {it.detail && <p className="truncate text-xs text-muted">{it.detail}</p>}
                     <p className="mt-0.5 text-[11px] text-faint">{ago(it.at, d)}</p>
                   </div>

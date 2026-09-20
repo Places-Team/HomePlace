@@ -90,19 +90,35 @@ export async function approveLinkPairing(id: string, userId: string) {
       data: { status: "approving" },
     });
     if (reserved.count !== 1) return false;
-    const device = await tx.linkDevice.create({
-      data: {
-        name: pairing.name,
-        platform: pairing.platform,
-        platformVersion: pairing.platformVersion,
-        appVersion: pairing.appVersion,
-        publicKey: pairing.publicKey,
-        credentialHash: digest(credential),
-        capabilities: pairing.capabilities,
-        permissions: pairing.permissions,
-        userId,
-      },
+    const previous = await tx.linkDevice.findMany({
+      where: { userId, publicKey: pairing.publicKey },
+      select: { id: true, revokedAt: true, lastSeenAt: true, updatedAt: true },
+      orderBy: [{ lastSeenAt: "desc" }, { updatedAt: "desc" }],
     });
+    const deviceData = {
+      name: pairing.name,
+      platform: pairing.platform,
+      platformVersion: pairing.platformVersion,
+      appVersion: pairing.appVersion,
+      publicKey: pairing.publicKey,
+      credentialHash: digest(credential),
+      capabilities: pairing.capabilities,
+      permissions: pairing.permissions,
+      userId,
+      revokedAt: null,
+      lastSeenAt: null,
+    };
+    const canonical = previous.find((item) => item.revokedAt === null) ?? previous[0];
+    const device = canonical
+      ? await tx.linkDevice.update({ where: { id: canonical.id }, data: deviceData })
+      : await tx.linkDevice.create({ data: deviceData });
+    const duplicateIds = previous.filter((item) => item.id !== device.id).map((item) => item.id);
+    if (duplicateIds.length > 0) {
+      await tx.linkDevice.updateMany({
+        where: { id: { in: duplicateIds } },
+        data: { revokedAt: new Date() },
+      });
+    }
     await tx.linkPairing.update({
       where: { id },
       data: {

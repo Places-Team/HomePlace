@@ -195,16 +195,23 @@ export type CalendarEvent = {
   end: string;
   allDay: boolean;
   location?: string;
+  description?: string;
+  htmlLink?: string;
 };
 
-/** The next events from the primary calendar. */
-export async function upcomingEvents(userId: string, days = 7, limit = 10): Promise<CalendarEvent[] | null> {
+/** Events from the primary calendar in an explicit time range. */
+export async function calendarEvents(
+  userId: string,
+  from: Date,
+  to: Date,
+  limit = 1000
+): Promise<CalendarEvent[] | null> {
   const token = await accessTokenFor(userId);
   if (!token) return null;
 
   const params = new URLSearchParams({
-    timeMin: new Date().toISOString(),
-    timeMax: new Date(Date.now() + days * 86400_000).toISOString(),
+    timeMin: from.toISOString(),
+    timeMax: to.toISOString(),
     singleEvents: "true",
     orderBy: "startTime",
     maxResults: String(limit),
@@ -228,11 +235,18 @@ export async function upcomingEvents(userId: string, days = 7, limit = 10): Prom
       end: String(item.end?.dateTime ?? item.end?.date ?? ""),
       allDay: !item.start?.dateTime,
       location: item.location ? String(item.location) : undefined,
+      description: item.description ? String(item.description) : undefined,
+      htmlLink: item.htmlLink ? String(item.htmlLink) : undefined,
     }));
   } catch (e) {
     console.error("google calendar request failed:", e);
     return null;
   }
+}
+
+/** The next events from the primary calendar. */
+export async function upcomingEvents(userId: string, days = 7, limit = 10): Promise<CalendarEvent[] | null> {
+  return calendarEvents(userId, new Date(), new Date(Date.now() + days * 86400_000), limit);
 }
 
 export async function linkedAccount(userId: string) {

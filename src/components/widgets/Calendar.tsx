@@ -39,7 +39,9 @@ export async function CalendarWidget({
         title={title}
         action={
           account ? (
-            <span className="truncate text-[11px] text-faint">{account.email}</span>
+            <a href="/calendar" className="text-[11px] text-accent hover:underline">
+              {d.calendarPage.open}
+            </a>
           ) : (
             <a
               href="/settings?section=integrations"

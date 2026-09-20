@@ -14,6 +14,9 @@ import {
 import { addServiceWidget } from "@/actions/dashboard";
 import { SecretField } from "./SecretField";
 import type { Dictionary } from "@/i18n";
+import { Dialog } from "@/components/Dialog";
+import { TileIcon } from "@/components/TileIcon";
+import { SERVICE_ICONS, serviceLogo } from "@/lib/icons";
 
 /**
  * The services this household runs.
@@ -34,13 +37,62 @@ export type ServicesDisplay = {
 };
 
 export function ServiceForms({ d, display }: { d: Dictionary; display: ServicesDisplay }) {
+  type ServiceKey = "jellyfin" | "qbittorrent" | "arr" | "pbs" | "homeassistant";
+  const initiallyVisible: ServiceKey[] = [
+    ...(display.jellyfin.url ? ["jellyfin" as const] : []),
+    ...(display.qbittorrent.url ? ["qbittorrent" as const] : []),
+    ...(display.arr.length ? ["arr" as const] : []),
+    ...(display.pbs.url ? ["pbs" as const] : []),
+    ...(display.homeassistant.url ? ["homeassistant" as const] : []),
+  ];
+  const [visible, setVisible] = useState<Set<ServiceKey>>(() => new Set(initiallyVisible));
+  const [adding, setAdding] = useState(false);
+  const [arrKind, setArrKind] = useState("sonarr");
+
+  function show(key: ServiceKey, kind?: string) {
+    if (kind) setArrKind(kind);
+    setVisible((current) => new Set(current).add(key));
+    setAdding(false);
+  }
+
+  function hide(key: ServiceKey) {
+    setVisible((current) => {
+      const next = new Set(current);
+      next.delete(key);
+      return next;
+    });
+  }
+
+  const choices = [
+    { key: "jellyfin" as const, label: "Jellyfin", logo: "jellyfin" },
+    { key: "qbittorrent" as const, label: "qBittorrent", logo: "qbittorrent" },
+    { key: "arr" as const, kind: "sonarr", label: "Sonarr", logo: "sonarr" },
+    { key: "arr" as const, kind: "radarr", label: "Radarr", logo: "radarr" },
+    { key: "arr" as const, kind: "lidarr", label: "Lidarr", logo: "lidarr" },
+    { key: "arr" as const, kind: "readarr", label: "Readarr", logo: "readarr" },
+    { key: "pbs" as const, label: "Proxmox Backup Server", logo: "pbs" },
+    { key: "homeassistant" as const, label: "Home Assistant", logo: "homeassistant" },
+  ];
+
   return (
-    <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-      <JellyfinForm d={d} value={display.jellyfin} />
-      <QbitForm d={d} value={display.qbittorrent} />
-      <ArrForm d={d} value={display.arr} />
-      <PbsForm d={d} value={display.pbs} />
-      <HaForm d={d} value={display.homeassistant} />
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3 rounded-card border border-line bg-surface p-4">
+        <div><p className="text-sm font-medium">{d.settings.configuredServices}</p><p className="mt-0.5 text-xs text-muted">{d.settings.configuredServicesHint}</p></div>
+        <Button variant="primary" onClick={() => setAdding(true)}>＋ {d.settings.addService}</Button>
+      </div>
+      {visible.size === 0 && <button onClick={() => setAdding(true)} className="w-full rounded-card border border-dashed border-line px-6 py-10 text-center text-sm text-muted transition-colors hover:border-accent hover:text-text">＋ {d.settings.addFirstService}</button>}
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+        {visible.has("jellyfin") && <JellyfinForm d={d} value={display.jellyfin} onRemove={() => hide("jellyfin")} />}
+        {visible.has("qbittorrent") && <QbitForm d={d} value={display.qbittorrent} onRemove={() => hide("qbittorrent")} />}
+        {visible.has("arr") && <ArrForm d={d} value={display.arr} defaultKind={arrKind} onRemove={() => hide("arr")} />}
+        {visible.has("pbs") && <PbsForm d={d} value={display.pbs} onRemove={() => hide("pbs")} />}
+        {visible.has("homeassistant") && <HaForm d={d} value={display.homeassistant} onRemove={() => hide("homeassistant")} />}
+      </div>
+      <Dialog open={adding} onClose={() => setAdding(false)} title={d.settings.addService} wide>
+        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          {choices.map((choice) => <button key={`${choice.key}-${choice.kind ?? ""}`} onClick={() => show(choice.key, choice.kind)} className="flex min-h-24 flex-col items-center justify-center gap-2 rounded-control border border-line p-3 text-center transition-colors hover:border-accent hover:bg-raised"><TileIcon icon={serviceLogo(choice.logo)} title={choice.label} size="lg" fallback={SERVICE_ICONS[choice.logo] ?? "•"} /><span className="text-xs font-medium">{choice.label}</span></button>)}
+        </div>
+      </Dialog>
     </div>
   );
 }
@@ -82,14 +134,14 @@ function Result({ result, d }: { result: ServiceResult | null; d: Dictionary }) 
   );
 }
 
-function JellyfinForm({ d, value }: { d: Dictionary; value: ServicesDisplay["jellyfin"] }) {
+function JellyfinForm({ d, value, onRemove }: { d: Dictionary; value: ServicesDisplay["jellyfin"]; onRemove: () => void }) {
   const [form, setForm] = useState({ url: value.url, apiKey: "" });
   const [result, setResult] = useState<ServiceResult | null>(null);
   const [pending, startTransition] = useTransition();
 
   return (
     <Card>
-      <CardHeader title="Jellyfin" action={<Badge tone={value.url ? "ok" : "neutral"}>{value.url ? "on" : "off"}</Badge>} />
+      <CardHeader icon={serviceLogo("jellyfin")} iconFallback={SERVICE_ICONS.jellyfin} title="Jellyfin" action={<Badge tone={value.url ? "ok" : "neutral"}>{value.url ? "on" : "off"}</Badge>} />
       <div className="flex flex-col gap-3 p-4">
         <Field label={d.settings.url}>
           <Input
@@ -113,20 +165,21 @@ function JellyfinForm({ d, value }: { d: Dictionary; value: ServicesDisplay["jel
           </Button>
           <Result result={result} d={d} />
           <AddToBoard d={d} widget="jellyfin" title="Jellyfin" enabled={!!value.url} />
+          <Button variant="quiet" disabled={pending} onClick={() => startTransition(async () => { const next = await saveJellyfinSettings({ url: "", apiKey: "" }); setResult(next); if (next.ok) onRemove(); })}>{d.common.delete}</Button>
         </div>
       </div>
     </Card>
   );
 }
 
-function QbitForm({ d, value }: { d: Dictionary; value: ServicesDisplay["qbittorrent"] }) {
+function QbitForm({ d, value, onRemove }: { d: Dictionary; value: ServicesDisplay["qbittorrent"]; onRemove: () => void }) {
   const [form, setForm] = useState({ url: value.url, username: value.username, password: "" });
   const [result, setResult] = useState<ServiceResult | null>(null);
   const [pending, startTransition] = useTransition();
 
   return (
     <Card>
-      <CardHeader title="qBittorrent" action={<Badge tone={value.url ? "ok" : "neutral"}>{value.url ? "on" : "off"}</Badge>} />
+      <CardHeader icon={serviceLogo("qbittorrent")} iconFallback={SERVICE_ICONS.qbittorrent} title="qBittorrent" action={<Badge tone={value.url ? "ok" : "neutral"}>{value.url ? "on" : "off"}</Badge>} />
       <div className="flex flex-col gap-3 p-4">
         <Field label={d.settings.url}>
           <Input
@@ -154,6 +207,7 @@ function QbitForm({ d, value }: { d: Dictionary; value: ServicesDisplay["qbittor
           </Button>
           <Result result={result} d={d} />
           <AddToBoard d={d} widget="qbittorrent" title="qBittorrent" enabled={!!value.url} />
+          <Button variant="quiet" disabled={pending} onClick={() => startTransition(async () => { const next = await saveQbitSettings({ url: "", username: "", password: "" }); setResult(next); if (next.ok) onRemove(); })}>{d.common.delete}</Button>
         </div>
       </div>
     </Card>
@@ -161,11 +215,11 @@ function QbitForm({ d, value }: { d: Dictionary; value: ServicesDisplay["qbittor
 }
 
 /** Several *arr instances: they are the same API with different names. */
-function ArrForm({ d, value }: { d: Dictionary; value: ServicesDisplay["arr"] }) {
+function ArrForm({ d, value, defaultKind, onRemove }: { d: Dictionary; value: ServicesDisplay["arr"]; defaultKind: string; onRemove: () => void }) {
   const [rows, setRows] = useState(
     value.length > 0
       ? value.map((a) => ({ kind: a.kind, label: a.label, url: a.url, apiKey: "" }))
-      : [{ kind: "sonarr", label: "Sonarr", url: "", apiKey: "" }]
+      : [{ kind: defaultKind, label: defaultKind[0].toUpperCase() + defaultKind.slice(1), url: "", apiKey: "" }]
   );
   const [result, setResult] = useState<ServiceResult | null>(null);
   const [pending, startTransition] = useTransition();
@@ -177,6 +231,8 @@ function ArrForm({ d, value }: { d: Dictionary; value: ServicesDisplay["arr"] })
   return (
     <Card>
       <CardHeader
+        icon={serviceLogo(rows[0]?.kind ?? defaultKind)}
+        iconFallback={SERVICE_ICONS[rows[0]?.kind ?? defaultKind]}
         title="Sonarr / Radarr / Lidarr"
         action={<Badge tone={value.length > 0 ? "ok" : "neutral"}>{value.length || "off"}</Badge>}
       />
@@ -221,13 +277,14 @@ function ArrForm({ d, value }: { d: Dictionary; value: ServicesDisplay["arr"] })
           </Button>
           <Result result={result} d={d} />
           <AddToBoard d={d} widget="arr" title="*arr" enabled={value.length > 0} />
+          <Button variant="quiet" disabled={pending} onClick={() => startTransition(async () => { const next = await saveArrSettings([]); setResult(next); if (next.ok) onRemove(); })}>{d.common.delete}</Button>
         </div>
       </div>
     </Card>
   );
 }
 
-function PbsForm({ d, value }: { d: Dictionary; value: ServicesDisplay["pbs"] }) {
+function PbsForm({ d, value, onRemove }: { d: Dictionary; value: ServicesDisplay["pbs"]; onRemove: () => void }) {
   const [form, setForm] = useState({
     url: value.url,
     tokenId: value.tokenId,
@@ -239,7 +296,7 @@ function PbsForm({ d, value }: { d: Dictionary; value: ServicesDisplay["pbs"] })
 
   return (
     <Card>
-      <CardHeader title="Proxmox Backup Server" action={<Badge tone={value.url ? "ok" : "neutral"}>{value.url ? "on" : "off"}</Badge>} />
+      <CardHeader icon={serviceLogo("pbs")} iconFallback={SERVICE_ICONS.pbs} title="Proxmox Backup Server" action={<Badge tone={value.url ? "ok" : "neutral"}>{value.url ? "on" : "off"}</Badge>} />
       <div className="flex flex-col gap-3 p-4">
         <Field label={d.settings.url}>
           <Input
@@ -276,20 +333,21 @@ function PbsForm({ d, value }: { d: Dictionary; value: ServicesDisplay["pbs"] })
           </Button>
           <Result result={result} d={d} />
           <AddToBoard d={d} widget="pbs" title="Proxmox Backup" enabled={!!value.url} />
+          <Button variant="quiet" disabled={pending} onClick={() => startTransition(async () => { const next = await savePbsSettings({ url: "", tokenId: "", tokenSecret: "", verifyTls: true }); setResult(next); if (next.ok) onRemove(); })}>{d.common.delete}</Button>
         </div>
       </div>
     </Card>
   );
 }
 
-function HaForm({ d, value }: { d: Dictionary; value: ServicesDisplay["homeassistant"] }) {
+function HaForm({ d, value, onRemove }: { d: Dictionary; value: ServicesDisplay["homeassistant"]; onRemove: () => void }) {
   const [form, setForm] = useState({ url: value.url, token: "" });
   const [result, setResult] = useState<ServiceResult | null>(null);
   const [pending, startTransition] = useTransition();
 
   return (
     <Card>
-      <CardHeader title="Home Assistant" action={<Badge tone={value.url ? "ok" : "neutral"}>{value.url ? "on" : "off"}</Badge>} />
+      <CardHeader icon={serviceLogo("homeassistant")} iconFallback={SERVICE_ICONS.homeassistant} title="Home Assistant" action={<Badge tone={value.url ? "ok" : "neutral"}>{value.url ? "on" : "off"}</Badge>} />
       <div className="flex flex-col gap-3 p-4">
         <Field label={d.settings.url}>
           <Input
@@ -313,6 +371,7 @@ function HaForm({ d, value }: { d: Dictionary; value: ServicesDisplay["homeassis
           </Button>
           <Result result={result} d={d} />
           <AddToBoard d={d} widget="homeassistant" title="Home Assistant" enabled={!!value.url} />
+          <Button variant="quiet" disabled={pending} onClick={() => startTransition(async () => { const next = await saveHaSettings({ url: "", token: "" }); setResult(next); if (next.ok) onRemove(); })}>{d.common.delete}</Button>
         </div>
       </div>
     </Card>

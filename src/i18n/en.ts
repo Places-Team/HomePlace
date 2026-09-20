@@ -93,6 +93,8 @@ export const en = {
     unassigned: "Not assigned",
     enableHouseholdSharing: "Allow household sharing",
     disableHouseholdSharing: "Household sharing on",
+    enableQuickSharing: "Enable quick sharing",
+    disableQuickSharing: "Quick sharing on",
     sendContent: "Send to device",
     contentType: "Content type",
     link: "Link",

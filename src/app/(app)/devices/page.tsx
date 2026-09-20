@@ -110,6 +110,7 @@ export default async function DevicesPage() {
                     canReceiveText={capabilities.some((capability) => capability.name === "text.receive")}
                     canReceiveFile={capabilities.some((capability) => capability.name === "file.receive")}
                     allowHouseholdShares={device.allowHouseholdShares}
+                    quickSharingEnabled={permissions.includes("share.relay")}
                     d={d}
                   />
                 </div>

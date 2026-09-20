@@ -8,6 +8,7 @@ import {
   sendDeviceShare,
   sendDeviceTestNotification,
   updateDeviceHouseholdSharing,
+  updateDeviceQuickSharing,
 } from "@/actions/linkDevices";
 import { Dialog } from "@/components/Dialog";
 import { Button, Field, Input, Select, Textarea } from "@/components/form";
@@ -36,6 +37,7 @@ export function DeviceActions({
   canReceiveText,
   canReceiveFile,
   allowHouseholdShares,
+  quickSharingEnabled,
   d,
 }: {
   id: string;
@@ -44,6 +46,7 @@ export function DeviceActions({
   canReceiveText: boolean;
   canReceiveFile: boolean;
   allowHouseholdShares: boolean;
+  quickSharingEnabled: boolean;
   d: Dictionary;
 }) {
   const [pending, startTransition] = useTransition();
@@ -151,6 +154,12 @@ export function DeviceActions({
           {d.devices.testNotification}
         </Button>
       )}
+      <Button
+        disabled={pending}
+        onClick={() => startTransition(() => updateDeviceQuickSharing(id, !quickSharingEnabled))}
+      >
+        {quickSharingEnabled ? d.devices.disableQuickSharing : d.devices.enableQuickSharing}
+      </Button>
       <Button
         disabled={pending}
         onClick={() => startTransition(() => updateDeviceHouseholdSharing(id, !allowHouseholdShares))}

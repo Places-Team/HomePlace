@@ -346,6 +346,33 @@ export async function setHouseholdSharing(deviceId: string, enabled: boolean) {
   return result.count > 0;
 }
 
+export async function setLinkDevicePermission(
+  deviceId: string,
+  permission: "share.relay",
+  enabled: boolean,
+) {
+  const device = await prisma.linkDevice.findFirst({
+    where: { id: deviceId, revokedAt: null },
+    select: { permissions: true },
+  });
+  if (!device) return false;
+  let current: string[] = [];
+  try {
+    const parsed = JSON.parse(device.permissions) as unknown;
+    if (Array.isArray(parsed)) current = parsed.filter((item): item is string => typeof item === "string");
+  } catch {
+    current = [];
+  }
+  const permissions = new Set(current);
+  if (enabled) permissions.add(permission);
+  else permissions.delete(permission);
+  await prisma.linkDevice.update({
+    where: { id: deviceId },
+    data: { permissions: JSON.stringify([...permissions].sort()) },
+  });
+  return true;
+}
+
 export async function queueShareOffer(
   targetDeviceId: string,
   payload: Record<string, string | number>,

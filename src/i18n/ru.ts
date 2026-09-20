@@ -90,6 +90,8 @@ export const ru: Dictionary = {
     unassigned: "Не назначено",
     enableHouseholdSharing: "Разрешить обмен в семье",
     disableHouseholdSharing: "Обмен в семье включён",
+    enableQuickSharing: "Разрешить быструю отправку",
+    disableQuickSharing: "Быстрая отправка включена",
     sendContent: "Отправить на устройство",
     contentType: "Тип содержимого",
     link: "Ссылка",

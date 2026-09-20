@@ -1,13 +1,14 @@
 import "server-only";
 import { prisma } from "./db";
 import { statsForContainers, listContainers } from "./docker";
+import { recordContainerHistory } from "./containerHistory";
 
 /**
  * A persisted history of container CPU and memory, for installations without
  * Prometheus.
  *
  * The in-memory history (containerHistory.ts) is instant but forgets everything
- * on restart and only holds twenty minutes. This is the durable counterpart: a
+ * on restart and only holds the latest samples. This is the durable counterpart: a
  * coarse sample — one row per running container per minute — written on the
  * monitor's background tick and kept a week, so a chart survives a restart and
  * reaches back further than a page view ever could. Coarse on purpose: a
@@ -23,16 +24,19 @@ let sampling = false;
 export async function sampleContainersToDb(): Promise<void> {
   if (sampling || Date.now() - lastSample < MIN_GAP_MS) return;
   sampling = true;
+  // Rate-limit attempts too. A blocked Docker endpoint must not trigger a
+  // full retry on every ten-second monitor tick.
+  lastSample = Date.now();
   try {
     const running = (await listContainers()).filter((c) => c.state === "running");
     if (running.length === 0) return;
     const stats = await statsForContainers(running, 60);
     if (stats.length === 0) return;
     const at = new Date();
+    recordContainerHistory(stats, running.map((container) => container.name), at.getTime());
     await prisma.metricSample.createMany({
       data: stats.map((s) => ({ name: s.name, at, cpu: s.cpu, memory: s.memory })),
     });
-    lastSample = Date.now();
   } catch (e) {
     console.error("metric sampling failed:", e);
   } finally {
@@ -40,7 +44,7 @@ export async function sampleContainersToDb(): Promise<void> {
   }
 }
 
-/** Drop samples older than the retention window. Cheap; runs on the tick. */
+/** Drop samples older than the retention window. The monitor calls this hourly. */
 export async function pruneMetrics(): Promise<void> {
   const cutoff = new Date(Date.now() - KEEP_DAYS * 86400_000);
   await prisma.metricSample.deleteMany({ where: { at: { lt: cutoff } } }).catch(() => {});

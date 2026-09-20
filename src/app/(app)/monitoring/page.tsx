@@ -15,6 +15,7 @@ import { HoverChart } from "@/components/HoverChart";
 import { ContainerLoadChart } from "@/components/containers/ContainerLoadChart";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { bytes, percent, duration } from "@/lib/format";
+import { filesystemUsage } from "@/lib/filesystemUsage";
 
 export const dynamic = "force-dynamic";
 
@@ -257,20 +258,7 @@ async function HostView({ d, instance, range }: { d: ReturnType<typeof dict>; in
     queryOne(Q.uptimeSeconds(instance)),
   ]);
 
-  const freeBy = new Map(avail.map((s) => [s.metric.mountpoint, s.value]));
-  const filesystems = sizes
-    .map((s) => {
-      const free = freeBy.get(s.metric.mountpoint) ?? 0;
-      return {
-        mount: s.metric.mountpoint ?? "?",
-        device: s.metric.device ?? "",
-        total: s.value,
-        free,
-        used: s.value - free,
-        usedPercent: s.value > 0 ? ((s.value - free) / s.value) * 100 : 0,
-      };
-    })
-    .filter((f) => f.total > 0)
+  const filesystems = filesystemUsage(sizes, avail)
     .sort((a, b) => b.total - a.total);
 
   const hasSwap = (swapHistory[0]?.points ?? []).some(([, v]) => Number.isFinite(v) && v > 0);
@@ -356,10 +344,10 @@ async function HostView({ d, instance, range }: { d: ReturnType<typeof dict>; in
                   {f.mount} <span className="text-faint">{f.device}</span>
                 </span>
                 <span className="font-mono text-xs tabular-nums text-muted">
-                  {bytes(f.used)} / {bytes(f.total)} · {bytes(f.free)} {d.monitoring.free}
+                  {f.used === null ? "—" : bytes(f.used)} / {bytes(f.total)} · {f.free === null ? "—" : bytes(f.free)} {d.monitoring.free}
                 </span>
               </div>
-              <Meter value={f.usedPercent} />
+              <Meter value={f.usedPercent ?? 0} />
             </div>
           ))}
         </div>

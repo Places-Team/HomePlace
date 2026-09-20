@@ -42,6 +42,7 @@ import { LinksWidget } from "./Links";
 import { smartDisks } from "@/lib/smart";
 import { internetSamples } from "@/lib/netmon";
 import { bytes, percent, duration, ago } from "@/lib/format";
+import { filesystemUsage } from "@/lib/filesystemUsage";
 import type { Dictionary } from "@/i18n";
 
 /**
@@ -322,23 +323,9 @@ async function DisksWidget({ config, title, d }: { config: Record<string, unknow
   const instance = str(config.instance);
   const [sizes, avail] = await Promise.all([query(Q.filesystems(instance)), query(Q.filesystemsFree(instance))]);
 
-  // Two metrics, joined on the labels that identify a filesystem.
-  const freeBy = new Map(avail.map((s) => [`${s.metric.instance}|${s.metric.mountpoint}`, s.value]));
-  const rows = sizes
-    .map((s) => {
-      const key = `${s.metric.instance}|${s.metric.mountpoint}`;
-      const free = freeBy.get(key) ?? 0;
-      return {
-        mount: s.metric.mountpoint ?? "?",
-        instance: s.metric.instance ?? "",
-        total: s.value,
-        free,
-        usedPercent: s.value > 0 ? ((s.value - free) / s.value) * 100 : 0,
-      };
-    })
-    .filter((r) => r.total > 0)
+  const rows = filesystemUsage(sizes, avail)
     // Fullest first: the one about to cause a problem should be the one you see.
-    .sort((a, b) => b.usedPercent - a.usedPercent)
+    .sort((a, b) => (b.usedPercent ?? -1) - (a.usedPercent ?? -1))
     .slice(0, num(config.limit, 6));
 
   return (
@@ -353,10 +340,10 @@ async function DisksWidget({ config, title, d }: { config: Record<string, unknow
                 {r.mount}
               </span>
               <span className="shrink-0 font-mono text-xs tabular-nums text-faint">
-                {bytes(r.free)} {d.monitoring.free}
+                {r.free === null ? "—" : bytes(r.free)} {d.monitoring.free}
               </span>
             </div>
-            <Meter value={r.usedPercent} />
+            <Meter value={r.usedPercent ?? 0} />
           </div>
         ))}
       </div>

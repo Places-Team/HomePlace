@@ -7,13 +7,13 @@ import { evaluateRules } from "./rules";
 import { processReminders } from "./reminders";
 import { runDueSchedules } from "./schedules";
 import { startTelegramPolling } from "./telegramBot";
-import { sampleContainers } from "./containerHistory";
 import { sampleContainersToDb, pruneMetrics } from "./metricStore";
 import { prometheusConfig } from "./integrations";
 import { checkSmartDrift } from "./smart";
 import { probeInternet } from "./netmon";
 import { checkContainerUpdatesDue } from "./imageUpdates";
 import { checkTelegramBotsDue } from "./telegramHealth";
+import { isDue } from "./cadence";
 
 /**
  * The availability prober.
@@ -28,9 +28,11 @@ import { checkTelegramBotsDue } from "./telegramHealth";
  */
 
 const TICK_MS = 10_000;
+const MAINTENANCE_MS = 3_600_000;
 let timer: NodeJS.Timeout | null = null;
 let running = false;
 let lastRuleEval = 0;
+let lastMaintenance = 0;
 
 /**
  * Started from the first server render rather than from an instrumentation
@@ -89,11 +91,13 @@ async function tick(): Promise<void> {
     // seconds for nothing, which was most of the panel's own CPU. Prometheus
     // installs read their history straight from Prometheus.
     if (!(await prometheusConfig())) {
-      await sampleContainers();
       await sampleContainersToDb();
     }
-    await pruneOldChecks();
-    await pruneMetrics();
+    if (isDue(lastMaintenance, MAINTENANCE_MS)) {
+      lastMaintenance = Date.now();
+      await pruneOldChecks();
+      await pruneMetrics();
+    }
   } catch (e) {
     console.error("monitor tick failed:", e);
   } finally {
@@ -110,10 +114,6 @@ async function probeDue(): Promise<void> {
   });
   if (items.length === 0) return;
 
-  // Container states come from one listing rather than one API call per tile.
-  const needContainers = items.some((i) => i.checkKind === "docker");
-  const containers = needContainers ? await listContainers() : [];
-
   // Everything watched, seeded with what was already known. Tiles that are not
   // due this tick still take part in alerting: an outage does not pause because
   // the check interval is five minutes.
@@ -129,6 +129,11 @@ async function probeDue(): Promise<void> {
     const interval = Math.max(settings.minCheckInterval(), item.checkInterval) * 1000;
     return !last || now - last.at.getTime() >= interval;
   });
+
+  // Query Docker only when a Docker-backed item is actually due. Previously
+  // this listed every container every ten seconds even with minutes left.
+  const needContainers = due.some((item) => item.checkKind === "docker");
+  const containers = needContainers ? await listContainers() : [];
 
   await Promise.all(
     due.map(async (item) => {

@@ -120,7 +120,7 @@ export const Q = {
   filesystems: (instance?: string) =>
     `node_filesystem_size_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs"${sel(instance)}}`,
   filesystemsFree: (instance?: string) =>
-    `node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs"${sel(instance)}}`,
+    `node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs"${sel(instance)}} or node_filesystem_free_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs"${sel(instance)}}`,
   temperatures: (instance?: string) => `node_hwmon_temp_celsius${sel(instance, true)}`,
   networkRx: (instance?: string) => `rate(node_network_receive_bytes_total{device!~"lo|veth.*|br-.*|docker.*"${sel(instance)}}[2m])`,
   networkTx: (instance?: string) => `rate(node_network_transmit_bytes_total{device!~"lo|veth.*|br-.*|docker.*"${sel(instance)}}[2m])`,

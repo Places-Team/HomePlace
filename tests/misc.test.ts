@@ -12,6 +12,8 @@ import { checkDeviceActionRateLimit } from "../src/lib/linkRateLimit";
 import { clientAddress, hasMinimumSecretLength, isLocalHostname, safeRequestOrigin, secretsEqual } from "../src/lib/security";
 import { compareVersions, releaseUpdateFrom } from "../src/lib/updates";
 import { NOTIFY_EVENT_TYPES, shouldNotify } from "../src/lib/notifyPolicy";
+import { isDue } from "../src/lib/cadence";
+import { filesystemUsage } from "../src/lib/filesystemUsage";
 
 /** Small pure helpers that everything else leans on. */
 
@@ -86,6 +88,32 @@ test("latency: sub-millisecond replies are not rounded to zero", () => {
 test("percent: an absent value is a dash, not zero", () => {
   assert.equal(percent(null), "—");
   assert.equal(percent(12.34, 1), "12.3%");
+});
+
+test("cadence: first run is due and later runs wait for their interval", () => {
+  assert.equal(isDue(0, 60_000, 100_000), true);
+  assert.equal(isDue(50_000, 60_000, 100_000), false);
+  assert.equal(isDue(40_000, 60_000, 100_000), true);
+});
+
+test("filesystem usage never treats missing availability as a full disk", () => {
+  const [row] = filesystemUsage(
+    [{ metric: { instance: "nas", mountpoint: "/data", device: "/dev/sdb1" }, value: 4_000_000_000_000 }],
+    []
+  );
+  assert.equal(row.free, null);
+  assert.equal(row.used, null);
+  assert.equal(row.usedPercent, null);
+});
+
+test("filesystem usage joins exporters that omit device on availability", () => {
+  const [row] = filesystemUsage(
+    [{ metric: { instance: "nas", mountpoint: "/data", device: "/dev/sdb1" }, value: 4_000 }],
+    [{ metric: { instance: "nas", mountpoint: "/data" }, value: 3_000 }]
+  );
+  assert.equal(row.free, 3_000);
+  assert.equal(row.used, 1_000);
+  assert.equal(row.usedPercent, 25);
 });
 
 // ────────────────────────────────── Icons ────────────────────────────────

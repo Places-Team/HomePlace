@@ -39,9 +39,10 @@ export const LINK_PERMISSIONS = new Set([
   "media.request",
   "telegram.send",
   "clipboard.relay",
+  "share.relay",
 ]);
 
-export type LinkPermission = "dashboard.read" | "reminder.manage" | "media.request" | "telegram.send" | "clipboard.relay";
+export type LinkPermission = "dashboard.read" | "reminder.manage" | "media.request" | "telegram.send" | "clipboard.relay" | "share.relay";
 
 export type LinkCapability = {
   name: string;

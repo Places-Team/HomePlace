@@ -50,7 +50,7 @@ export async function completeReminder(id: string): Promise<void> {
   if (!reminder) return;
 
   if (reminder.repeat === "none") {
-    await prisma.reminder.update({ where: { id }, data: { done: true } });
+    await prisma.reminder.update({ where: { id }, data: { done: true, completedAt: new Date() } });
   } else {
     await prisma.reminder.update({
       where: { id },

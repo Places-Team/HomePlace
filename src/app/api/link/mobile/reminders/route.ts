@@ -19,7 +19,19 @@ export async function POST(request: Request) {
     const repeat = typeof input.repeat === "string" && isRepeat(input.repeat) ? input.repeat : "none";
     if (!title || Number.isNaN(at.getTime())) return NextResponse.json({ error: "title and time are required" }, { status: 400 });
     const reminder = await prisma.reminder.create({ data: { userId: auth.device.userId, title, at, repeat } });
-    return NextResponse.json({ reminder: { id: reminder.id, title: reminder.title, at: reminder.at.toISOString(), repeat: reminder.repeat } }, { status: 201 });
+    return NextResponse.json({ reminder: {
+      id: reminder.id,
+      title: reminder.title,
+      at: reminder.at.toISOString(),
+      repeat: reminder.repeat,
+      done: reminder.done,
+      createdAt: reminder.createdAt.toISOString(),
+      completedAt: null,
+    } }, { status: 201 });
+  }
+  if (action === "deleteCompleted") {
+    const result = await prisma.reminder.deleteMany({ where: { userId: auth.device.userId, done: true } });
+    return NextResponse.json({ ok: true, deleted: result.count });
   }
   const id = typeof input.id === "string" && /^[A-Za-z0-9_-]{1,40}$/.test(input.id) ? input.id : "";
   if (!id) return NextResponse.json({ error: "invalid reminder id" }, { status: 400 });
@@ -29,8 +41,28 @@ export async function POST(request: Request) {
     await prisma.reminder.update({
       where: { id },
       data: reminder.repeat === "none"
-        ? { done: true }
+        ? { done: true, completedAt: new Date() }
         : { at: nextOccurrence(reminder.at, reminder.repeat), notifiedAt: null },
+    });
+    return NextResponse.json({ ok: true });
+  }
+  if (action === "reopen") {
+    await prisma.reminder.update({
+      where: { id },
+      data: { done: false, completedAt: null, notifiedAt: null },
+    });
+    return NextResponse.json({ ok: true });
+  }
+  if (action === "update") {
+    const title = typeof input.title === "string" ? input.title.trim().slice(0, 200) : "";
+    const at = typeof input.at === "string" ? new Date(input.at) : new Date(NaN);
+    const repeat = typeof input.repeat === "string" && isRepeat(input.repeat) ? input.repeat : null;
+    if (!title || Number.isNaN(at.getTime()) || !repeat) {
+      return NextResponse.json({ error: "title, time and repeat are required" }, { status: 400 });
+    }
+    await prisma.reminder.update({
+      where: { id },
+      data: { title, at, repeat, notifiedAt: null },
     });
     return NextResponse.json({ ok: true });
   }

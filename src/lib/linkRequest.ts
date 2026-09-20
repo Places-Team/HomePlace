@@ -1,6 +1,7 @@
 import "server-only";
 import { settings } from "./config";
 import { clientAddress } from "./security";
+export { checkDeviceActionRateLimit } from "./linkRateLimit";
 
 const MAX_BODY_BYTES = 32 * 1024;
 const PAIRING_WINDOW_MS = 60_000;
@@ -28,6 +29,7 @@ export function checkPairingRateLimit(request: Request): { allowed: boolean; ret
 
   return { allowed: true };
 }
+
 
 export async function boundedJson(request: Request): Promise<unknown | null> {
   const announced = Number(request.headers.get("content-length") ?? 0);

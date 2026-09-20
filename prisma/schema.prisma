@@ -53,7 +53,8 @@ model User {
   createdAt   DateTime  @default(now())
   lastLoginAt DateTime?
 
-  dashboards Dashboard[]
+  dashboards  Dashboard[]
+  linkDevices LinkDevice[]
 }
 
 // ─────────────────────────────── Dashboards ─────────────────────────────
@@ -376,6 +377,7 @@ model Reminder {
   // none | daily | weekly | monthly
   repeat  String   @default("none")
   done    Boolean  @default(false)
+  completedAt DateTime?
   // Set when the notification went out, so it is sent exactly once per due time.
   notifiedAt DateTime?
 
@@ -409,6 +411,7 @@ model LinkDevice {
   // the phone may ask HomePlace to do.
   permissions     String   @default("[]")
   userId          String?
+  user            User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   lastSeenAt      DateTime?
   revokedAt       DateTime?
   createdAt       DateTime @default(now())
@@ -418,6 +421,26 @@ model LinkDevice {
   events   LinkDeviceEvent[]
 
   @@index([revokedAt, lastSeenAt])
+  @@index([userId, revokedAt])
+}
+
+// Temporary, encrypted file content offered to exactly one approved device.
+// Rows and files expire after five minutes and are removed after download.
+model LinkFileTransfer {
+  id             String   @id @default(cuid())
+  sourceDeviceId String
+  targetDeviceId String
+  encryptedKey   String
+  storageName    String   @unique
+  filename       String
+  mimeType       String
+  size           Int
+  sha256         String
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+
+  @@index([targetDeviceId, expiresAt])
+  @@index([expiresAt])
 }
 
 // A short-lived request waiting for approval in the web interface.

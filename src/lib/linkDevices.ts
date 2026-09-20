@@ -6,6 +6,7 @@ import type { LinkPairRequest } from "./linkProtocol";
 import { LINK_PROTOCOL_MAX } from "./linkProtocol";
 import { linkServerId } from "./linkServer";
 import { secretsEqual } from "./security";
+import { discardFileTransfer, pruneExpiredFileTransfers } from "./linkFiles";
 
 const PAIRING_LIFETIME_MS = 5 * 60_000;
 const MAX_PENDING_EVENTS = 50;
@@ -142,19 +143,24 @@ export function linkDeviceHasPermission(device: { permissions: string }, permiss
 }
 
 export async function heartbeatLinkDevice(deviceId: string, acknowledgedEventIds: string[]) {
+  await pruneExpiredFileTransfers();
   const now = new Date();
-  const clipboardCutoff = new Date(now.getTime() - 5 * 60_000);
+  const ephemeralCutoff = new Date(now.getTime() - 5 * 60_000);
+  const declinedTransfers = acknowledgedEventIds.length ? await prisma.linkDeviceEvent.findMany({
+    where: { deviceId, id: { in: acknowledgedEventIds }, kind: "share.offer" },
+    select: { payload: true },
+  }) : [];
   const events = await prisma.$transaction(async (tx) => {
     await tx.linkDevice.update({ where: { id: deviceId }, data: { lastSeenAt: now } });
     await tx.linkDeviceEvent.deleteMany({
-      where: { deviceId, kind: "clipboard.offer", createdAt: { lt: clipboardCutoff } },
+      where: { deviceId, kind: { in: ["clipboard.offer", "share.offer"] }, createdAt: { lt: ephemeralCutoff } },
     });
     if (acknowledgedEventIds.length) {
       await tx.linkDeviceEvent.deleteMany({
-        where: { deviceId, id: { in: acknowledgedEventIds }, kind: "clipboard.offer" },
+        where: { deviceId, id: { in: acknowledgedEventIds }, kind: { in: ["clipboard.offer", "share.offer"] } },
       });
       await tx.linkDeviceEvent.updateMany({
-        where: { deviceId, id: { in: acknowledgedEventIds }, kind: { not: "clipboard.offer" }, deliveredAt: null },
+        where: { deviceId, id: { in: acknowledgedEventIds }, kind: { notIn: ["clipboard.offer", "share.offer"] }, deliveredAt: null },
         data: { deliveredAt: now },
       });
     }
@@ -165,6 +171,14 @@ export async function heartbeatLinkDevice(deviceId: string, acknowledgedEventIds
     });
     return queued;
   });
+  await Promise.all(declinedTransfers.flatMap((event) => {
+    try {
+      const payload = JSON.parse(event.payload) as { transferId?: unknown };
+      return typeof payload.transferId === "string" ? [discardFileTransfer(payload.transferId, deviceId)] : [];
+    } catch {
+      return [];
+    }
+  }));
   return {
     protocol: LINK_PROTOCOL_MAX,
     serverId: await linkServerId(),
@@ -227,6 +241,72 @@ export async function relayClipboard(source: { id: string; userId: string | null
     },
   })));
   return targets.length;
+}
+
+export async function shareTargets(source: { id: string; userId: string | null }) {
+  if (!source.userId) return [];
+  const devices = await prisma.linkDevice.findMany({
+    where: { userId: source.userId, id: { not: source.id }, revokedAt: null },
+    select: { id: true, name: true, platform: true, capabilities: true, lastSeenAt: true },
+    orderBy: { name: "asc" },
+  });
+  return devices.flatMap((device) => {
+    const capabilities = parsedCapabilities(device.capabilities);
+    const supportsText = capabilities.has("text.receive");
+    const supportsUrl = capabilities.has("url.open");
+    const supportsFile = capabilities.has("file.receive");
+    if (!supportsText && !supportsUrl && !supportsFile) return [];
+    return [{
+      id: device.id,
+      name: device.name,
+      platform: device.platform,
+      supportsText,
+      supportsUrl,
+      supportsFile,
+      online: device.lastSeenAt !== null && device.lastSeenAt.getTime() > Date.now() - 90_000,
+    }];
+  });
+}
+
+export async function resolveShareTarget(
+  source: { id: string; userId: string | null; capabilities: string },
+  targetDeviceId: string,
+  type: "text" | "url" | "file",
+) {
+  if (!source.userId || !parsedCapabilities(source.capabilities).has("share.send")) return null;
+  const target = await prisma.linkDevice.findFirst({
+    where: { id: targetDeviceId, userId: source.userId, NOT: { id: source.id }, revokedAt: null },
+    select: { id: true, capabilities: true },
+  });
+  if (!target) return null;
+  const required = type === "text" ? "text.receive" : type === "url" ? "url.open" : "file.receive";
+  return parsedCapabilities(target.capabilities).has(required) ? target : null;
+}
+
+export async function queueShareOffer(
+  targetDeviceId: string,
+  payload: Record<string, string | number>,
+) {
+  await prisma.linkDeviceEvent.deleteMany({
+    where: { deviceId: targetDeviceId, kind: "share.offer", createdAt: { lt: new Date(Date.now() - 5 * 60_000) } },
+  });
+  const pending = await prisma.linkDeviceEvent.count({
+    where: { deviceId: targetDeviceId, kind: "share.offer", deliveredAt: null },
+  });
+  if (pending >= 20) return false;
+  await prisma.linkDeviceEvent.create({
+    data: { deviceId: targetDeviceId, kind: "share.offer", payload: JSON.stringify(payload) },
+  });
+  return true;
+}
+
+function parsedCapabilities(value: string): Set<string> {
+  try {
+    const capabilities = JSON.parse(value) as { name?: unknown }[];
+    return new Set(capabilities.flatMap((item) => typeof item.name === "string" ? [item.name] : []));
+  } catch {
+    return new Set();
+  }
 }
 
 function isUniqueConstraint(error: unknown): boolean {

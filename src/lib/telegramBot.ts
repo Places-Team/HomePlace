@@ -136,7 +136,7 @@ async function completeReminderById(id: string): Promise<boolean> {
   const r = await prisma.reminder.findUnique({ where: { id } });
   if (!r) return false;
   if (r.repeat === "none") {
-    await prisma.reminder.update({ where: { id }, data: { done: true } });
+    await prisma.reminder.update({ where: { id }, data: { done: true, completedAt: new Date() } });
   } else {
     const { nextOccurrence } = await import("./recurrence");
     await prisma.reminder.update({ where: { id }, data: { at: nextOccurrence(r.at, r.repeat), notifiedAt: null } });

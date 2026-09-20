@@ -210,15 +210,20 @@ latest-state record. Only meaningful transitions become history events.
 - `POST /api/link/heartbeat`: authenticated presence, event delivery and event
   acknowledgement.
 - `DELETE /api/link/device`: revoke the authenticated device.
-- `GET /api/link/mobile/overview`: scoped calendar, reminder, media, Telegram
-  and monitoring data for the approved user.
-- `POST /api/link/mobile/reminders`: create, complete or delete personal
-  reminders.
+- `GET /api/link/mobile/overview`: scoped calendar, reminder, media, Telegram,
+  monitoring and same-account share targets for the approved user.
+- `POST /api/link/mobile/reminders`: create, edit, complete, restore, delete or
+  clear completed personal reminders. Every lookup and bulk action is scoped to
+  the paired user's ID.
 - `GET /api/link/mobile/requests/search` and `POST /api/link/mobile/requests`:
   search and add titles through configured Sonarr/Radarr instances.
 - `POST /api/link/mobile/telegram`: send an explicit connection test.
 - `POST /api/link/mobile/clipboard`: relay bounded text only to capable devices
   approved for the same user.
+- `POST /api/link/mobile/share`: offer bounded text or a safe HTTP(S) URL to
+  one explicitly selected, capable device approved for the same user.
+- `POST /api/link/mobile/share/file` and `GET /api/link/mobile/share/file/:id`:
+  create and consume a five-minute encrypted file offer of at most 5 MB.
 
 Administrator approval, rejection, test notification and revocation are server
 actions protected by the existing HomePlace administrator session.
@@ -230,11 +235,21 @@ offers require a visible copy action, expire after five minutes and are deleted
 when acknowledged. iOS does not advertise clipboard relay in the first mobile
 slice.
 
+Share routes require `share.relay`, require the source `share.send` capability,
+and return only targets with the matching receive capability and the same
+`userId`. Cross-account and unknown targets receive the same unavailable
+response. The sender chooses a target and confirms before transmission; the
+receiver separately accepts or declines. Temporary files use a random
+per-transfer AES-256-GCM key, are integrity checked, expire after five minutes,
+and can be downloaded once. Family sharing remains unavailable until an
+explicit household membership and consent model exists.
+
 ### Future API and gateway
 
 - `GET /api/link/connect`: authenticated WebSocket upgrade.
-- `POST /api/link/files`: create a bounded transfer.
-- `PUT/GET /api/link/files/:id`: authenticated streaming transfer.
+- `POST /api/link/files`: create a resumable transfer larger than the current
+  mobile single-request limit.
+- `PUT/GET /api/link/files/:id`: authenticated streaming and resume support.
 - `POST /api/link/devices/:id/commands`: dispatch a validated command.
 - `GET /api/link/devices/:id/events`: paginated event history.
 

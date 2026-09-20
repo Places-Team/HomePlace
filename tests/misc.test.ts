@@ -7,6 +7,8 @@ import { bytes, duration, latency, percent } from "../src/lib/format";
 import { dashboardIconSlugs, dashboardIconUrl, guessKey, guessIcon, autoIcon, faviconUrl } from "../src/lib/icons";
 import { nextOccurrence } from "../src/lib/recurrence";
 import { createLinkInfo, isLinkServerId, LINK_PROTOCOL_MAX, LINK_PROTOCOL_MIN, parseLinkPairRequest } from "../src/lib/linkProtocol";
+import { parseShareMessage, safeFilename, safeSharedUrl } from "../src/lib/linkShare";
+import { checkDeviceActionRateLimit } from "../src/lib/linkRateLimit";
 import { clientAddress, hasMinimumSecretLength, isLocalHostname, safeRequestOrigin, secretsEqual } from "../src/lib/security";
 import { compareVersions, releaseUpdateFrom } from "../src/lib/updates";
 
@@ -175,13 +177,38 @@ test("link pairing accepts only supported capabilities and protocol versions", (
     device: { name: "Pixel", platform: "android", platformVersion: "15", appVersion: "0.1.0" },
     publicKey: publicKey.export({ type: "spki", format: "der" }).toString("base64"),
     capabilities: [{ name: "notification.receive", version: 1, constraints: {} }],
-    permissions: ["dashboard.read", "reminder.manage", "clipboard.relay"],
+    permissions: ["dashboard.read", "reminder.manage", "clipboard.relay", "share.relay"],
   };
   assert.deepEqual(parseLinkPairRequest(valid), valid);
   assert.equal(parseLinkPairRequest({ ...valid, protocol: 2 }), null);
   assert.equal(parseLinkPairRequest({ ...valid, capabilities: [{ name: "system.shell", version: 1, constraints: {} }] }), null);
   assert.equal(parseLinkPairRequest({ ...valid, permissions: ["system.shell"] }), null);
   assert.equal(parseLinkPairRequest({ ...valid, publicKey: Buffer.alloc(65).toString("base64") }), null);
+});
+
+test("shared content accepts bounded text and safe web links", () => {
+  assert.deepEqual(parseShareMessage({ type: "text", value: " hello ", targetDeviceId: "device_1" }), {
+    type: "text", value: "hello", targetDeviceId: "device_1",
+  });
+  assert.equal(safeSharedUrl("https://example.com/path"), true);
+  assert.equal(safeSharedUrl("https://user:secret@example.com"), false);
+  assert.equal(safeSharedUrl("file:///etc/passwd"), false);
+  assert.equal(parseShareMessage({ type: "url", value: "javascript:alert(1)", targetDeviceId: "device_1" }), null);
+  assert.equal(parseShareMessage({ type: "text", value: "x".repeat(8001), targetDeviceId: "device_1" }), null);
+});
+
+test("shared filenames cannot escape the private transfer directory", () => {
+  assert.equal(safeFilename("../../family/photo.jpg"), ".._.._family_photo.jpg");
+  assert.equal(safeFilename("\u0000"), "shared-file");
+});
+
+test("authenticated share actions are rate limited per device", () => {
+  assert.equal(checkDeviceActionRateLimit("rate-test-device", "share", 2).allowed, true);
+  assert.equal(checkDeviceActionRateLimit("rate-test-device", "share", 2).allowed, true);
+  const blocked = checkDeviceActionRateLimit("rate-test-device", "share", 2);
+  assert.equal(blocked.allowed, false);
+  assert.ok((blocked.retryAfterSeconds ?? 0) > 0);
+  assert.equal(checkDeviceActionRateLimit("other-device", "share", 2).allowed, true);
 });
 
 // ───────────────────────────────── Security ─────────────────────────────

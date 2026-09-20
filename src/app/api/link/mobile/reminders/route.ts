@@ -6,6 +6,35 @@ import { isRepeat, nextOccurrence } from "@/lib/recurrence";
 
 export const dynamic = "force-dynamic";
 
+export async function GET(request: Request) {
+  const auth = await authorizeMobile(request, "reminder.manage");
+  if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+
+  const reminders = await prisma.reminder.findMany({
+    where: { userId: auth.device.userId, done: false },
+    orderBy: { at: "asc" },
+    take: 100,
+    select: {
+      id: true,
+      title: true,
+      at: true,
+      repeat: true,
+      done: true,
+      createdAt: true,
+      completedAt: true,
+    },
+  });
+
+  return NextResponse.json({
+    reminders: reminders.map((reminder) => ({
+      ...reminder,
+      at: reminder.at.toISOString(),
+      createdAt: reminder.createdAt.toISOString(),
+      completedAt: reminder.completedAt?.toISOString() ?? null,
+    })),
+  });
+}
+
 export async function POST(request: Request) {
   const auth = await authorizeMobile(request, "reminder.manage");
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });

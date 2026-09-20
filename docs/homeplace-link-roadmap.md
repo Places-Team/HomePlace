@@ -215,6 +215,10 @@ latest-state record. Only meaningful transitions become history events.
 - `POST /api/link/mobile/reminders`: create, edit, complete, restore, delete or
   clear completed personal reminders. Every lookup and bulk action is scoped to
   the paired user's ID.
+- `GET /api/link/reminders` and `POST /api/link/reminders`: shared scoped
+  reminder access for approved desktop companions. Desktop requests the same
+  explicit `reminder.manage` permission and cannot silently elevate an existing
+  pairing.
 - `GET /api/link/mobile/requests/search` and `POST /api/link/mobile/requests`:
   search and add titles through configured Sonarr/Radarr instances.
 - `POST /api/link/mobile/telegram`: send an explicit connection test.

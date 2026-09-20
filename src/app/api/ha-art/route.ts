@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { currentUser } from "@/lib/session";
 import { haConfig, haMediaPlayers } from "@/lib/services";
+import { limitedBytes } from "@/lib/outbound";
 
 /**
  * Cover art from Home Assistant, served through the panel.
@@ -68,6 +69,7 @@ export async function GET(req: Request) {
     // giving the house keys to a stranger for a picture.
     headers: own ? { authorization: `Bearer ${cfg.token}` } : undefined,
     cache: "no-store",
+    redirect: "manual",
     signal: AbortSignal.timeout(8000),
   }).catch((e) => {
     console.warn(`ha-art: ${target.pathname} did not answer:`, e instanceof Error ? e.message : e);
@@ -87,9 +89,14 @@ export async function GET(req: Request) {
     return new NextResponse("not an image", { status: 415 });
   }
 
-  // Uint8Array rather than the ArrayBuffer straight from fetch: the Response
-  // types accept only the view, and the copy is free — they share memory.
-  return new NextResponse(new Uint8Array(await upstream.arrayBuffer()), {
+  // Keep proxy responses bounded: artwork is untrusted even when HA advertised it.
+  let bytes: Uint8Array<ArrayBuffer>;
+  try {
+    bytes = await limitedBytes(upstream, 12 * 1024 * 1024);
+  } catch {
+    return new NextResponse("image too large", { status: 413 });
+  }
+  return new NextResponse(bytes, {
     headers: {
       "content-type": type,
       // Art changes when the track does, and the URL carries the track's own

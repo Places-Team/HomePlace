@@ -26,6 +26,7 @@ async function promFetch(path: string, params: Record<string, string>) {
   const res = await fetch(`${cfg.url}${path}?${qs}`, {
     headers: auth(cfg),
     cache: "no-store",
+    redirect: "manual",
     signal: AbortSignal.timeout(8000),
   });
   if (!res.ok) throw new Error(`prometheus HTTP ${res.status}`);
@@ -213,6 +214,7 @@ export async function prometheusHealth(): Promise<{ ok: boolean; error?: string 
     const res = await fetch(`${cfg.url}/-/healthy`, {
       headers: auth(cfg),
       cache: "no-store",
+      redirect: "manual",
       signal: AbortSignal.timeout(5000),
     });
     return { ok: res.ok, error: res.ok ? undefined : `HTTP ${res.status}` };

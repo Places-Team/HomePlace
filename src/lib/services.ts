@@ -2,6 +2,7 @@ import "server-only";
 import { Agent } from "undici";
 import { getSetting, setSetting } from "./db";
 import { decrypt, encrypt } from "./secretBox";
+import { httpBaseUrl, limitedJson } from "./outbound";
 
 /**
  * The services this household actually runs.
@@ -34,18 +35,23 @@ async function get<T>({ url, headers, insecure, timeout = 8000, init }: Fetch): 
       ...init,
       headers,
       cache: "no-store",
+      redirect: "manual",
       signal: AbortSignal.timeout(timeout),
       // @ts-expect-error — undici's dispatcher option is not in the DOM types.
       dispatcher: insecure ? insecureAgent : undefined,
     });
     if (!res.ok) return null;
-    return (await res.json()) as T;
+    return await limitedJson<T>(res);
   } catch {
     return null;
   }
 }
 
-const trim = (url: string) => url.trim().replace(/\/+$/, "");
+const trim = (url: string) => {
+  const normalized = httpBaseUrl(url);
+  if (!normalized) throw new Error("invalid service address");
+  return normalized;
+};
 
 // ──────────────────────────────── Jellyfin ───────────────────────────────
 
@@ -75,7 +81,8 @@ export type JellyfinState = {
 export async function jellyfinConfig(): Promise<JellyfinSettings | null> {
   const stored = await getSetting<JellyfinSettings | null>(KEY.jellyfin, null);
   if (!stored?.url || !stored.apiKey) return null;
-  return { url: stored.url, apiKey: await decrypt(stored.apiKey) };
+  const url = httpBaseUrl(stored.url);
+  return url ? { url, apiKey: await decrypt(stored.apiKey) } : null;
 }
 
 export async function saveJellyfin(input: JellyfinSettings | null): Promise<void> {
@@ -184,7 +191,8 @@ export type QbitState = {
 export async function qbitConfig(): Promise<QbitSettings | null> {
   const stored = await getSetting<QbitSettings | null>(KEY.qbittorrent, null);
   if (!stored?.url) return null;
-  return { url: stored.url, username: stored.username ?? "", password: stored.password ? await decrypt(stored.password) : "" };
+  const url = httpBaseUrl(stored.url);
+  return url ? { url, username: stored.username ?? "", password: stored.password ? await decrypt(stored.password) : "" } : null;
 }
 
 export async function saveQbit(input: QbitSettings | null): Promise<void> {
@@ -214,6 +222,7 @@ async function qbitLogin(cfg: QbitSettings): Promise<string | null> {
       headers: { "content-type": "application/x-www-form-urlencoded", referer: cfg.url },
       body: new URLSearchParams({ username: cfg.username, password: cfg.password }),
       cache: "no-store",
+      redirect: "manual",
       signal: AbortSignal.timeout(8000),
     });
     const cookie = res.headers.get("set-cookie")?.split(";")[0] ?? "";
@@ -281,8 +290,8 @@ export async function arrConfig(): Promise<ArrInstance[]> {
   const stored = await getSetting<ArrInstance[]>(KEY.arr, []);
   return Promise.all(
     stored
-      .filter((a) => a?.url && a.kind)
-      .map(async (a) => ({ ...a, apiKey: a.apiKey ? await decrypt(a.apiKey) : "" }))
+      .filter((a) => a?.url && a.kind && httpBaseUrl(a.url))
+      .map(async (a) => ({ ...a, url: httpBaseUrl(a.url)!, apiKey: a.apiKey ? await decrypt(a.apiKey) : "" }))
   );
 }
 
@@ -464,7 +473,8 @@ export type PbsState = {
 export async function pbsConfig(): Promise<PbsSettings | null> {
   const stored = await getSetting<PbsSettings | null>(KEY.pbs, null);
   if (!stored?.url || !stored.tokenId) return null;
-  return { ...stored, tokenSecret: await decrypt(stored.tokenSecret) };
+  const url = httpBaseUrl(stored.url);
+  return url ? { ...stored, url, tokenSecret: await decrypt(stored.tokenSecret) } : null;
 }
 
 export async function savePbs(input: PbsSettings | null): Promise<void> {
@@ -561,7 +571,8 @@ export type HaEntity = {
 export async function haConfig(): Promise<HaSettings | null> {
   const stored = await getSetting<HaSettings | null>(KEY.homeassistant, null);
   if (!stored?.url || !stored.token) return null;
-  return { url: stored.url, token: await decrypt(stored.token) };
+  const url = httpBaseUrl(stored.url);
+  return url ? { url, token: await decrypt(stored.token) } : null;
 }
 
 export async function saveHa(input: HaSettings | null): Promise<void> {
@@ -607,6 +618,7 @@ export async function haAreas(): Promise<string[]> {
           "{{ (device_attr(did, 'name_by_user') or device_attr(did, 'name')) if did else '' }}\n{% endfor %}",
       }),
       cache: "no-store",
+      redirect: "manual",
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return [];
@@ -751,7 +763,12 @@ export async function haHistory(entityId: string, hours = 24): Promise<HaHistory
       `${cfg.url}/api/history/period/${encodeURIComponent(start)}?filter_entity_id=${encodeURIComponent(
         entityId
       )}&minimal_response&significant_changes_only`,
-      { headers: { authorization: `Bearer ${cfg.token}` }, cache: "no-store", signal: AbortSignal.timeout(10000) }
+      {
+        headers: { authorization: `Bearer ${cfg.token}` },
+        cache: "no-store",
+        redirect: "manual",
+        signal: AbortSignal.timeout(10000),
+      }
     );
     if (!res.ok) return [];
 
@@ -1026,6 +1043,7 @@ async function haCall(
       headers: { authorization: `Bearer ${cfg.token}`, "content-type": "application/json" },
       body: JSON.stringify(data),
       cache: "no-store",
+      redirect: "manual",
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
@@ -1060,6 +1078,7 @@ export async function haSetState(entityIds: string[], on: boolean): Promise<{ ok
       headers: { authorization: `Bearer ${cfg.token}`, "content-type": "application/json" },
       body: JSON.stringify({ entity_id: targets }),
       cache: "no-store",
+      redirect: "manual",
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
@@ -1101,6 +1120,7 @@ export async function haLight(
       headers: { authorization: `Bearer ${cfg.token}`, "content-type": "application/json" },
       body: JSON.stringify(data),
       cache: "no-store",
+      redirect: "manual",
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };
@@ -1132,6 +1152,7 @@ export async function haToggle(entityId: string): Promise<{ ok: boolean; error?:
       headers: { authorization: `Bearer ${cfg.token}`, "content-type": "application/json" },
       body: JSON.stringify({ entity_id: entityId }),
       cache: "no-store",
+      redirect: "manual",
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) return { ok: false, error: `HTTP ${res.status}` };

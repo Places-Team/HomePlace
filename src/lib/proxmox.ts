@@ -72,6 +72,7 @@ async function pve<T>(path: string): Promise<T | null> {
     const res = await fetch(`${cfg.url}/api2/json${path}`, {
       headers: { authorization: `PVEAPIToken=${cfg.tokenId}=${cfg.tokenSecret}` },
       cache: "no-store",
+      redirect: "manual",
       signal: AbortSignal.timeout(8000),
       // @ts-expect-error — undici's dispatcher option is not in the DOM types.
       dispatcher: cfg.verifyTls ? undefined : insecureAgent,

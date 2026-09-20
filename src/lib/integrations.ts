@@ -3,6 +3,7 @@ import { getSetting, setSetting } from "./db";
 import { googleConfig, linkedAccount, redirectUri as googleRedirectUri } from "./google";
 import { fatSecretConfig } from "./fatsecret";
 import { decrypt, encrypt } from "./secretBox";
+import { httpBaseUrl } from "./outbound";
 import {
   prometheus as prometheusEnv,
   proxmox as proxmoxEnv,
@@ -88,7 +89,8 @@ export async function resolvedDockerHosts(): Promise<DockerHost[]> {
     ...fromEnv,
     ...stored
       .filter((h) => h?.url && h.key && !keys.has(h.key))
-      .map((h) => ({ key: h.key, label: h.label || h.key, url: h.url.replace(/\/+$/, "") })),
+      .filter((h) => httpBaseUrl(h.url))
+      .map((h) => ({ key: h.key, label: h.label || h.key, url: httpBaseUrl(h.url)! })),
   ];
 }
 
@@ -96,13 +98,13 @@ export async function saveDockerHosts(hosts: DockerHost[]): Promise<void> {
   await setSetting(
     KEY.dockerHosts,
     hosts
-      .filter((h) => h.url?.trim() && h.key?.trim())
+      .filter((h) => h.url?.trim() && h.key?.trim() && httpBaseUrl(h.url))
       .map((h) => ({
         // The key is what tiles remember, so it is normalised rather than free
         // text: renaming a host must not orphan every tile attached to it.
         key: h.key.trim().toLowerCase().replace(/[^a-z0-9-]+/g, "-"),
         label: h.label?.trim() || h.key.trim(),
-        url: h.url.trim().replace(/\/+$/, ""),
+        url: httpBaseUrl(h.url)!,
       }))
   );
 }
@@ -123,12 +125,17 @@ export async function dockerHostsForDisplay(): Promise<{ env: DockerHost[]; stor
 
 export async function prometheusConfig(): Promise<(PrometheusSettings & { source: Source }) | null> {
   const env = prometheusEnv();
-  if (env) return { url: env.url, username: env.username, password: env.password, source: "env" };
+  if (env) {
+    const url = httpBaseUrl(env.url);
+    return url ? { url, username: env.username, password: env.password, source: "env" } : null;
+  }
 
   const stored = await getSetting<PrometheusSettings | null>(KEY.prometheus, null);
   if (!stored?.url) return null;
+  const url = httpBaseUrl(stored.url);
+  if (!url) return null;
   return {
-    url: stored.url.replace(/\/+$/, ""),
+    url,
     username: stored.username || undefined,
     password: stored.password ? await decrypt(stored.password) : undefined,
     source: "ui",
@@ -141,7 +148,7 @@ export async function savePrometheus(input: PrometheusSettings | null): Promise<
     return;
   }
   await setSetting(KEY.prometheus, {
-    url: input.url.trim().replace(/\/+$/, ""),
+    url: httpBaseUrl(input.url)!,
     username: input.username?.trim() || "",
     password: input.password ? await encrypt(input.password) : "",
   });
@@ -152,8 +159,10 @@ export async function savePrometheus(input: PrometheusSettings | null): Promise<
 export async function proxmoxConfig(): Promise<(ProxmoxSettings & { source: Source }) | null> {
   const env = proxmoxEnv();
   if (env) {
+    const url = httpBaseUrl(env.url);
+    if (!url) return null;
     return {
-      url: env.url,
+      url,
       tokenId: env.tokenId,
       tokenSecret: env.tokenSecret,
       verifyTls: env.verifyTls,
@@ -163,8 +172,10 @@ export async function proxmoxConfig(): Promise<(ProxmoxSettings & { source: Sour
 
   const stored = await getSetting<ProxmoxSettings | null>(KEY.proxmox, null);
   if (!stored?.url || !stored.tokenId) return null;
+  const url = httpBaseUrl(stored.url);
+  if (!url) return null;
   return {
-    url: stored.url.replace(/\/+$/, ""),
+    url,
     tokenId: stored.tokenId,
     tokenSecret: await decrypt(stored.tokenSecret),
     verifyTls: !!stored.verifyTls,
@@ -181,7 +192,7 @@ export async function saveProxmox(input: ProxmoxSettings | null): Promise<void> 
   // a mask, not the value, so re-typing it on every edit would be absurd.
   const existing = await getSetting<ProxmoxSettings | null>(KEY.proxmox, null);
   await setSetting(KEY.proxmox, {
-    url: input.url.trim().replace(/\/+$/, ""),
+    url: httpBaseUrl(input.url)!,
     tokenId: input.tokenId.trim(),
     tokenSecret: input.tokenSecret ? await encrypt(input.tokenSecret) : existing?.tokenSecret ?? "",
     verifyTls: input.verifyTls,

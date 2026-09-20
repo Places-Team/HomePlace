@@ -12,6 +12,7 @@ import { checkTelegramBot, sendWith } from "@/lib/telegram";
 import { saveGoogleConfig, unlinkAccount } from "@/lib/google";
 import { saveFatSecret } from "@/lib/fatsecret";
 import { saveNtfy, ntfyConfig, sendNtfy, saveWebhook, webhookConfig, sendWebhook, saveEmail, emailConfig, sendEmail, type EmailSettings } from "@/lib/notify";
+import { httpBaseUrlError } from "@/lib/outbound";
 
 /**
  * Configuring the integrations from the settings page.
@@ -38,6 +39,8 @@ export async function savePrometheusSettings(input: {
   password: string;
 }): Promise<TestResult> {
   await requireRole("admin");
+  const invalid = httpBaseUrlError(input.url);
+  if (invalid) return { ok: false, error: invalid };
   await savePrometheus(input.url ? input : null);
   revalidatePath("/settings");
   revalidatePath("/monitoring");
@@ -53,6 +56,8 @@ export async function saveProxmoxSettings(input: {
   verifyTls: boolean;
 }): Promise<TestResult> {
   await requireRole("admin");
+  const invalid = httpBaseUrlError(input.url);
+  if (invalid) return { ok: false, error: invalid };
   await saveProxmox(input.url ? input : null);
   revalidatePath("/settings");
   revalidatePath("/monitoring");
@@ -212,6 +217,8 @@ export async function testWebhook(): Promise<TestResult> {
 /** Docker hosts added in the interface, on top of anything the .env fixes. */
 export async function saveDockerHostsSettings(hosts: DockerHost[]): Promise<TestResult> {
   await requireRole("admin");
+  const invalid = hosts.map((host) => httpBaseUrlError(host.url)).find(Boolean);
+  if (invalid) return { ok: false, error: invalid };
   await saveDockerHosts(hosts);
   revalidatePath("/settings");
   revalidatePath("/containers");

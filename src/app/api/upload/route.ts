@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { currentUser } from "@/lib/session";
 import { canEdit } from "@/lib/auth";
 import { saveImage } from "@/lib/uploads";
+import { appUrl, settings } from "@/lib/config";
+import { isSameOriginRequest } from "@/lib/security";
 
 export const dynamic = "force-dynamic";
 
@@ -18,6 +20,9 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const user = await currentUser();
   if (!canEdit(user)) return NextResponse.json({ error: "forbidden" }, { status: 403 });
+  if (!isSameOriginRequest(req.headers, appUrl(), settings.trustProxyHeaders())) {
+    return NextResponse.json({ error: "invalid request origin" }, { status: 403 });
+  }
 
   let form: FormData;
   try {

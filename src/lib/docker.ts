@@ -64,6 +64,7 @@ async function dockerFetch(host: DockerHost, path: string, init?: RequestInit) {
   const res = await fetch(`${host.url}${path}`, {
     ...init,
     cache: "no-store",
+    redirect: "manual",
     // A hung endpoint must not hang the dashboard; every panel degrades on its own.
     signal: AbortSignal.timeout(6000),
   });
@@ -212,6 +213,7 @@ export async function pullImage(hostKey: string, image: string): Promise<{ ok: b
     const res = await fetch(`${host.url}/images/create?fromImage=${encodeURIComponent(name)}&tag=${encodeURIComponent(tag)}`, {
       method: "POST",
       cache: "no-store",
+      redirect: "manual",
       // A pull is not a dashboard probe — give it real time over a slow link.
       signal: AbortSignal.timeout(300_000),
     });
@@ -351,6 +353,7 @@ export async function containerStats(hostKey: string, id: string, name: string):
     // and calculate the same delta on the next lightweight sample.
     const res = await fetch(`${host.url}/containers/${encodeURIComponent(id)}/stats?stream=false&one-shot=true`, {
       cache: "no-store",
+      redirect: "manual",
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) return null;

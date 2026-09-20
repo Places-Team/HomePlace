@@ -61,3 +61,15 @@ export function safeRequestOrigin(headers: HeaderReader, configuredUrl: string, 
     return null;
   }
 }
+
+/** Protect cookie-authenticated API mutations from cross-site form/fetch requests. */
+export function isSameOriginRequest(headers: HeaderReader, configuredUrl: string, trustProxy: boolean): boolean {
+  const expected = safeRequestOrigin(headers, configuredUrl, trustProxy);
+  const supplied = headers.get("origin");
+  if (!expected || !supplied) return false;
+  try {
+    return new URL(supplied).origin === expected;
+  } catch {
+    return false;
+  }
+}

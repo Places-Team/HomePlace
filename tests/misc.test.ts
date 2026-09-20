@@ -9,12 +9,13 @@ import { nextOccurrence } from "../src/lib/recurrence";
 import { createLinkInfo, isLinkServerId, LINK_PROTOCOL_MAX, LINK_PROTOCOL_MIN, parseLinkPairRequest } from "../src/lib/linkProtocol";
 import { parseShareMessage, safeFilename, safeSharedUrl } from "../src/lib/linkShare";
 import { checkDeviceActionRateLimit } from "../src/lib/linkRateLimit";
-import { clientAddress, hasMinimumSecretLength, isLocalHostname, safeRequestOrigin, secretsEqual } from "../src/lib/security";
+import { clientAddress, hasMinimumSecretLength, isLocalHostname, isSameOriginRequest, safeRequestOrigin, secretsEqual } from "../src/lib/security";
 import { compareVersions, releaseUpdateFrom } from "../src/lib/updates";
 import { NOTIFY_EVENT_TYPES, shouldNotify } from "../src/lib/notifyPolicy";
 import { isDue } from "../src/lib/cadence";
 import { filesystemUsage } from "../src/lib/filesystemUsage";
 import { dockerCpuPercent } from "../src/lib/dockerMetrics";
+import { httpBaseUrl, limitedJson } from "../src/lib/outbound";
 
 /** Small pure helpers that everything else leans on. */
 
@@ -259,6 +260,29 @@ test("session secrets require at least 32 bytes", () => {
   assert.equal(hasMinimumSecretLength("a".repeat(31)), false);
   assert.equal(hasMinimumSecretLength("a".repeat(32)), true);
   assert.equal(hasMinimumSecretLength("пароль-длиной-в-тридцать-два-байта"), true);
+});
+
+test("service addresses allow LAN HTTP but reject credential-bearing and unsafe URLs", () => {
+  assert.equal(httpBaseUrl(" http://192.168.0.68:8989/ "), "http://192.168.0.68:8989");
+  assert.equal(httpBaseUrl("https://sonarr.home.arpa/base/"), "https://sonarr.home.arpa/base");
+  assert.equal(httpBaseUrl("https://example.com/path?token=secret"), null);
+  assert.equal(httpBaseUrl("https://user:secret@example.com"), null);
+  assert.equal(httpBaseUrl("file:///etc/passwd"), null);
+  assert.equal(httpBaseUrl("javascript:alert(1)"), null);
+});
+
+test("cookie API mutations require the same request origin", () => {
+  const same = new Headers({ host: "192.168.1.20:3200", origin: "http://192.168.1.20:3200" });
+  const cross = new Headers({ host: "192.168.1.20:3200", origin: "https://attacker.example" });
+  assert.equal(isSameOriginRequest(same, "http://localhost:3200", false), true);
+  assert.equal(isSameOriginRequest(cross, "http://localhost:3200", false), false);
+  assert.equal(isSameOriginRequest(new Headers({ host: "192.168.1.20:3200" }), "http://localhost:3200", false), false);
+});
+
+test("bounded JSON rejects oversized service responses", async () => {
+  const response = new Response(JSON.stringify({ value: "x".repeat(64) }));
+  await assert.rejects(() => limitedJson(response, 32), /response too large/);
+  assert.deepEqual(await limitedJson(new Response('{"ok":true}'), 32), { ok: true });
 });
 
 test("forwarded client addresses are ignored unless a sanitizing proxy is trusted", () => {

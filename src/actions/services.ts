@@ -5,6 +5,7 @@ import { requireRole } from "@/lib/auth";
 import { prisma, getSetting, setSetting } from "@/lib/db";
 import { HOME_CONFIG_KEY, normalizeHome, type HomeConfig } from "@/lib/homeConfig";
 import { NOTIFY_POLICY_KEY, normalizePolicy, type NotifyPolicy } from "@/lib/notifyPolicy";
+import { httpBaseUrlError } from "@/lib/outbound";
 import {
   saveJellyfin,
   saveQbit,
@@ -42,6 +43,8 @@ export type ServiceResult = { ok: boolean; error?: string };
 
 export async function saveJellyfinSettings(input: JellyfinSettings): Promise<ServiceResult> {
   await requireRole("admin");
+  const invalid = httpBaseUrlError(input.url);
+  if (invalid) return { ok: false, error: invalid };
   await saveJellyfin(input.url ? input : null);
   revalidatePath("/settings");
   revalidatePath("/");
@@ -51,6 +54,8 @@ export async function saveJellyfinSettings(input: JellyfinSettings): Promise<Ser
 
 export async function saveQbitSettings(input: QbitSettings): Promise<ServiceResult> {
   await requireRole("admin");
+  const invalid = httpBaseUrlError(input.url);
+  if (invalid) return { ok: false, error: invalid };
   await saveQbit(input.url ? input : null);
   revalidatePath("/settings");
   revalidatePath("/");
@@ -60,6 +65,8 @@ export async function saveQbitSettings(input: QbitSettings): Promise<ServiceResu
 
 export async function saveArrSettings(instances: ArrInstance[]): Promise<ServiceResult> {
   await requireRole("admin");
+  const invalid = instances.map((instance) => httpBaseUrlError(instance.url)).find(Boolean);
+  if (invalid) return { ok: false, error: invalid };
   await saveArr(instances);
   revalidatePath("/settings");
   revalidatePath("/");
@@ -71,6 +78,8 @@ export async function saveArrSettings(instances: ArrInstance[]): Promise<Service
 
 export async function savePbsSettings(input: PbsSettings): Promise<ServiceResult> {
   await requireRole("admin");
+  const invalid = httpBaseUrlError(input.url);
+  if (invalid) return { ok: false, error: invalid };
   await savePbs(input.url ? input : null);
   revalidatePath("/settings");
   revalidatePath("/");
@@ -80,6 +89,8 @@ export async function savePbsSettings(input: PbsSettings): Promise<ServiceResult
 
 export async function saveHaSettings(input: HaSettings): Promise<ServiceResult> {
   await requireRole("admin");
+  const invalid = httpBaseUrlError(input.url);
+  if (invalid) return { ok: false, error: invalid };
   await saveHa(input.url ? input : null);
   revalidatePath("/settings");
   revalidatePath("/");

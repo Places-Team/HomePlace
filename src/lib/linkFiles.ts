@@ -55,25 +55,20 @@ export async function discardFileTransfer(id: string, targetDeviceId: string) {
   await unlink(path.join(transferDir(), transfer.storageName)).catch(() => undefined);
 }
 
-export async function consumeFileTransfer(id: string, targetDeviceId: string) {
+export async function readFileTransfer(id: string, targetDeviceId: string) {
   const transfer = await prisma.linkFileTransfer.findFirst({
     where: { id, targetDeviceId, expiresAt: { gt: new Date() } },
   });
   if (!transfer) return null;
-  const claimed = await prisma.linkFileTransfer.deleteMany({ where: { id, targetDeviceId } });
-  if (claimed.count !== 1) return null;
-  try {
-    const stored = await readFile(path.join(transferDir(), transfer.storageName));
-    const key = Buffer.from(await decrypt(transfer.encryptedKey), "base64");
-    if (key.length !== 32 || stored.length < 29) return null;
-    const decipher = createDecipheriv("aes-256-gcm", key, stored.subarray(0, 12));
-    decipher.setAuthTag(stored.subarray(12, 28));
-    const bytes = Buffer.concat([decipher.update(stored.subarray(28)), decipher.final()]);
-    if (bytes.length !== transfer.size || createHash("sha256").update(bytes).digest("hex") !== transfer.sha256) return null;
-    return { bytes, filename: transfer.filename, mimeType: transfer.mimeType, sha256: transfer.sha256 };
-  } finally {
-    await unlink(path.join(transferDir(), transfer.storageName)).catch(() => undefined);
-  }
+  const stored = await readFile(path.join(transferDir(), transfer.storageName)).catch(() => null);
+  if (!stored) return null;
+  const key = Buffer.from(await decrypt(transfer.encryptedKey), "base64");
+  if (key.length !== 32 || stored.length < 29) return null;
+  const decipher = createDecipheriv("aes-256-gcm", key, stored.subarray(0, 12));
+  decipher.setAuthTag(stored.subarray(12, 28));
+  const bytes = Buffer.concat([decipher.update(stored.subarray(28)), decipher.final()]);
+  if (bytes.length !== transfer.size || createHash("sha256").update(bytes).digest("hex") !== transfer.sha256) return null;
+  return { bytes, filename: transfer.filename, mimeType: transfer.mimeType, sha256: transfer.sha256 };
 }
 
 export async function pruneExpiredFileTransfers() {

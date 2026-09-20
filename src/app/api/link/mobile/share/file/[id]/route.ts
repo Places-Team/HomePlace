@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { authenticateLinkDevice } from "@/lib/linkDevices";
-import { consumeFileTransfer } from "@/lib/linkFiles";
+import { readFileTransfer } from "@/lib/linkFiles";
 import { validDeviceId } from "@/lib/linkShare";
 
 export async function GET(request: Request, context: { params: Promise<{ id: string }> }) {
@@ -8,7 +8,7 @@ export async function GET(request: Request, context: { params: Promise<{ id: str
   if (!device) return NextResponse.json({ error: "invalid device credential" }, { status: 401 });
   const id = validDeviceId((await context.params).id);
   if (!id) return NextResponse.json({ error: "file is unavailable" }, { status: 404 });
-  const transfer = await consumeFileTransfer(id, device.id);
+  const transfer = await readFileTransfer(id, device.id);
   if (!transfer) return NextResponse.json({ error: "file is unavailable" }, { status: 404 });
   return new Response(transfer.bytes, {
     headers: {

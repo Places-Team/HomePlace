@@ -426,6 +426,15 @@ is optional and must not become a requirement for self-hosted use.
 - Provide one-click device revocation and a global emergency disable switch.
 - Publish a threat model and security reporting policy before public beta.
 
+## Future — phone-confirmed desktop sign-in
+
+- Allow a paired HomePlace Mobile device to approve an interactive sign-in on Windows, macOS or Linux.
+- Bind every approval to the exact computer, local user, one-time nonce and short expiry.
+- Show matching confirmation details on the computer and phone before approval.
+- Keep the normal operating-system credential or platform biometric as a fallback.
+- Never treat HomePlace approval as a replacement for disk encryption, secure boot or account recovery.
+- Support immediate device revocation and an administrator-visible audit trail.
+
 ## Delivery phases
 
 ### Phase 0: protocol and threat model

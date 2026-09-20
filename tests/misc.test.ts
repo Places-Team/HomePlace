@@ -15,6 +15,7 @@ import { NOTIFY_EVENT_TYPES, shouldNotify } from "../src/lib/notifyPolicy";
 import { isDue } from "../src/lib/cadence";
 import { filesystemUsage } from "../src/lib/filesystemUsage";
 import { dockerCpuPercent } from "../src/lib/dockerMetrics";
+import { normalizeLinkCalendarEvents } from "../src/lib/linkCalendar";
 import { httpBaseUrl, limitedJson } from "../src/lib/outbound";
 
 /** Small pure helpers that everything else leans on. */
@@ -214,7 +215,7 @@ test("link pairing accepts only supported capabilities and protocol versions", (
     device: { name: "Pixel", platform: "android", platformVersion: "15", appVersion: "0.1.0" },
     publicKey: publicKey.export({ type: "spki", format: "der" }).toString("base64"),
     capabilities: [{ name: "notification.receive", version: 1, constraints: {} }],
-    permissions: ["dashboard.read", "reminder.manage", "clipboard.relay", "share.relay"],
+    permissions: ["dashboard.read", "calendar.read", "calendar.manage", "reminder.manage", "clipboard.relay", "share.relay"],
   };
   assert.deepEqual(parseLinkPairRequest(valid), valid);
   for (const platform of ["ios", "macos", "windows", "linux"]) {
@@ -225,6 +226,35 @@ test("link pairing accepts only supported capabilities and protocol versions", (
   assert.equal(parseLinkPairRequest({ ...valid, capabilities: [{ name: "system.shell", version: 1, constraints: {} }] }), null);
   assert.equal(parseLinkPairRequest({ ...valid, permissions: ["system.shell"] }), null);
   assert.equal(parseLinkPairRequest({ ...valid, publicKey: Buffer.alloc(65).toString("base64") }), null);
+});
+
+test("link calendar exposes only bounded normalized event fields", () => {
+  assert.deepEqual(normalizeLinkCalendarEvents([{
+    id: "event_123",
+    summary: "  Planning\nmeeting  ",
+    start: "2026-09-20T10:00:00+03:00",
+    end: "2026-09-20T11:00:00+03:00",
+    allDay: false,
+    location: "  Office  ",
+    description: "must stay private",
+    htmlLink: "https://calendar.example/event",
+  }]), [{
+    id: "event_123",
+    summary: "Planning meeting",
+    start: "2026-09-20T07:00:00.000Z",
+    end: "2026-09-20T08:00:00.000Z",
+    allDay: false,
+    location: "Office",
+  }]);
+});
+
+test("link calendar rejects malformed dates, identifiers and reversed ranges", () => {
+  assert.deepEqual(normalizeLinkCalendarEvents([
+    { id: "../event", summary: "Bad ID", start: "2026-09-20", end: "2026-09-21", allDay: true },
+    { id: "bad-date", summary: "Bad date", start: "tomorrow", end: "2026-09-21", allDay: true },
+    { id: "rolled-date", summary: "Rolled date", start: "2026-02-30", end: "2026-03-02", allDay: true },
+    { id: "reversed", summary: "Reversed", start: "2026-09-22", end: "2026-09-21", allDay: true },
+  ]), []);
 });
 
 test("authenticated heartbeats can refresh only supported capabilities", () => {

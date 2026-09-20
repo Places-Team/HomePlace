@@ -7,16 +7,16 @@ import { getSetting, setSetting } from "./db";
 /**
  * Linking a Google account, for the calendar widget.
  *
- * Read-only, and only the calendar: the scopes below are the narrowest ones
- * that answer "what is on today". A dashboard has no business being able to
- * write to somebody's calendar, let alone read their mail.
+ * Calendar-only access. HomePlace can read and manage events after the user
+ * explicitly approves Google's consent screen; mail and other account data
+ * remain outside the requested scopes.
  *
  * The client credentials belong to whoever runs the panel — Google issues them
  * per application, and there is no way for a self-hosted project to ship one.
  * They can go in .env or in the settings page; .env wins, as everywhere else.
  */
 
-const SCOPES = ["https://www.googleapis.com/auth/calendar.readonly", "https://www.googleapis.com/auth/userinfo.email"];
+const SCOPES = ["https://www.googleapis.com/auth/calendar.events", "https://www.googleapis.com/auth/userinfo.email"];
 
 export const REDIRECT_PATH = "/api/auth/google/callback";
 export const STATE_COOKIE = "hp_google_state";
@@ -241,6 +241,87 @@ export async function calendarEvents(
   } catch (e) {
     console.error("google calendar request failed:", e);
     return null;
+  }
+}
+
+export type CalendarEventInput = {
+  summary: string;
+  start: string;
+  end: string;
+  allDay: boolean;
+  location?: string;
+};
+
+/** Create an event in the linked user's primary calendar. */
+export async function createCalendarEvent(
+  userId: string,
+  input: CalendarEventInput,
+): Promise<boolean> {
+  return mutateCalendarEvent(userId, "POST", "", input);
+}
+
+/** Update only an event selected by its bounded Google identifier. */
+export async function updateCalendarEvent(
+  userId: string,
+  eventId: string,
+  input: CalendarEventInput,
+): Promise<boolean> {
+  return mutateCalendarEvent(userId, "PATCH", eventId, input);
+}
+
+export async function deleteCalendarEvent(userId: string, eventId: string): Promise<boolean> {
+  const token = await accessTokenFor(userId);
+  if (!token) return false;
+  try {
+    const response = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events/${encodeURIComponent(eventId)}`,
+      {
+        method: "DELETE",
+        headers: { authorization: `Bearer ${token}` },
+        cache: "no-store",
+        signal: AbortSignal.timeout(12000),
+      },
+    );
+    return response.ok;
+  } catch (error) {
+    console.error("google calendar delete failed:", error);
+    return false;
+  }
+}
+
+async function mutateCalendarEvent(
+  userId: string,
+  method: "POST" | "PATCH",
+  eventId: string,
+  input: CalendarEventInput,
+): Promise<boolean> {
+  const token = await accessTokenFor(userId);
+  if (!token) return false;
+  const suffix = eventId ? `/${encodeURIComponent(eventId)}` : "";
+  const body = {
+    summary: input.summary,
+    ...(input.location ? { location: input.location } : {}),
+    start: input.allDay ? { date: input.start } : { dateTime: input.start },
+    end: input.allDay ? { date: input.end } : { dateTime: input.end },
+  };
+  try {
+    const response = await fetch(
+      `https://www.googleapis.com/calendar/v3/calendars/primary/events${suffix}`,
+      {
+        method,
+        headers: {
+          authorization: `Bearer ${token}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify(body),
+        cache: "no-store",
+        signal: AbortSignal.timeout(12000),
+      },
+    );
+    return response.ok;
+  } catch (error) {
+    console.error("google calendar mutation failed:", error);
+    return false;
   }
 }
 

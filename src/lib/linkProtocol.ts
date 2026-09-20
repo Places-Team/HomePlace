@@ -35,6 +35,8 @@ export const LINK_CAPABILITIES = new Set([
 
 export const LINK_PERMISSIONS = new Set([
   "dashboard.read",
+  "calendar.read",
+  "calendar.manage",
   "reminder.manage",
   "media.request",
   "telegram.send",
@@ -42,7 +44,7 @@ export const LINK_PERMISSIONS = new Set([
   "share.relay",
 ]);
 
-export type LinkPermission = "dashboard.read" | "reminder.manage" | "media.request" | "telegram.send" | "clipboard.relay" | "share.relay";
+export type LinkPermission = "dashboard.read" | "calendar.read" | "calendar.manage" | "reminder.manage" | "media.request" | "telegram.send" | "clipboard.relay" | "share.relay";
 export type LinkPlatform = "android" | "ios" | "macos" | "windows" | "linux";
 
 export type LinkCapability = {

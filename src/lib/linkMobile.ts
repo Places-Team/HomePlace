@@ -2,7 +2,7 @@ import "server-only";
 import { prisma } from "./db";
 import { authenticateLinkDevice, linkDeviceHasPermission } from "./linkDevices";
 
-export type MobilePermission = "dashboard.read" | "reminder.manage" | "media.request" | "telegram.send" | "clipboard.relay" | "share.relay";
+export type MobilePermission = "dashboard.read" | "calendar.read" | "calendar.manage" | "reminder.manage" | "media.request" | "telegram.send" | "clipboard.relay" | "share.relay";
 
 export type MobileAuthorization =
   | { ok: true; device: Awaited<ReturnType<typeof authenticateLinkDevice>> & { userId: string } }

@@ -466,6 +466,11 @@ capability succeeds or disappears when permission is removed.
 Deliver bounded file transfer, share workflows, qBittorrent magnet handoff and
 Radarr/Sonarr requests.
 
+Current progress: the Devices page can upload a file up to 5 MiB to a capable
+desktop with progress and cancellation. The encrypted transfer remains on the
+server until the desktop explicitly saves or declines it, and the desktop
+verifies size and SHA-256 before committing the selected destination.
+
 Exit criteria: interrupted transfers resume and verify checksums; expired links
 and unauthorized recipients cannot read a transfer.
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import {
   approvePairing,
   rejectPairing,
@@ -11,6 +11,8 @@ import {
 import { Dialog } from "@/components/Dialog";
 import { Button, Field, Input, Select, Textarea } from "@/components/form";
 import type { Dictionary } from "@/i18n";
+
+const MAX_FILE_BYTES = 5 * 1024 * 1024;
 
 export function PairingActions({ id, d }: { id: string; d: Dictionary }) {
   const [pending, startTransition] = useTransition();
@@ -31,27 +33,95 @@ export function DeviceActions({
   canNotify,
   canOpenUrl,
   canReceiveText,
+  canReceiveFile,
   d,
 }: {
   id: string;
   canNotify: boolean;
   canOpenUrl: boolean;
   canReceiveText: boolean;
+  canReceiveFile: boolean;
   d: Dictionary;
 }) {
   const [pending, startTransition] = useTransition();
   const [shareOpen, setShareOpen] = useState(false);
-  const [shareType, setShareType] = useState<"url" | "text">(canOpenUrl ? "url" : "text");
+  const [shareType, setShareType] = useState<"url" | "text" | "file">(
+    canOpenUrl ? "url" : canReceiveText ? "text" : "file",
+  );
   const [value, setValue] = useState("");
+  const [file, setFile] = useState<File | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState(0);
+  const upload = useRef<XMLHttpRequest | null>(null);
   const [result, setResult] = useState<{ ok: boolean; error?: string } | null>(null);
+  const busy = pending || uploading;
 
   function submit() {
-    if (!value.trim() || pending) return;
+    if (busy) return;
+    if (shareType === "file") {
+      if (file) sendFile(file);
+      return;
+    }
+    if (!value.trim()) return;
     startTransition(async () => {
       const response = await sendDeviceShare(id, shareType, value);
       setResult(response);
       if (response.ok) setValue("");
     });
+  }
+
+  function sendFile(selected: File) {
+    const request = new XMLHttpRequest();
+    upload.current = request;
+    setUploading(true);
+    setProgress(0);
+    setResult(null);
+    request.open("POST", "/api/link/share/file");
+    request.upload.addEventListener("progress", (event) => {
+      if (event.lengthComputable) setProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+    });
+    request.addEventListener("load", () => {
+      let response: { ok?: boolean; error?: string } = {};
+      try {
+        response = JSON.parse(request.responseText) as { ok?: boolean; error?: string };
+      } catch {
+        response = {};
+      }
+      const error = request.status === 413
+        ? "too-large"
+        : request.status === 429
+          ? "full"
+          : request.status === 404
+            ? "unavailable"
+            : "invalid";
+      setResult(request.status >= 200 && request.status < 300 && response.ok
+        ? { ok: true }
+        : { ok: false, error });
+      if (request.status >= 200 && request.status < 300) setFile(null);
+      setProgress(request.status >= 200 && request.status < 300 ? 100 : 0);
+      setUploading(false);
+      upload.current = null;
+    });
+    request.addEventListener("error", () => {
+      setResult({ ok: false, error: "unavailable" });
+      setUploading(false);
+      upload.current = null;
+    });
+    request.addEventListener("abort", () => {
+      setResult({ ok: false, error: "cancelled" });
+      setUploading(false);
+      setProgress(0);
+      upload.current = null;
+    });
+    const body = new FormData();
+    body.set("targetDeviceId", id);
+    body.set("file", selected);
+    request.send(body);
+  }
+
+  function closeShare() {
+    if (uploading) upload.current?.abort();
+    setShareOpen(false);
   }
 
   const error = result?.error === "invalid"
@@ -60,11 +130,15 @@ export function DeviceActions({
       ? d.devices.shareUnsupported
       : result?.error === "full"
         ? d.devices.shareQueueFull
+        : result?.error === "too-large"
+          ? d.devices.fileTooLarge
+          : result?.error === "cancelled"
+            ? d.devices.uploadCancelled
         : d.devices.shareUnavailable;
 
   return (
     <div className="flex flex-wrap gap-2">
-      {(canOpenUrl || canReceiveText) && (
+      {(canOpenUrl || canReceiveText || canReceiveFile) && (
         <Button disabled={pending} onClick={() => { setResult(null); setShareOpen(true); }}>
           {d.devices.sendContent}
         </Button>
@@ -84,17 +158,25 @@ export function DeviceActions({
         {d.devices.revoke}
       </Button>
 
-      <Dialog open={shareOpen} onClose={() => setShareOpen(false)} title={d.devices.sendContent}>
+      <Dialog open={shareOpen} onClose={closeShare} title={d.devices.sendContent}>
         <div className="space-y-4">
-          {canOpenUrl && canReceiveText && (
+          {[canOpenUrl, canReceiveText, canReceiveFile].filter(Boolean).length > 1 && (
             <Field label={d.devices.contentType}>
-              <Select value={shareType} onChange={(event) => { setShareType(event.target.value === "text" ? "text" : "url"); setResult(null); }}>
-                <option value="url">{d.devices.link}</option>
-                <option value="text">{d.devices.text}</option>
+              <Select value={shareType} disabled={busy} onChange={(event) => {
+                const next = event.target.value;
+                setShareType(next === "text" || next === "file" ? next : "url");
+                setResult(null);
+              }}>
+                {canOpenUrl && <option value="url">{d.devices.link}</option>}
+                {canReceiveText && <option value="text">{d.devices.text}</option>}
+                {canReceiveFile && <option value="file">{d.devices.file}</option>}
               </Select>
             </Field>
           )}
-          <Field label={shareType === "url" ? d.devices.link : d.devices.text} hint={d.devices.shareApprovalHint}>
+          <Field
+            label={shareType === "url" ? d.devices.link : shareType === "file" ? d.devices.file : d.devices.text}
+            hint={shareType === "file" ? d.devices.fileApprovalHint : d.devices.shareApprovalHint}
+          >
             {shareType === "url" ? (
               <Input
                 type="url"
@@ -104,7 +186,7 @@ export function DeviceActions({
                 placeholder="https://example.com"
                 autoFocus
               />
-            ) : (
+            ) : shareType === "text" ? (
               <Textarea
                 value={value}
                 maxLength={8000}
@@ -112,17 +194,47 @@ export function DeviceActions({
                 onChange={(event) => { setValue(event.target.value); setResult(null); }}
                 autoFocus
               />
+            ) : (
+              <Input
+                type="file"
+                disabled={busy}
+                onChange={(event) => {
+                  const selected = event.target.files?.[0] ?? null;
+                  if (selected && selected.size > MAX_FILE_BYTES) {
+                    setFile(null);
+                    setResult({ ok: false, error: "too-large" });
+                    event.target.value = "";
+                    return;
+                  }
+                  setFile(selected);
+                  setProgress(0);
+                  setResult(null);
+                }}
+                autoFocus
+              />
             )}
           </Field>
+          {uploading && (
+            <div className="space-y-1" aria-live="polite">
+              <div className="h-1.5 overflow-hidden rounded-full bg-line">
+                <div className="h-full bg-accent transition-[width]" style={{ width: `${progress}%` }} />
+              </div>
+              <p className="text-xs text-muted">{d.devices.uploadingFile.replace("{progress}", String(progress))}</p>
+            </div>
+          )}
           {result && (
             <p className={`text-sm ${result.ok ? "text-ok" : "text-danger"}`} role="status">
               {result.ok ? d.devices.shareSent : error}
             </p>
           )}
           <div className="flex justify-end gap-2">
-            <Button disabled={pending} onClick={() => setShareOpen(false)}>{d.common.cancel}</Button>
-            <Button variant="primary" disabled={pending || !value.trim()} onClick={submit}>
-              {pending ? d.common.loading : d.devices.send}
+            <Button disabled={pending} onClick={closeShare}>{uploading ? d.devices.cancelUpload : d.common.cancel}</Button>
+            <Button
+              variant="primary"
+              disabled={busy || (shareType === "file" ? !file : !value.trim())}
+              onClick={submit}
+            >
+              {busy ? d.common.loading : d.devices.send}
             </Button>
           </div>
         </div>

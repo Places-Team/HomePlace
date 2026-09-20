@@ -217,6 +217,10 @@ test("link pairing accepts only supported capabilities and protocol versions", (
     permissions: ["dashboard.read", "reminder.manage", "clipboard.relay", "share.relay"],
   };
   assert.deepEqual(parseLinkPairRequest(valid), valid);
+  for (const platform of ["ios", "macos", "windows", "linux"]) {
+    assert.deepEqual(parseLinkPairRequest({ ...valid, device: { ...valid.device, platform } })?.device.platform, platform);
+  }
+  assert.equal(parseLinkPairRequest({ ...valid, device: { ...valid.device, platform: "browser" } }), null);
   assert.equal(parseLinkPairRequest({ ...valid, protocol: 2 }), null);
   assert.equal(parseLinkPairRequest({ ...valid, capabilities: [{ name: "system.shell", version: 1, constraints: {} }] }), null);
   assert.equal(parseLinkPairRequest({ ...valid, permissions: ["system.shell"] }), null);

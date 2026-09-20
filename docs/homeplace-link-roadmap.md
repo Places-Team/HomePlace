@@ -105,7 +105,7 @@ both endpoints prove the same server ID and key fingerprint.
 ## Pairing and device identity
 
 1. The application validates `/api/link/info` and displays the server identity.
-2. It creates a P-256 device key in platform-secure storage and submits the
+2. The mobile or desktop application creates a P-256 device key in platform-secure storage and submits the
    SubjectPublicKeyInfo DER public key as canonical Base64 with platform details
    and its capability manifest.
 3. HomePlace creates a five-minute pairing session and returns a confirmation

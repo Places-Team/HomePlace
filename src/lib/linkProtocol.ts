@@ -43,6 +43,7 @@ export const LINK_PERMISSIONS = new Set([
 ]);
 
 export type LinkPermission = "dashboard.read" | "reminder.manage" | "media.request" | "telegram.send" | "clipboard.relay" | "share.relay";
+export type LinkPlatform = "android" | "ios" | "macos" | "windows" | "linux";
 
 export type LinkCapability = {
   name: string;
@@ -54,7 +55,7 @@ export type LinkPairRequest = {
   protocol: number;
   device: {
     name: string;
-    platform: "android" | "ios";
+    platform: LinkPlatform;
     platformVersion: string;
     appVersion: string;
   };
@@ -97,7 +98,7 @@ export function parseLinkPairRequest(value: unknown): LinkPairRequest | null {
   if (input.protocol !== LINK_PROTOCOL_MAX || !input.device || typeof input.device !== "object") return null;
   const device = input.device as Record<string, unknown>;
   const name = shortText(device.name, 80);
-  const platform = device.platform === "android" || device.platform === "ios" ? device.platform : null;
+  const platform = parsePlatform(device.platform);
   const platformVersion = shortText(device.platformVersion, 40);
   const appVersion = shortText(device.appVersion, 40);
   const publicKey = typeof input.publicKey === "string" && isP256PublicKey(input.publicKey)
@@ -156,6 +157,16 @@ function shortText(value: unknown, max: number): string | null {
   if (typeof value !== "string") return null;
   const result = value.trim();
   return result && result.length <= max ? result : null;
+}
+
+function parsePlatform(value: unknown): LinkPlatform | null {
+  return value === "android" ||
+    value === "ios" ||
+    value === "macos" ||
+    value === "windows" ||
+    value === "linux"
+    ? value
+    : null;
 }
 
 function plainStringMap(value: unknown): value is Record<string, string> {

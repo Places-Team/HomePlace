@@ -239,7 +239,7 @@ are described in [HomePlace Link roadmap](docs/homeplace-link-roadmap.md).
 - [x] Rules on metrics, not only availability: "disk over 90%", "CPU pinned for
       ten minutes"
 - [x] More destinations: ntfy and webhooks
-- [ ] Email as a destination
+- [x] Email as a destination
 - [ ] Grouping and escalation
 - [x] Web push in the browser and on the phone, independent of Telegram
 
@@ -250,22 +250,22 @@ are described in [HomePlace Link roadmap](docs/homeplace-link-roadmap.md).
 - [x] **qBittorrent** — active torrents and speeds
 - [x] **Jellyfin** — what is playing, what to watch next, with artwork
 - [x] ***arr stack** — queue and health
-- [ ] Deeper *arr: upcoming calendar, search from the panel
+- [x] Deeper *arr: upcoming calendar, search from the panel
 - [x] **FatSecret** — a personal food diary with computed КБЖУ targets, foods from FatSecret search
 - [x] **Proxmox Backup Server** — last backup, datastore usage
-- [ ] **Weather** and a calendar widget for the home-page feel
-- [ ] **Uptime Kuma** import, for people migrating
+- [x] **Weather** and a calendar widget for the home-page feel
+- [x] **Uptime Kuma** import, for people migrating
 
 ### Automation
 
 - [ ] Scenarios: on an event, do a thing (restart a container, send a message)
-- [ ] Scheduled actions
-- [ ] A read-only public status page for the services you choose
+- [x] Scheduled actions
+- [x] A read-only public status page for the services you choose
 
 ### Apps and agents
 
 - [x] HomePlace Link v1 discovery endpoint and base protocol schemas
-- [ ] Device registry and secure pairing
+- [x] Device registry and secure pairing
 - [ ] Windows, macOS and Linux agents
 - [ ] Android and iOS applications with share extensions
 - [ ] Device actions, clipboard, file transfer and cross-device notifications
@@ -273,10 +273,10 @@ are described in [HomePlace Link roadmap](docs/homeplace-link-roadmap.md).
 
 ### Housekeeping
 
-- [ ] Import and export of the whole configuration as one file
-- [ ] Multi-host Docker in the interface rather than only in `.env`
+- [x] Import and export of the whole configuration as one file
+- [x] Multi-host Docker in the interface rather than only in `.env`
 - [ ] Optional longer metric retention for installations without Prometheus
-- [ ] A test suite worth the name
+- [x] A test suite worth the name
 
 ---
 

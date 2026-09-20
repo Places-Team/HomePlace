@@ -458,6 +458,11 @@ revocation closes an active connection immediately.
 Deliver Windows, macOS and Linux pairing, presence, notifications, URL open and
 clipboard transfer.
 
+Current progress: Desktop supports an explicit seamless clipboard mode. New
+text is relayed only between devices owned by the same HomePlace user, bounded
+and rate-limited on the server, and deduplicated by the desktop client to avoid
+sync loops. Manual approval remains the default policy.
+
 Exit criteria: installers work on clean supported systems; every advertised
 capability succeeds or disappears when permission is removed.
 

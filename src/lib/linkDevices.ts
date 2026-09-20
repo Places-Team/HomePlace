@@ -142,6 +142,10 @@ export function linkDeviceHasPermission(device: { permissions: string }, permiss
   }
 }
 
+export function linkDeviceHasCapability(device: { capabilities: string }, capability: string): boolean {
+  return parsedCapabilities(device.capabilities).has(capability);
+}
+
 export async function heartbeatLinkDevice(deviceId: string, acknowledgedEventIds: string[], capabilities?: LinkCapability[]) {
   await pruneExpiredFileTransfers();
   const now = new Date();

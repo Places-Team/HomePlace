@@ -7,20 +7,19 @@ import { recordContainerHistory } from "./containerHistory";
  * A persisted history of container CPU and memory, for installations without
  * Prometheus.
  *
- * The in-memory history (containerHistory.ts) is instant but forgets everything
- * on restart and only holds the latest samples. This is the durable counterpart: a
- * coarse sample — one row per running container per minute — written on the
- * monitor's background tick and kept a week, so a chart survives a restart and
- * reaches back further than a page view ever could. Coarse on purpose: a
- * fifteen-second sample would be a million rows a week to draw a short line.
+ * The in-memory history (containerHistory.ts) forgets everything on restart.
+ * Its durable counterpart keeps a coarse rotating sample for a week, so charts
+ * survive restarts without repeatedly loading every container at once.
  */
 
-const MIN_GAP_MS = 60_000;
+const MIN_GAP_MS = 120_000;
+const SAMPLE_BATCH = 8;
 const KEEP_DAYS = 7;
 let lastSample = 0;
 let sampling = false;
+let sampleOffset = 0;
 
-/** Write one sample of every running container, at most once a minute. */
+/** Write a rotating batch of samples at most once every two minutes. */
 export async function sampleContainersToDb(): Promise<void> {
   if (sampling || Date.now() - lastSample < MIN_GAP_MS) return;
   sampling = true;
@@ -30,7 +29,13 @@ export async function sampleContainersToDb(): Promise<void> {
   try {
     const running = (await listContainers()).filter((c) => c.state === "running");
     if (running.length === 0) return;
-    const stats = await statsForContainers(running, 60, 4);
+    // Sample a rotating subset. A home server can easily have thirty or more
+    // containers; reading every Docker stats document in each pass kept the
+    // app busy for most of every minute. Eight at a time covers them all over
+    // several passes while keeping background work small and predictable.
+    const selected = [...running.slice(sampleOffset), ...running.slice(0, sampleOffset)].slice(0, SAMPLE_BATCH);
+    sampleOffset = (sampleOffset + selected.length) % running.length;
+    const stats = await statsForContainers(selected, selected.length, 1);
     if (stats.length === 0) return;
     const at = new Date();
     recordContainerHistory(stats, running.map((container) => container.name), at.getTime());

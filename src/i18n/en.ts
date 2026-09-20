@@ -100,7 +100,7 @@ export const en = {
     uploadingFile: "Uploading… {progress}%",
     cancelUpload: "Cancel upload",
     uploadCancelled: "Upload cancelled.",
-    fileTooLarge: "Choose a file no larger than 5 MiB.",
+    fileTooLarge: "Choose a file no larger than 64 MiB.",
     shareSent: "Sent. Waiting for approval on the device.",
     shareInvalid: "Enter a valid HTTP or HTTPS link, or text up to 8,000 characters.",
     shareUnavailable: "The device is no longer available.",

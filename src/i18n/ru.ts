@@ -97,7 +97,7 @@ export const ru: Dictionary = {
     uploadingFile: "Отправка… {progress}%",
     cancelUpload: "Отменить отправку",
     uploadCancelled: "Отправка отменена.",
-    fileTooLarge: "Выберите файл размером не более 5 МиБ.",
+    fileTooLarge: "Выберите файл размером не более 64 МиБ.",
     shareSent: "Отправлено. Ожидается подтверждение на устройстве.",
     shareInvalid: "Укажите корректную HTTP- или HTTPS-ссылку либо текст до 8 000 символов.",
     shareUnavailable: "Устройство больше недоступно.",

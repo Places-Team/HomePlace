@@ -1,6 +1,8 @@
 export const MAX_SHARE_TEXT = 8_000;
 export const MAX_SHARE_URL = 4_096;
-export const MAX_SHARE_FILE_BYTES = 5 * 1024 * 1024;
+// Large enough for documents and short media without letting the current
+// in-memory encryption pipeline put unbounded pressure on a self-hosted server.
+export const MAX_SHARE_FILE_BYTES = 64 * 1024 * 1024;
 export const SHARE_LIFETIME_MS = 5 * 60_000;
 
 export type ShareMessage = { type: "text" | "url"; value: string; targetDeviceId: string };

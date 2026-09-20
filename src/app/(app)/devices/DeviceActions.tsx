@@ -12,7 +12,7 @@ import { Dialog } from "@/components/Dialog";
 import { Button, Field, Input, Select, Textarea } from "@/components/form";
 import type { Dictionary } from "@/i18n";
 
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
+const MAX_FILE_BYTES = 64 * 1024 * 1024;
 
 export function PairingActions({ id, d }: { id: string; d: Dictionary }) {
   const [pending, startTransition] = useTransition();

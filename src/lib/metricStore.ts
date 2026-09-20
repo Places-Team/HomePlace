@@ -8,18 +8,16 @@ import { recordContainerHistory } from "./containerHistory";
  * Prometheus.
  *
  * The in-memory history (containerHistory.ts) forgets everything on restart.
- * Its durable counterpart keeps a coarse rotating sample for a week, so charts
- * survive restarts without repeatedly loading every container at once.
+ * Its durable counterpart keeps lightweight one-minute samples for a week, so
+ * charts survive restarts without Docker's expensive two-reading stats mode.
  */
 
-const MIN_GAP_MS = 120_000;
-const SAMPLE_BATCH = 8;
+const MIN_GAP_MS = 60_000;
 const KEEP_DAYS = 7;
 let lastSample = 0;
 let sampling = false;
-let sampleOffset = 0;
 
-/** Write a rotating batch of samples at most once every two minutes. */
+/** Write one lightweight sample for every running container once a minute. */
 export async function sampleContainersToDb(): Promise<void> {
   if (sampling || Date.now() - lastSample < MIN_GAP_MS) return;
   sampling = true;
@@ -29,13 +27,7 @@ export async function sampleContainersToDb(): Promise<void> {
   try {
     const running = (await listContainers()).filter((c) => c.state === "running");
     if (running.length === 0) return;
-    // Sample a rotating subset. A home server can easily have thirty or more
-    // containers; reading every Docker stats document in each pass kept the
-    // app busy for most of every minute. Eight at a time covers them all over
-    // several passes while keeping background work small and predictable.
-    const selected = [...running.slice(sampleOffset), ...running.slice(0, sampleOffset)].slice(0, SAMPLE_BATCH);
-    sampleOffset = (sampleOffset + selected.length) % running.length;
-    const stats = await statsForContainers(selected, selected.length, 1);
+    const stats = await statsForContainers(running, 60, 8);
     if (stats.length === 0) return;
     const at = new Date();
     recordContainerHistory(stats, running.map((container) => container.name), at.getTime());

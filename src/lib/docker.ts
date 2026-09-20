@@ -1,6 +1,7 @@
 import "server-only";
 import { settings, type DockerHost } from "./config";
 import { resolvedDockerHosts } from "./integrations";
+import { dockerCpuPercent, type DockerCpuSample } from "./dockerMetrics";
 
 /**
  * Docker, over HTTP.
@@ -330,6 +331,8 @@ export async function containerLogs(hostKey: string, id: string, tail = 200): Pr
 
 export type ContainerStats = { name: string; cpu: number; memory: number; memoryLimit: number };
 
+const cpuSamples = new Map<string, DockerCpuSample>();
+
 /**
  * CPU and memory straight from Docker.
  *
@@ -343,21 +346,29 @@ export async function containerStats(hostKey: string, id: string, name: string):
   if (!host) return null;
 
   try {
-    // stream=false returns a single sample that already contains the previous
-    // reading, which is what makes a percentage possible from one request.
-    const res = await fetch(`${host.url}/containers/${encodeURIComponent(id)}/stats?stream=false&one-shot=false`, {
+    // one-shot avoids Docker waiting roughly one second to manufacture a
+    // second reading for every container. Keep the previous counters locally
+    // and calculate the same delta on the next lightweight sample.
+    const res = await fetch(`${host.url}/containers/${encodeURIComponent(id)}/stats?stream=false&one-shot=true`, {
       cache: "no-store",
       signal: AbortSignal.timeout(8000),
     });
     if (!res.ok) return null;
     const raw = (await res.json()) as Record<string, any>;
 
-    const cpuDelta = (raw.cpu_stats?.cpu_usage?.total_usage ?? 0) - (raw.precpu_stats?.cpu_usage?.total_usage ?? 0);
-    const systemDelta = (raw.cpu_stats?.system_cpu_usage ?? 0) - (raw.precpu_stats?.system_cpu_usage ?? 0);
+    const sample = {
+      cpu: Number(raw.cpu_stats?.cpu_usage?.total_usage ?? 0),
+      system: Number(raw.cpu_stats?.system_cpu_usage ?? 0),
+    };
+    const sampleKey = `${hostKey}:${id}`;
+    const previous = cpuSamples.get(sampleKey);
+    cpuSamples.set(sampleKey, sample);
+    if (cpuSamples.size > 1_000) cpuSamples.clear();
+
     // Docker reports per-core totals; multiplying by the core count gives the
     // same "200% means two cores" scale people expect from `docker stats`.
     const cores = raw.cpu_stats?.online_cpus ?? raw.cpu_stats?.cpu_usage?.percpu_usage?.length ?? 1;
-    const cpu = systemDelta > 0 && cpuDelta > 0 ? (cpuDelta / systemDelta) * cores * 100 : 0;
+    const cpu = dockerCpuPercent(sample, previous, cores);
 
     // The cache is memory the kernel can reclaim; counting it makes every
     // container look far hungrier than it is.

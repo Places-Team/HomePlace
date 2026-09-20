@@ -9,8 +9,8 @@ import type { ContainerStats } from "./docker";
  * lost on restart — which is the honest trade for a sparkline that appears on a
  * fresh installation with no exporters at all.
  *
- * The durable sampler feeds this in-memory view from the same rotating Docker
- * sample, avoiding a second pass over every container.
+ * The durable sampler feeds this in-memory view from the same lightweight
+ * Docker sample, avoiding a second pass over every container.
  */
 
 const MAX_POINTS = 60;

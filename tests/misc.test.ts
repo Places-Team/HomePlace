@@ -14,6 +14,7 @@ import { compareVersions, releaseUpdateFrom } from "../src/lib/updates";
 import { NOTIFY_EVENT_TYPES, shouldNotify } from "../src/lib/notifyPolicy";
 import { isDue } from "../src/lib/cadence";
 import { filesystemUsage } from "../src/lib/filesystemUsage";
+import { dockerCpuPercent } from "../src/lib/dockerMetrics";
 
 /** Small pure helpers that everything else leans on. */
 
@@ -114,6 +115,12 @@ test("filesystem usage joins exporters that omit device on availability", () => 
   assert.equal(row.free, 3_000);
   assert.equal(row.used, 1_000);
   assert.equal(row.usedPercent, 25);
+});
+
+test("Docker CPU uses locally retained one-shot counters", () => {
+  assert.equal(dockerCpuPercent({ cpu: 150, system: 1_500 }, undefined, 4), 0);
+  assert.equal(dockerCpuPercent({ cpu: 150, system: 1_500 }, { cpu: 100, system: 1_000 }, 4), 40);
+  assert.equal(dockerCpuPercent({ cpu: 90, system: 1_500 }, { cpu: 100, system: 1_000 }, 4), 0);
 });
 
 // ────────────────────────────────── Icons ────────────────────────────────

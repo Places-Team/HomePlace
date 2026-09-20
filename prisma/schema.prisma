@@ -404,6 +404,11 @@ model LinkDevice {
   publicKey       String
   credentialHash  String   @unique
   capabilities    String
+  // Server-side actions approved with the pairing request. Device
+  // capabilities describe what the phone can do; permissions describe what
+  // the phone may ask HomePlace to do.
+  permissions     String   @default("[]")
+  userId          String?
   lastSeenAt      DateTime?
   revokedAt       DateTime?
   createdAt       DateTime @default(now())
@@ -427,6 +432,7 @@ model LinkPairing {
   appVersion          String
   publicKey           String
   capabilities        String
+  permissions         String   @default("[]")
   expiresAt           DateTime
   approvedById        String?
   encryptedCredential String?

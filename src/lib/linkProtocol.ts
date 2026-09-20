@@ -29,7 +29,19 @@ export const LINK_CAPABILITIES = new Set([
   "device.battery",
   "device.network",
   "device.presence",
+  "clipboard.send",
+  "clipboard.receive",
 ]);
+
+export const LINK_PERMISSIONS = new Set([
+  "dashboard.read",
+  "reminder.manage",
+  "media.request",
+  "telegram.send",
+  "clipboard.relay",
+]);
+
+export type LinkPermission = "dashboard.read" | "reminder.manage" | "media.request" | "telegram.send" | "clipboard.relay";
 
 export type LinkCapability = {
   name: string;
@@ -47,6 +59,7 @@ export type LinkPairRequest = {
   };
   publicKey: string;
   capabilities: LinkCapability[];
+  permissions: LinkPermission[];
 };
 
 type LinkInfoInput = {
@@ -103,12 +116,28 @@ export function parseLinkPairRequest(value: unknown): LinkPairRequest | null {
     capabilities.push({ name: item.name, version: Number(item.version), constraints: item.constraints });
   }
   if (capabilities.length > 16) return null;
+  const permissions = parsePermissions(input.permissions);
+  if (!permissions) return null;
   return {
     protocol: LINK_PROTOCOL_MAX,
     device: { name, platform, platformVersion, appVersion },
     publicKey,
     capabilities,
+    permissions,
   };
+}
+
+function parsePermissions(value: unknown): LinkPermission[] | null {
+  if (value === undefined) return [];
+  if (!Array.isArray(value) || value.length > LINK_PERMISSIONS.size) return null;
+  const permissions: LinkPermission[] = [];
+  const seen = new Set<string>();
+  for (const item of value) {
+    if (typeof item !== "string" || !LINK_PERMISSIONS.has(item) || seen.has(item)) return null;
+    seen.add(item);
+    permissions.push(item as LinkPermission);
+  }
+  return permissions;
 }
 
 function isP256PublicKey(value: string): boolean {

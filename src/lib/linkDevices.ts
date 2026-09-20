@@ -29,6 +29,7 @@ export async function createLinkPairing(input: LinkPairRequest) {
           appVersion: input.device.appVersion,
           publicKey: input.publicKey,
           capabilities: JSON.stringify(input.capabilities),
+          permissions: JSON.stringify(input.permissions),
           expiresAt,
         },
       });
@@ -97,6 +98,8 @@ export async function approveLinkPairing(id: string, userId: string) {
         publicKey: pairing.publicKey,
         credentialHash: digest(credential),
         capabilities: pairing.capabilities,
+        permissions: pairing.permissions,
+        userId,
       },
     });
     await tx.linkPairing.update({
@@ -129,13 +132,29 @@ export async function authenticateLinkDevice(request: Request) {
   return prisma.linkDevice.findFirst({ where: { credentialHash: digest(token), revokedAt: null } });
 }
 
+export function linkDeviceHasPermission(device: { permissions: string }, permission: string): boolean {
+  try {
+    const permissions = JSON.parse(device.permissions) as unknown;
+    return Array.isArray(permissions) && permissions.includes(permission);
+  } catch {
+    return false;
+  }
+}
+
 export async function heartbeatLinkDevice(deviceId: string, acknowledgedEventIds: string[]) {
   const now = new Date();
+  const clipboardCutoff = new Date(now.getTime() - 5 * 60_000);
   const events = await prisma.$transaction(async (tx) => {
     await tx.linkDevice.update({ where: { id: deviceId }, data: { lastSeenAt: now } });
+    await tx.linkDeviceEvent.deleteMany({
+      where: { deviceId, kind: "clipboard.offer", createdAt: { lt: clipboardCutoff } },
+    });
     if (acknowledgedEventIds.length) {
+      await tx.linkDeviceEvent.deleteMany({
+        where: { deviceId, id: { in: acknowledgedEventIds }, kind: "clipboard.offer" },
+      });
       await tx.linkDeviceEvent.updateMany({
-        where: { deviceId, id: { in: acknowledgedEventIds }, deliveredAt: null },
+        where: { deviceId, id: { in: acknowledgedEventIds }, kind: { not: "clipboard.offer" }, deliveredAt: null },
         data: { deliveredAt: now },
       });
     }
@@ -182,6 +201,32 @@ export async function queueTestNotification(deviceId: string) {
     },
   });
   return true;
+}
+
+/** Relay clipboard text only to the same user's explicitly capable devices. */
+export async function relayClipboard(source: { id: string; userId: string | null; name: string }, text: string) {
+  if (!source.userId) return 0;
+  const devices = await prisma.linkDevice.findMany({
+    where: { userId: source.userId, id: { not: source.id }, revokedAt: null },
+    select: { id: true, capabilities: true },
+  });
+  const targets = devices.filter((device) => {
+    try {
+      const capabilities = JSON.parse(device.capabilities) as { name?: string }[];
+      return capabilities.some((capability) => capability.name === "clipboard.receive");
+    } catch {
+      return false;
+    }
+  });
+  if (targets.length === 0) return 0;
+  await prisma.$transaction(targets.map((device) => prisma.linkDeviceEvent.create({
+    data: {
+      deviceId: device.id,
+      kind: "clipboard.offer",
+      payload: JSON.stringify({ text, sourceName: source.name }),
+    },
+  })));
+  return targets.length;
 }
 
 function isUniqueConstraint(error: unknown): boolean {

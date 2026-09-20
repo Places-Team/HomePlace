@@ -175,10 +175,12 @@ test("link pairing accepts only supported capabilities and protocol versions", (
     device: { name: "Pixel", platform: "android", platformVersion: "15", appVersion: "0.1.0" },
     publicKey: publicKey.export({ type: "spki", format: "der" }).toString("base64"),
     capabilities: [{ name: "notification.receive", version: 1, constraints: {} }],
+    permissions: ["dashboard.read", "reminder.manage", "clipboard.relay"],
   };
   assert.deepEqual(parseLinkPairRequest(valid), valid);
   assert.equal(parseLinkPairRequest({ ...valid, protocol: 2 }), null);
   assert.equal(parseLinkPairRequest({ ...valid, capabilities: [{ name: "system.shell", version: 1, constraints: {} }] }), null);
+  assert.equal(parseLinkPairRequest({ ...valid, permissions: ["system.shell"] }), null);
   assert.equal(parseLinkPairRequest({ ...valid, publicKey: Buffer.alloc(65).toString("base64") }), null);
 });
 

@@ -39,6 +39,9 @@ export default async function DevicesPage() {
                   <p className="text-sm text-muted">{pairing.platform} {pairing.platformVersion}</p>
                   <p className="mt-2 font-mono text-2xl tracking-[0.25em]">{pairing.code}</p>
                   <p className="mt-1 text-xs text-muted">{d.devices.codeHint}</p>
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {(JSON.parse(pairing.permissions) as string[]).map((permission) => <Badge key={permission}>{permission}</Badge>)}
+                  </div>
                 </div>
                 <PairingActions id={pairing.id} d={d} />
               </div>
@@ -54,6 +57,7 @@ export default async function DevicesPage() {
         ) : (
           devices.map((device) => {
             const capabilities = JSON.parse(device.capabilities) as { name?: string }[];
+            const permissions = JSON.parse(device.permissions) as string[];
             const online = !!device.lastSeenAt && now - device.lastSeenAt.getTime() < 90_000;
             return (
               <Card key={device.id} className="p-4">
@@ -69,6 +73,9 @@ export default async function DevicesPage() {
                     </p>
                     <div className="mt-2 flex flex-wrap gap-1">
                       {capabilities.map((capability) => capability.name && <Badge key={capability.name}>{capability.name}</Badge>)}
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {permissions.map((permission) => <Badge key={permission} tone="neutral">{permission}</Badge>)}
                     </div>
                   </div>
                   <DeviceActions

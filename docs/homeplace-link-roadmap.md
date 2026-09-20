@@ -111,8 +111,8 @@ both endpoints prove the same server ID and key fingerprint.
 3. HomePlace creates a five-minute pairing session and returns a confirmation
    code plus a high-entropy claim secret.
 4. The application and **Devices** page display the same confirmation code.
-5. An administrator reviews the requested capabilities and approves or rejects
-   the request.
+5. An administrator reviews the requested capabilities and server permissions,
+   then approves or rejects the request.
 6. Approval issues a scoped device credential. The claim secret retrieves it
    exactly once; HomePlace stores only its hash and the public key.
 7. The application validates the returned server ID and begins authenticated
@@ -167,7 +167,7 @@ Capabilities use stable names and optional constraints:
 
 First capability groups:
 
-- `clipboard.read`, `clipboard.write`
+- `clipboard.send`, `clipboard.receive`
 - `file.send`, `file.receive`
 - `url.open`, `app.open`, `app.list`
 - `system.lock`, `system.sleep`, `system.shutdown`, `system.restart`
@@ -210,9 +210,25 @@ latest-state record. Only meaningful transitions become history events.
 - `POST /api/link/heartbeat`: authenticated presence, event delivery and event
   acknowledgement.
 - `DELETE /api/link/device`: revoke the authenticated device.
+- `GET /api/link/mobile/overview`: scoped calendar, reminder, media, Telegram
+  and monitoring data for the approved user.
+- `POST /api/link/mobile/reminders`: create, complete or delete personal
+  reminders.
+- `GET /api/link/mobile/requests/search` and `POST /api/link/mobile/requests`:
+  search and add titles through configured Sonarr/Radarr instances.
+- `POST /api/link/mobile/telegram`: send an explicit connection test.
+- `POST /api/link/mobile/clipboard`: relay bounded text only to capable devices
+  approved for the same user.
 
 Administrator approval, rejection, test notification and revocation are server
 actions protected by the existing HomePlace administrator session.
+
+Pairing stores capabilities separately from server action permissions. Mobile
+routes authenticate the device credential and enforce the permission required
+by each action. Android clipboard reads are foreground-only; incoming clipboard
+offers require a visible copy action, expire after five minutes and are deleted
+when acknowledged. iOS does not advertise clipboard relay in the first mobile
+slice.
 
 ### Future API and gateway
 

@@ -287,6 +287,35 @@ export async function jellyfinLibrary(): Promise<{ configured: boolean; items: J
   }
 }
 
+export async function jellyfinPlayedItems(): Promise<JellyfinLibraryItem[]> {
+  const cfg = await jellyfinConfig();
+  if (!cfg) return [];
+  const serverUrl = await jellyfinServerUrl(cfg);
+  try {
+    const fields = "Overview,ProductionYear,UserData,PrimaryImageAspectRatio";
+    const response = await fetch(
+      `${serverUrl}/Items?Recursive=true&IncludeItemTypes=Movie,Series&Filters=IsPlayed&SortBy=SortName&SortOrder=Ascending&Limit=1000&Fields=${fields}`,
+      { headers: jellyfinAuthHeaders(cfg.apiKey), cache: "no-store", signal: AbortSignal.timeout(15000) }
+    );
+    if (!response.ok) return [];
+    const payload = await limitedJson<{ Items?: Record<string, any>[] }>(response);
+    return (Array.isArray(payload.Items) ? payload.Items : [])
+      .filter((raw) => !!raw.UserData?.Played)
+      .map((raw) => ({
+        id: String(raw.Id),
+        title: String(raw.Name ?? "Untitled"),
+        kind: raw.Type === "Series" ? "tv" as const : "movie" as const,
+        year: Number(raw.ProductionYear) || undefined,
+        overview: String(raw.Overview ?? "").slice(0, 1200),
+        poster: `/api/media/jellyfin-image/${encodeURIComponent(String(raw.Id))}`,
+        played: true,
+        progress: 100,
+      }));
+  } catch {
+    return [];
+  }
+}
+
 export async function jellyfinDetails(id: string): Promise<JellyfinDetails | null> {
   const itemId = id.trim();
   if (!/^[a-zA-Z0-9-]{1,128}$/.test(itemId)) return null;

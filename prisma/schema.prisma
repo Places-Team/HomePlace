@@ -55,6 +55,7 @@ model User {
 
   dashboards  Dashboard[]
   linkDevices LinkDevice[]
+  watchEntries WatchEntry[]
 }
 
 // ─────────────────────────────── Dashboards ─────────────────────────────
@@ -384,6 +385,31 @@ model Reminder {
   createdAt DateTime @default(now())
 
   @@index([userId, at])
+}
+
+// A personal catalogue of watched films and series. It remains useful even
+// when Jellyfin is replaced: ratings, notes and dates belong to the person,
+// while jellyfinId is only an optional link back to the current media server.
+model WatchEntry {
+  id           String   @id @default(cuid())
+  userId       String
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jellyfinId   String?
+  kind         String
+  title        String
+  year         Int?
+  poster       String?
+  watchedAt    DateTime @default(now())
+  rating       Int?
+  notes        String?
+  rewatchCount Int      @default(1)
+  source       String   @default("manual")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@unique([userId, jellyfinId])
+  @@index([userId, watchedAt])
+  @@index([userId, rating])
 }
 
 // Small key/value store for panel-wide settings that are not secrets:

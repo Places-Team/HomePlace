@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { cancelMediaRequest, manageDownload, readJellyfinDetails, requestMedia, searchMedia } from "@/actions/media";
+import { addWatchEntry, cancelMediaRequest, manageDownload, readJellyfinDetails, requestMedia, searchMedia } from "@/actions/media";
 import type { Dictionary } from "@/i18n";
 import type { DownloadItem, JellyfinDetails, JellyfinLibraryItem, MediaCard, MediaRequest } from "@/lib/media";
 import { Badge, EmptyState, Meter } from "@/components/ui";
@@ -9,8 +9,10 @@ import { Button, Input, Select } from "@/components/form";
 import { Dialog } from "@/components/Dialog";
 import { serviceLogo } from "@/lib/icons";
 import { isHomeNetworkHost, jellyfinNativeLink, jellyfinWebBase, jellyfinWebLink } from "@/lib/jellyfinLinks";
+import type { WatchEntryView } from "@/lib/watchHistory";
+import { WatchJournal } from "./WatchJournal";
 
-type Tab = "discover" | "library" | "requests" | "downloads";
+type Tab = "discover" | "library" | "history" | "requests" | "downloads";
 type DiscoverResult = { configured: boolean; page: number; pages: number; items: MediaCard[] };
 type MediaDictionary = Dictionary & { media: Dictionary["mediaCenter"] & Dictionary["media"] };
 
@@ -27,6 +29,7 @@ export function MediaLibrary({
   library,
   requests: initialRequests,
   downloads: initialDownloads,
+  initialHistory,
   jellyfin,
   canManage,
 }: {
@@ -35,6 +38,7 @@ export function MediaLibrary({
   library: { configured: boolean; items: JellyfinLibraryItem[] };
   requests: MediaRequest[];
   downloads: { configured: boolean; items: DownloadItem[] };
+  initialHistory: WatchEntryView[];
   jellyfin: { url: string; localUrl: string; appUrl: string };
   canManage: boolean;
 }) {
@@ -56,6 +60,7 @@ export function MediaLibrary({
   const [libraryDetailsError, setLibraryDetailsError] = useState("");
   const [requests, setRequests] = useState(initialRequests);
   const [downloads, setDownloads] = useState(initialDownloads.items);
+  const [history, setHistory] = useState(initialHistory);
   const [preferLocal, setPreferLocal] = useState(false);
   const [lanDetected, setLanDetected] = useState(false);
   const [libraryQuery, setLibraryQuery] = useState("");
@@ -146,6 +151,23 @@ export function MediaLibrary({
     });
   }
 
+  function addToHistory(item: JellyfinLibraryItem) {
+    startTransition(async () => {
+      const response = await addWatchEntry({
+        jellyfinId: item.id,
+        kind: item.kind,
+        title: item.title,
+        year: item.year,
+        poster: item.poster,
+        watchedAt: new Date().toISOString(),
+      });
+      if (response.ok && response.entry) {
+        setHistory((current) => [response.entry!, ...current.filter((entry) => entry.id !== response.entry!.id)]);
+        setMessage(d.media.addedToHistory);
+      } else setMessage(response.error ?? d.common.failed);
+    });
+  }
+
   const webBase = jellyfinWebBase({ publicUrl: jellyfin.url, localUrl: jellyfin.localUrl, preferLocal });
   const webLink = (id: string) => jellyfinWebLink(webBase, id);
 
@@ -167,6 +189,7 @@ export function MediaLibrary({
   const tabs: { key: Tab; label: string; count?: number }[] = [
     { key: "discover", label: d.media.discover },
     { key: "library", label: d.media.library, count: library.items.length },
+    { key: "history", label: d.media.watchHistory, count: history.length },
     { key: "requests", label: d.media.requests, count: requests.length },
     { key: "downloads", label: d.media.downloads, count: downloads.length },
   ];
@@ -251,7 +274,9 @@ export function MediaLibrary({
         </section>
       )}
 
-      {tab === "library" && (!library.configured ? <EmptyState title={d.media.configureJellyfin} /> : libraryItems.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">{libraryItems.map((item) => <LibraryPoster key={item.id} item={item} d={d} webLink={webLink(item.id)} onDetails={() => openLibraryDetails(item)} onOpenApp={() => openApp(item.id)} hasApp={!!jellyfin.appUrl} />)}</div> : <EmptyState title={d.media.noResults} />)}
+      {tab === "library" && (!library.configured ? <EmptyState title={d.media.configureJellyfin} /> : libraryItems.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">{libraryItems.map((item) => <LibraryPoster key={item.id} item={item} d={d} webLink={webLink(item.id)} watched={history.some((entry) => entry.jellyfinId === item.id)} onWatch={() => addToHistory(item)} onDetails={() => openLibraryDetails(item)} onOpenApp={() => openApp(item.id)} hasApp={!!jellyfin.appUrl} />)}</div> : <EmptyState title={d.media.noResults} />)}
+
+      {tab === "history" && <WatchJournal d={dictionary} entries={history} onChange={setHistory} jellyfinConfigured={library.configured} />}
 
       {tab === "requests" && (requests.length ? <div className="space-y-2">{requests.map((item) => <div key={item.id} className="flex items-center gap-3 rounded-card border border-line bg-surface p-3">{item.poster ? <img src={item.poster} alt="" className="h-16 w-11 rounded-md object-cover" /> : <div className="h-16 w-11 rounded-md bg-raised" />}<div className="min-w-0 flex-1"><p className="truncate font-medium">{item.title}</p><p className="text-xs text-muted">{item.requestedBy} · {item.createdAt ? new Date(item.createdAt).toLocaleDateString(d.lang) : ""}</p></div><Badge tone={item.status === "approved" ? "ok" : item.status === "pending" ? "warn" : "neutral"}>{item.status}</Badge>{canManage && <Button variant="quiet" disabled={pending} onClick={() => startTransition(async () => { const response = await cancelMediaRequest(item.id); if (response.ok) setRequests((current) => current.filter((entry) => entry.id !== item.id)); else setMessage(response.error ?? d.common.failed); })}>{d.media.cancelRequest}</Button>}</div>)}</div> : <EmptyState title={result.configured ? d.media.noRequests : d.media.configureOverseerr} />)}
 
@@ -281,8 +306,8 @@ function MediaDetails({ item, d, disabled, onClose, onRequest }: { item: MediaCa
   return <div className="space-y-4"><div className="relative overflow-hidden rounded-card bg-raised">{item.backdrop && <img src={item.backdrop} alt="" className="h-48 w-full object-cover opacity-70 sm:h-64" />}<div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" /><div className="absolute inset-x-0 bottom-0 p-5 text-white"><p className="text-2xl font-semibold">{item.title}</p><p className="mt-1 text-sm text-white/75">{item.kind === "movie" ? d.media.movies : d.media.series}{item.year ? ` · ${item.year}` : ""}{item.rating ? ` · ★ ${item.rating.toFixed(1)}` : ""}</p></div></div><p className="whitespace-pre-line text-sm leading-6 text-muted">{item.overview || d.media.noResults}</p><div className="flex justify-end gap-2">{item.status === "missing" && <Button variant="primary" disabled={disabled} onClick={onRequest}>{d.media.request}</Button>}<Button onClick={onClose}>{d.common.close}</Button></div></div>;
 }
 
-function LibraryPoster({ item, d, webLink, onDetails, onOpenApp, hasApp }: { item: JellyfinLibraryItem; d: MediaDictionary; webLink: string; onDetails: () => void; onOpenApp: () => void; hasApp: boolean }) {
-  return <article className="group overflow-hidden rounded-card border border-line bg-surface"><button type="button" onClick={onDetails} className="relative block aspect-[2/3] w-full bg-raised text-left">{item.poster ? <img src={item.poster} alt="" loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]" /> : null}<div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-3 pt-12 text-white"><p className="line-clamp-2 text-sm font-semibold">{item.title}</p><p className="text-xs text-white/70">{item.year ?? ""}{item.played ? ` · ${d.media.markPlayed}` : ""}</p></div>{item.progress > 0 && <div className="absolute inset-x-2 bottom-1"><Meter value={item.progress} tone="ok" /></div>}</button><div className="flex flex-col gap-2 p-3"><Button size="sm" onClick={onDetails}>{d.media.details}</Button>{hasApp && <Button size="sm" variant="primary" onClick={onOpenApp}>{d.media.openApp}</Button>}<a href={webLink} target="_blank" rel="noreferrer" className="rounded-control border border-line px-2.5 py-1 text-center text-xs font-medium hover:bg-raised">{d.media.openWeb}</a></div></article>;
+function LibraryPoster({ item, d, webLink, watched, onWatch, onDetails, onOpenApp, hasApp }: { item: JellyfinLibraryItem; d: MediaDictionary; webLink: string; watched: boolean; onWatch: () => void; onDetails: () => void; onOpenApp: () => void; hasApp: boolean }) {
+  return <article className="group overflow-hidden rounded-card border border-line bg-surface"><button type="button" onClick={onDetails} className="relative block aspect-[2/3] w-full bg-raised text-left">{item.poster ? <img src={item.poster} alt="" loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]" /> : null}<div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-3 pt-12 text-white"><p className="line-clamp-2 text-sm font-semibold">{item.title}</p><p className="text-xs text-white/70">{item.year ?? ""}{item.played ? ` · ${d.media.markPlayed}` : ""}</p></div>{item.progress > 0 && <div className="absolute inset-x-2 bottom-1"><Meter value={item.progress} tone="ok" /></div>}</button><div className="flex flex-col gap-2 p-3"><Button size="sm" onClick={onDetails}>{d.media.details}</Button><Button size="sm" disabled={watched} onClick={onWatch}>{watched ? d.media.inWatched : d.media.addWatched}</Button>{hasApp && <Button size="sm" variant="primary" onClick={onOpenApp}>{d.media.openApp}</Button>}<a href={webLink} target="_blank" rel="noreferrer" className="rounded-control border border-line px-2.5 py-1 text-center text-xs font-medium hover:bg-raised">{d.media.openWeb}</a></div></article>;
 }
 
 function LibraryDetails({ item, d, webLink, onOpenApp, hasApp }: { item: JellyfinDetails; d: MediaDictionary; webLink: string; onOpenApp: () => void; hasApp: boolean }) {

@@ -58,6 +58,7 @@ export const ru: Dictionary = {
   mediaCenter: {
     title: "Медиа",
     subtitle: "Поиск, запрос, загрузка и просмотр без переходов между сервисами.",
+    contentType: "Тип медиа",
     discover: "Обзор",
     movies: "Фильмы",
     series: "Сериалы",

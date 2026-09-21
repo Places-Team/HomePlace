@@ -61,6 +61,7 @@ export const en = {
   mediaCenter: {
     title: "Media",
     subtitle: "Discover, request, download and watch without jumping between services.",
+    contentType: "Media type",
     discover: "Discover",
     movies: "Movies",
     series: "Series",

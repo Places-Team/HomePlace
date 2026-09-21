@@ -79,12 +79,30 @@ export function MediaLibrary({
       });
   }, [availability, rating, result.items, sort, year]);
 
+  const libraryItems = useMemo(
+    () => library.items.filter((item) => kind === "all" || item.kind === kind),
+    [kind, library.items]
+  );
+
+  const libraryCounts = useMemo(() => ({
+    all: library.items.length,
+    movie: library.items.filter((item) => item.kind === "movie").length,
+    tv: library.items.filter((item) => item.kind === "tv").length,
+  }), [library.items]);
+
   function runSearch(nextPage = 1, append = false) {
     setMessage("");
     startTransition(async () => {
       const next = await searchMedia({ query, kind, page: nextPage });
       setResult(append ? { ...next, items: [...result.items, ...next.items] } : next);
     });
+  }
+
+  function selectKind(nextKind: typeof kind) {
+    setKind(nextKind);
+    if (tab !== "discover") return;
+    setMessage("");
+    startTransition(async () => setResult(await searchMedia({ query, kind: nextKind })));
   }
 
   function sendRequest(item: MediaCard) {
@@ -143,14 +161,36 @@ export function MediaLibrary({
         {tabs.map((item) => <button key={item.key} onClick={() => setTab(item.key)} className={`border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${tab === item.key ? "border-accent text-text" : "border-transparent text-muted hover:text-text"}`}>{item.label}{item.count !== undefined && <span className="ml-2 rounded-full bg-raised px-1.5 py-0.5 text-[10px]">{item.count}</span>}</button>)}
       </nav>
 
+      {(tab === "discover" || tab === "library") && (
+        <nav className="grid grid-cols-3 gap-2 sm:flex" aria-label={d.media.contentType}>
+          {([
+            { key: "all", label: d.media.all },
+            { key: "movie", label: d.media.movies },
+            { key: "tv", label: d.media.series },
+          ] as const).map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              aria-pressed={kind === item.key}
+              disabled={pending}
+              onClick={() => selectKind(item.key)}
+              className={`flex min-w-0 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition ${kind === item.key ? "border-accent bg-accent/10 text-accent shadow-sm" : "border-line bg-surface text-muted hover:border-accent/50 hover:text-text"}`}
+            >
+              <span aria-hidden>{item.key === "all" ? "◈" : item.key === "movie" ? "▶" : "▣"}</span>
+              <span className="truncate">{item.label}</span>
+              {tab === "library" && <span className="rounded-full bg-raised px-1.5 py-0.5 text-[10px] text-muted">{libraryCounts[item.key]}</span>}
+            </button>
+          ))}
+        </nav>
+      )}
+
       {message && <div role="status" className="rounded-control border border-line bg-raised px-3 py-2 text-sm">{message}</div>}
 
       {tab === "discover" && (
         <section className="space-y-4">
           {!result.configured ? <EmptyState title={d.media.configureOverseerr} /> : <>
-            <div className="grid gap-2 rounded-card border border-line bg-surface p-3 md:grid-cols-[minmax(14rem,1fr)_auto_auto_auto_auto]">
+            <div className="grid gap-2 rounded-card border border-line bg-surface p-3 md:grid-cols-[minmax(14rem,1fr)_auto_auto_auto]">
               <form className="flex gap-2" onSubmit={(event) => { event.preventDefault(); runSearch(); }}><Input value={query} onChange={(event) => setQuery(event.target.value)} placeholder={d.media.searchPlaceholder} maxLength={120} /><Button type="submit" variant="primary" disabled={pending}>{d.common.search}</Button></form>
-              <Select value={kind} onChange={(event) => { const value = event.target.value as typeof kind; setKind(value); startTransition(async () => setResult(await searchMedia({ query, kind: value }))); }}><option value="all">{d.media.all}</option><option value="movie">{d.media.movies}</option><option value="tv">{d.media.series}</option></Select>
               <Input value={year} onChange={(event) => setYear(event.target.value.replace(/\D/g, "").slice(0, 4))} placeholder={d.media.year} inputMode="numeric" className="w-24" />
               <Select value={rating} onChange={(event) => setRating(event.target.value)}><option value="0">{d.media.rating}: {d.media.all}</option><option value="6">6+</option><option value="7">7+</option><option value="8">8+</option></Select>
               <Select value={sort} onChange={(event) => setSort(event.target.value)}><option value="popularity">{d.media.popular}</option><option value="rating">{d.media.rating}</option><option value="year">{d.media.year}</option><option value="title">A–Z</option></Select>
@@ -162,7 +202,7 @@ export function MediaLibrary({
         </section>
       )}
 
-      {tab === "library" && (!library.configured ? <EmptyState title={d.media.configureJellyfin} /> : library.items.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">{library.items.map((item) => <LibraryPoster key={item.id} item={item} d={d} webLink={webLink(item.id)} onOpenApp={() => openApp(item.id)} hasApp={!!jellyfin.appUrl} />)}</div> : <EmptyState title={d.media.noResults} />)}
+      {tab === "library" && (!library.configured ? <EmptyState title={d.media.configureJellyfin} /> : libraryItems.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">{libraryItems.map((item) => <LibraryPoster key={item.id} item={item} d={d} webLink={webLink(item.id)} onOpenApp={() => openApp(item.id)} hasApp={!!jellyfin.appUrl} />)}</div> : <EmptyState title={d.media.noResults} />)}
 
       {tab === "requests" && (requests.length ? <div className="space-y-2">{requests.map((item) => <div key={item.id} className="flex items-center gap-3 rounded-card border border-line bg-surface p-3">{item.poster ? <img src={item.poster} alt="" className="h-16 w-11 rounded-md object-cover" /> : <div className="h-16 w-11 rounded-md bg-raised" />}<div className="min-w-0 flex-1"><p className="truncate font-medium">{item.title}</p><p className="text-xs text-muted">{item.requestedBy} · {item.createdAt ? new Date(item.createdAt).toLocaleDateString(d.lang) : ""}</p></div><Badge tone={item.status === "approved" ? "ok" : item.status === "pending" ? "warn" : "neutral"}>{item.status}</Badge>{canManage && <Button variant="quiet" disabled={pending} onClick={() => startTransition(async () => { const response = await cancelMediaRequest(item.id); if (response.ok) setRequests((current) => current.filter((entry) => entry.id !== item.id)); else setMessage(response.error ?? d.common.failed); })}>{d.media.cancelRequest}</Button>}</div>)}</div> : <EmptyState title={result.configured ? d.media.noRequests : d.media.configureOverseerr} />)}
 

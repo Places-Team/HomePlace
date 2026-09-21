@@ -16,11 +16,14 @@ import {
   createMediaRequest,
   deleteMediaRequest,
   discoverMedia,
+  discoverMediaDetails,
   jellyfinDetails,
   jellyfinPlayedItems,
   jellyfinProfiles,
+  listMediaRequests,
   updateMediaRequest,
   type JellyfinDetails,
+  type MediaDetailsData,
   type MediaKind,
 } from "@/lib/media";
 import { parseWatchHistory, recordWatch, removeWatch, updateWatch, type WatchEntryView } from "@/lib/watchHistory";
@@ -174,6 +177,12 @@ export async function searchMedia(input: { query?: string; kind?: "all" | MediaK
   });
 }
 
+export async function readMediaDetails(kind: MediaKind, id: number): Promise<{ ok: boolean; details?: MediaDetailsData; error?: string }> {
+  await requireUser();
+  const details = await discoverMediaDetails(kind, id);
+  return details ? { ok: true, details } : { ok: false, error: "Media details are unavailable" };
+}
+
 export async function requestMedia(input: {
   kind: MediaKind;
   mediaId: number;
@@ -183,7 +192,7 @@ export async function requestMedia(input: {
   await requireRole("admin");
   const result = await createMediaRequest(input);
   if (result.ok) revalidatePath("/media");
-  return result;
+  return result.ok ? { ...result, requests: await listMediaRequests() } : result;
 }
 
 export async function cancelMediaRequest(id: number) {

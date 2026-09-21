@@ -22,6 +22,7 @@ import { importConfig } from "@/actions/config";
 import { SecretField } from "./SecretField";
 import { SERVICE_ICONS, serviceLogo } from "@/lib/icons";
 import type { Dictionary } from "@/i18n";
+import { SettingsFold } from "./SettingsFold";
 
 /**
  * Configuring the integrations from the browser.
@@ -86,12 +87,12 @@ export function IntegrationForms({
 
   return (
     <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-      <PrometheusForm d={d} value={display.prometheus} />
-      <ProxmoxForm d={d} value={display.proxmox} />
-      <TelegramForm d={d} value={display.telegram} />
-      <TelegramBotMonitorForm d={d} value={display.telegramBots} />
-      <GoogleCard d={d} value={display.google} />
-      <FatSecretForm d={d} value={display.fatsecret} />
+      <SettingsFold title={d.settings.integrationPrometheus} icon={serviceLogo("prometheus")} fallback={SERVICE_ICONS.prometheus} configured={display.prometheus.source !== "none"}><PrometheusForm d={d} value={display.prometheus} /></SettingsFold>
+      <SettingsFold title={d.settings.integrationProxmox} icon={serviceLogo("proxmox")} fallback={SERVICE_ICONS.proxmox} configured={display.proxmox.source !== "none"}><ProxmoxForm d={d} value={display.proxmox} /></SettingsFold>
+      <SettingsFold title="Telegram" icon={serviceLogo("telegram")} fallback={SERVICE_ICONS.telegram} configured={display.telegram.enabled}><TelegramForm d={d} value={display.telegram} /></SettingsFold>
+      <SettingsFold title={d.settings.telegramMonitors} icon={serviceLogo("telegram")} fallback={SERVICE_ICONS.telegram} configured={display.telegramBots.some((bot) => bot.enabled)}><TelegramBotMonitorForm d={d} value={display.telegramBots} /></SettingsFold>
+      <SettingsFold title="Google" icon={serviceLogo("google")} fallback={SERVICE_ICONS.google} configured={!!(display.google.linkedEmail || display.google.clientId)}><GoogleCard d={d} value={display.google} /></SettingsFold>
+      <SettingsFold title={d.settings.integrationFatSecret} icon={serviceLogo("fatsecret")} fallback="🥗" configured={!!display.fatsecret.clientId}><FatSecretForm d={d} value={display.fatsecret} /></SettingsFold>
     </div>
   );
 }

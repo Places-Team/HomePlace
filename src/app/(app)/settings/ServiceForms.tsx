@@ -18,6 +18,7 @@ import type { Dictionary } from "@/i18n";
 import { Dialog } from "@/components/Dialog";
 import { TileIcon } from "@/components/TileIcon";
 import { SERVICE_ICONS, serviceLogo } from "@/lib/icons";
+import { SettingsFold } from "./SettingsFold";
 
 /**
  * The services this household runs.
@@ -30,7 +31,7 @@ import { SERVICE_ICONS, serviceLogo } from "@/lib/icons";
  */
 
 export type ServicesDisplay = {
-  jellyfin: { url: string; localUrl: string; appUrl: string; hasKey: boolean };
+  jellyfin: { url: string; localUrl: string; appUrl: string; cacheLocally: boolean; hasKey: boolean };
   overseerr: { url: string; hasKey: boolean };
   qbittorrent: { url: string; username: string; hasPassword: boolean };
   arr: { kind: string; label: string; url: string; hasKey: boolean }[];
@@ -86,12 +87,12 @@ export function ServiceForms({ d, display }: { d: Dictionary; display: ServicesD
       </div>
       {visible.size === 0 && <button onClick={() => setAdding(true)} className="w-full rounded-card border border-dashed border-line px-6 py-10 text-center text-sm text-muted transition-colors hover:border-accent hover:text-text">＋ {d.settings.addFirstService}</button>}
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-        {visible.has("jellyfin") && <JellyfinForm d={d} value={display.jellyfin} onRemove={() => hide("jellyfin")} />}
-        {visible.has("overseerr") && <OverseerrForm d={d} value={display.overseerr} onRemove={() => hide("overseerr")} />}
-        {visible.has("qbittorrent") && <QbitForm d={d} value={display.qbittorrent} onRemove={() => hide("qbittorrent")} />}
-        {visible.has("arr") && <ArrForm d={d} value={display.arr} defaultKind={arrKind} onRemove={() => hide("arr")} />}
-        {visible.has("pbs") && <PbsForm d={d} value={display.pbs} onRemove={() => hide("pbs")} />}
-        {visible.has("homeassistant") && <HaForm d={d} value={display.homeassistant} onRemove={() => hide("homeassistant")} />}
+        {visible.has("jellyfin") && <SettingsFold title="Jellyfin" icon={serviceLogo("jellyfin")} fallback={SERVICE_ICONS.jellyfin} configured={!!(display.jellyfin.url || display.jellyfin.localUrl)}><JellyfinForm d={d} value={display.jellyfin} onRemove={() => hide("jellyfin")} /></SettingsFold>}
+        {visible.has("overseerr") && <SettingsFold title="Overseerr" icon={serviceLogo("overseerr")} fallback={SERVICE_ICONS.overseerr} configured={!!display.overseerr.url}><OverseerrForm d={d} value={display.overseerr} onRemove={() => hide("overseerr")} /></SettingsFold>}
+        {visible.has("qbittorrent") && <SettingsFold title="qBittorrent" icon={serviceLogo("qbittorrent")} fallback={SERVICE_ICONS.qbittorrent} configured={!!display.qbittorrent.url}><QbitForm d={d} value={display.qbittorrent} onRemove={() => hide("qbittorrent")} /></SettingsFold>}
+        {visible.has("arr") && <SettingsFold title="Radarr / Sonarr" icon={serviceLogo(arrKind)} fallback="◉" configured={display.arr.length > 0}><ArrForm d={d} value={display.arr} defaultKind={arrKind} onRemove={() => hide("arr")} /></SettingsFold>}
+        {visible.has("pbs") && <SettingsFold title="Proxmox Backup Server" icon={serviceLogo("pbs")} fallback={SERVICE_ICONS.pbs} configured={!!display.pbs.url}><PbsForm d={d} value={display.pbs} onRemove={() => hide("pbs")} /></SettingsFold>}
+        {visible.has("homeassistant") && <SettingsFold title="Home Assistant" icon={serviceLogo("homeassistant")} fallback={SERVICE_ICONS.homeassistant} configured={!!display.homeassistant.url}><HaForm d={d} value={display.homeassistant} onRemove={() => hide("homeassistant")} /></SettingsFold>}
       </div>
       <Dialog open={adding} onClose={() => setAdding(false)} title={d.settings.addService} wide>
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
@@ -147,7 +148,7 @@ function Result({ result, d }: { result: ServiceResult | null; d: Dictionary }) 
 }
 
 function JellyfinForm({ d, value, onRemove }: { d: Dictionary; value: ServicesDisplay["jellyfin"]; onRemove: () => void }) {
-  const [form, setForm] = useState({ url: value.url, localUrl: value.localUrl, appUrl: value.appUrl, apiKey: "" });
+  const [form, setForm] = useState({ url: value.url, localUrl: value.localUrl, appUrl: value.appUrl, cacheLocally: value.cacheLocally, apiKey: "" });
   const [result, setResult] = useState<ServiceResult | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -189,13 +190,17 @@ function JellyfinForm({ d, value, onRemove }: { d: Dictionary; value: ServicesDi
           onChange={(v) => setForm({ ...form, apiKey: v })}
           hint={d.settings.jellyfinKeyHint}
         />
+        <label className="flex items-start gap-3 rounded-control border border-line bg-raised p-3 text-sm">
+          <input type="checkbox" checked={form.cacheLocally} onChange={(e) => setForm({ ...form, cacheLocally: e.target.checked })} className="mt-0.5" />
+          <span><span className="font-medium">{d.settings.mediaCache}</span><span className="mt-0.5 block text-xs text-muted">{d.settings.mediaCacheHint}</span></span>
+        </label>
         <div className="flex items-center gap-3">
           <Button variant="primary" disabled={pending} onClick={() => startTransition(async () => setResult(await saveJellyfinSettings(form)))}>
             {d.common.save}
           </Button>
           <Result result={result} d={d} />
           <AddToBoard d={d} widget="jellyfin" title="Jellyfin" enabled={!!(value.url || value.localUrl)} />
-          <Button variant="quiet" disabled={pending} onClick={() => startTransition(async () => { const next = await saveJellyfinSettings({ url: "", localUrl: "", appUrl: "", apiKey: "" }); setResult(next); if (next.ok) onRemove(); })}>{d.common.delete}</Button>
+          <Button variant="quiet" disabled={pending} onClick={() => startTransition(async () => { const next = await saveJellyfinSettings({ url: "", localUrl: "", appUrl: "", cacheLocally: false, apiKey: "" }); setResult(next); if (next.ok) onRemove(); })}>{d.common.delete}</Button>
         </div>
       </div>
     </Card>

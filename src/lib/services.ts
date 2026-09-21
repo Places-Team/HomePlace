@@ -63,6 +63,8 @@ export type JellyfinSettings = {
   localUrl?: string;
   /** Native client URL. `{id}` is replaced with the Jellyfin item id. */
   appUrl?: string;
+  /** Persist artwork and metadata under /data/media-cache. */
+  cacheLocally?: boolean;
   apiKey: string;
 };
 export type JellyfinItem = {
@@ -97,6 +99,7 @@ export async function jellyfinConfig(): Promise<JellyfinSettings | null> {
         url: url ?? "",
         localUrl: localUrl ?? undefined,
         appUrl: stored.appUrl?.trim() || undefined,
+        cacheLocally: !!stored.cacheLocally,
         apiKey: await decrypt(stored.apiKey),
       }
     : null;
@@ -110,6 +113,7 @@ export async function saveJellyfin(input: JellyfinSettings | null): Promise<void
     url: input.url ? trim(input.url) : "",
     localUrl: input.localUrl ? trim(input.localUrl) : "",
     appUrl: input.appUrl?.trim().slice(0, 512) ?? "",
+    cacheLocally: !!input.cacheLocally,
     apiKey: input.apiKey.trim() ? await encrypt(input.apiKey.trim()) : existing?.apiKey ?? "",
   });
 }
@@ -1295,6 +1299,7 @@ export async function servicesForDisplay() {
       url: jellyfin?.url ?? "",
       localUrl: jellyfin?.localUrl ?? "",
       appUrl: jellyfin?.appUrl ?? "",
+      cacheLocally: !!jellyfin?.cacheLocally,
       hasKey: !!jellyfin?.apiKey,
     },
     overseerr: { url: overseerr?.url ?? "", hasKey: !!overseerr?.apiKey },

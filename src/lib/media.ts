@@ -44,6 +44,8 @@ export type JellyfinLibraryItem = {
 export type JellyfinProfile = { id: string; name: string };
 
 const jellyfinUserQuery = (userId?: string) => userId ? `&UserId=${encodeURIComponent(userId)}` : "";
+const jellyfinItemsPath = (userId: string | undefined, query: string) =>
+  userId ? `/Users/${encodeURIComponent(userId)}/Items?${query}` : `/Items?${query}`;
 
 export async function jellyfinProfiles(): Promise<JellyfinProfile[]> {
   const cfg = await jellyfinConfig();
@@ -286,7 +288,7 @@ export async function jellyfinLibrary(userId?: string): Promise<{ configured: bo
   try {
     const fields = "Overview,ProductionYear,UserData,PrimaryImageAspectRatio";
     const response = await fetch(
-      `${serverUrl}/Items?Recursive=true&IncludeItemTypes=Movie,Series&SortBy=DateCreated&SortOrder=Descending&Limit=100&Fields=${fields}${jellyfinUserQuery(userId)}`,
+      `${serverUrl}${jellyfinItemsPath(userId, `Recursive=true&IncludeItemTypes=Movie,Series&SortBy=DateCreated&SortOrder=Descending&Limit=100&Fields=${fields}`)}`,
       { headers: jellyfinAuthHeaders(cfg.apiKey), cache: "no-store", signal: AbortSignal.timeout(12000) }
     );
     if (!response.ok) return { configured: true, items: [] };
@@ -320,24 +322,25 @@ export async function jellyfinPlayedItems(userId?: string): Promise<JellyfinLibr
   try {
     const fields = "Overview,ProductionYear,UserData,PrimaryImageAspectRatio";
     const response = await fetch(
-      `${serverUrl}/Items?Recursive=true&IncludeItemTypes=Movie,Series&Filters=IsPlayed&SortBy=SortName&SortOrder=Ascending&Limit=1000&Fields=${fields}${jellyfinUserQuery(userId)}`,
+      `${serverUrl}${jellyfinItemsPath(userId, `Recursive=true&IncludeItemTypes=Movie,Episode&Filters=IsPlayed&SortBy=DatePlayed&SortOrder=Descending&Limit=5000&Fields=${fields}`)}`,
       { headers: jellyfinAuthHeaders(cfg.apiKey), cache: "no-store", signal: AbortSignal.timeout(15000) }
     );
     if (!response.ok) return [];
     const payload = await limitedJson<{ Items?: Record<string, any>[] }>(response);
-    return (Array.isArray(payload.Items) ? payload.Items : [])
+    const items = (Array.isArray(payload.Items) ? payload.Items : [])
       .filter((raw) => !!raw.UserData?.Played)
       .map((raw) => ({
-        id: String(raw.Id),
-        title: String(raw.Name ?? "Untitled"),
-        kind: raw.Type === "Series" ? "tv" as const : "movie" as const,
+        id: String(raw.Type === "Episode" ? raw.SeriesId ?? raw.ParentId ?? raw.Id : raw.Id),
+        title: String(raw.Type === "Episode" ? raw.SeriesName ?? raw.Name ?? "Untitled" : raw.Name ?? "Untitled"),
+        kind: raw.Type === "Episode" ? "tv" as const : "movie" as const,
         year: Number(raw.ProductionYear) || undefined,
         overview: String(raw.Overview ?? "").slice(0, 1200),
-        poster: `/api/media/jellyfin-image/${encodeURIComponent(String(raw.Id))}`,
+        poster: `/api/media/jellyfin-image/${encodeURIComponent(String(raw.Type === "Episode" ? raw.SeriesId ?? raw.ParentId ?? raw.Id : raw.Id))}`,
         played: true,
         progress: 100,
         lastPlayedAt: typeof raw.UserData?.LastPlayedDate === "string" ? raw.UserData.LastPlayedDate : undefined,
       }));
+    return [...new Map(items.map((item) => [item.id, item])).values()];
   } catch {
     return [];
   }

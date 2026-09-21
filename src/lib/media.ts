@@ -1,7 +1,7 @@
 import "server-only";
 
 import { limitedJson } from "./outbound";
-import { jellyfinConfig, jellyfinServerUrl, overseerrConfig, qbitConfig } from "./services";
+import { jellyfinAuthHeaders, jellyfinConfig, jellyfinServerUrl, overseerrConfig, qbitConfig } from "./services";
 
 export type MediaKind = "movie" | "tv";
 export type MediaCard = {
@@ -231,7 +231,7 @@ export async function jellyfinLibrary(): Promise<{ configured: boolean; items: J
     const fields = "Overview,ProductionYear,UserData,PrimaryImageAspectRatio";
     const response = await fetch(
       `${serverUrl}/Items?Recursive=true&IncludeItemTypes=Movie,Series&SortBy=DateCreated&SortOrder=Descending&Limit=100&Fields=${fields}`,
-      { headers: { "x-emby-token": cfg.apiKey }, cache: "no-store", signal: AbortSignal.timeout(12000) }
+      { headers: jellyfinAuthHeaders(cfg.apiKey), cache: "no-store", signal: AbortSignal.timeout(12000) }
     );
     if (!response.ok) return { configured: true, items: [] };
     const payload = await limitedJson<{ Items?: Record<string, any>[] }>(response);

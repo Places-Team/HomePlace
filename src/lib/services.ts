@@ -121,12 +121,24 @@ export async function saveJellyfin(input: JellyfinSettings | null): Promise<void
  */
 let jellyfinRouteCache: { key: string; url: string; until: number } | null = null;
 
+/**
+ * Jellyfin 12 moved API-key authentication to the MediaBrowser Authorization
+ * header. Keep X-Emby-Token alongside it for older Jellyfin installations.
+ */
+export function jellyfinAuthHeaders(apiKey: string): Record<string, string> {
+  const token = apiKey.trim();
+  return {
+    authorization: `MediaBrowser Client="HomePlace", Device="Server", DeviceId="homeplace-server", Version="1.0", Token="${token}"`,
+    "x-emby-token": token,
+  };
+}
+
 export async function jellyfinServerUrl(config: JellyfinSettings): Promise<string> {
   const candidates = [config.localUrl, config.url].filter((url, index, all): url is string => !!url && all.indexOf(url) === index);
   const key = candidates.join("|");
   if (jellyfinRouteCache?.key === key && jellyfinRouteCache.until > Date.now()) return jellyfinRouteCache.url;
 
-  const headers = { "x-emby-token": config.apiKey };
+  const headers = jellyfinAuthHeaders(config.apiKey);
   for (const url of candidates) {
     const info = await get<Record<string, unknown>>({ url: `${url}/System/Info`, headers, timeout: 3000 });
     if (info) {
@@ -174,7 +186,7 @@ export type JellyfinConnectionProbe = {
 async function jellyfinStatus(url: string, path: string, apiKey?: string): Promise<number> {
   try {
     const response = await fetch(`${url}${path}`, {
-      headers: apiKey ? { "x-emby-token": apiKey } : undefined,
+      headers: apiKey ? jellyfinAuthHeaders(apiKey) : undefined,
       cache: "no-store",
       redirect: "manual",
       signal: AbortSignal.timeout(4000),
@@ -205,7 +217,7 @@ export async function jellyfinState(): Promise<JellyfinState | null> {
   if (!cfg) return null;
 
   const serverUrl = await jellyfinServerUrl(cfg);
-  const headers = { "x-emby-token": cfg.apiKey };
+  const headers = jellyfinAuthHeaders(cfg.apiKey);
 
   // Four calls, in parallel: what is playing, how big the library is, what to
   // continue, and what has just arrived. A tile that only answers "is anything

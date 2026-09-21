@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth";
-import { jellyfinConfig, jellyfinServerUrl } from "@/lib/services";
+import { jellyfinAuthHeaders, jellyfinConfig, jellyfinServerUrl } from "@/lib/services";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +14,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
   try {
     const upstream = await fetch(`${serverUrl}/Items/${encodeURIComponent(id)}/Images/Primary?maxHeight=600&quality=85`, {
-      headers: { "x-emby-token": cfg.apiKey },
+      headers: jellyfinAuthHeaders(cfg.apiKey),
       cache: "no-store",
       redirect: "manual",
       signal: AbortSignal.timeout(10000),

@@ -1,5 +1,6 @@
 import "server-only";
 
+import { createHash } from "node:crypto";
 import { limitedJson } from "./outbound";
 import { readCachedJson, writeCachedJson } from "./mediaCache";
 import {
@@ -177,6 +178,28 @@ export type MediaServiceIssue = {
   severity: "warning" | "error";
   source: string;
   message: string;
+};
+
+export type RawMediaRelease = {
+  id: string;
+  title: string;
+  indexer: string;
+  size: number;
+  seeders?: number;
+  leechers?: number;
+  publishedAt?: string;
+  infoUrl?: string;
+  categories: string[];
+  /** Present when Sonarr/Radarr returned the same release. */
+  approved?: boolean;
+  rejections: string[];
+};
+
+export type RawReleaseSearch = {
+  configured: boolean;
+  arrChecked: boolean;
+  releases: RawMediaRelease[];
+  error?: string;
 };
 
 const tmdbImage = (path: unknown, size: "w500" | "original") =>
@@ -1067,6 +1090,352 @@ export async function jellyfinDetails(
     return details;
   } catch {
     return null;
+  }
+}
+
+type ProwlarrSession = {
+  baseUrl: string;
+  apiKey: string;
+  indexerIds: number[];
+};
+
+type InternalRawRelease = RawMediaRelease & { downloadUrl: string };
+
+const normalizedMediaTitle = (value: unknown) =>
+  String(value ?? "")
+    .normalize("NFKD")
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, "")
+    .trim();
+
+const indexerField = (indexer: Record<string, any>, name: string) =>
+  (Array.isArray(indexer.fields) ? indexer.fields : []).find(
+    (field: Record<string, any>) => field?.name === name,
+  )?.value;
+
+async function servarrServers(kind: MediaKind): Promise<Record<string, any>[]> {
+  const payload = await overseerrGetValue(
+    `/settings/${kind === "tv" ? "sonarr" : "radarr"}`,
+  );
+  return Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.results)
+      ? payload.results
+      : [];
+}
+
+/**
+ * Reuse the Prowlarr Torznab connection already synced into Sonarr/Radarr.
+ * This avoids a second API-key field while keeping the key on the server.
+ */
+async function prowlarrSessions(kind: MediaKind): Promise<ProwlarrSession[]> {
+  const sessions = new Map<string, ProwlarrSession>();
+  for (const server of await servarrServers(kind)) {
+    const base = servarrBase(server);
+    const apiKey = String(server.apiKey ?? "").trim();
+    if (!base || !apiKey) continue;
+    try {
+      const response = await fetch(`${base}/api/v3/indexer`, {
+        headers: { "X-Api-Key": apiKey },
+        cache: "no-store",
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!response.ok) continue;
+      const indexers = await limitedJson<Record<string, any>[]>(response);
+      for (const indexer of Array.isArray(indexers) ? indexers : []) {
+        if (indexer.enableInteractiveSearch === false) continue;
+        const torznabUrl = String(indexerField(indexer, "baseUrl") ?? "").trim();
+        const prowlarrKey = String(indexerField(indexer, "apiKey") ?? "").trim();
+        if (!torznabUrl || !prowlarrKey) continue;
+        const parsed = new URL(torznabUrl);
+        if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password)
+          continue;
+        const parts = parsed.pathname.split("/").filter(Boolean);
+        const indexerId = Number(parts.at(-1));
+        if (!Number.isInteger(indexerId) || indexerId < 1) continue;
+        parts.pop();
+        parsed.pathname = parts.length ? `/${parts.join("/")}` : "";
+        parsed.search = "";
+        parsed.hash = "";
+        const baseUrl = parsed.toString().replace(/\/$/, "");
+        const key = `${baseUrl}\n${prowlarrKey}`;
+        const existing = sessions.get(key) ?? {
+          baseUrl,
+          apiKey: prowlarrKey,
+          indexerIds: [],
+        };
+        if (!existing.indexerIds.includes(indexerId))
+          existing.indexerIds.push(indexerId);
+        sessions.set(key, existing);
+      }
+    } catch {
+      // Try another configured Sonarr/Radarr server.
+    }
+  }
+  return [...sessions.values()];
+}
+
+function releaseId(raw: Record<string, any>): string {
+  return createHash("sha256")
+    .update(
+      [raw.indexerId, raw.guid, raw.title].map(String).join("\n"),
+    )
+    .digest("hex")
+    .slice(0, 24);
+}
+
+function safeInfoUrl(value: unknown): string | undefined {
+  try {
+    const url = new URL(String(value ?? ""));
+    return ['http:', 'https:'].includes(url.protocol) && !url.username && !url.password
+      ? url.toString()
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+async function rawProwlarrSearch(
+  kind: MediaKind,
+  query: string,
+): Promise<{ configured: boolean; releases: InternalRawRelease[] }> {
+  const sessions = await prowlarrSessions(kind);
+  if (sessions.length === 0) return { configured: false, releases: [] };
+  const groups = await Promise.all(
+    sessions.map(async (session) => {
+      const params = new URLSearchParams({
+        query,
+        type: "search",
+        limit: "100",
+        offset: "0",
+      });
+      for (const id of session.indexerIds)
+        params.append("indexerIds", String(id));
+      try {
+        const response = await fetch(
+          `${session.baseUrl}/api/v1/search?${params}`,
+          {
+            headers: { "X-Api-Key": session.apiKey },
+            cache: "no-store",
+            signal: AbortSignal.timeout(45000),
+          },
+        );
+        if (!response.ok) return [];
+        const payload = await limitedJson<Record<string, any>[]>(response);
+        return (Array.isArray(payload) ? payload : [])
+          .map((raw): InternalRawRelease | null => {
+            const title = String(raw.title ?? "").trim();
+            const downloadUrl = String(raw.downloadUrl ?? raw.link ?? "").trim();
+            if (!title || !downloadUrl) return null;
+            const categories = (Array.isArray(raw.categories)
+              ? raw.categories
+              : []
+            )
+              .map((category: any) =>
+                String(category?.name ?? category?.id ?? category).trim(),
+              )
+              .filter(Boolean)
+              .slice(0, 8);
+            return {
+              id: releaseId(raw),
+              title,
+              indexer: String(raw.indexer ?? "Prowlarr").slice(0, 120),
+              size: Math.max(0, Number(raw.size ?? 0)),
+              seeders: Number.isFinite(Number(raw.seeders))
+                ? Number(raw.seeders)
+                : undefined,
+              leechers: Number.isFinite(Number(raw.leechers))
+                ? Number(raw.leechers)
+                : undefined,
+              publishedAt:
+                String(raw.publishDate ?? raw.publishDateUtc ?? "").trim() ||
+                undefined,
+              infoUrl: safeInfoUrl(raw.infoUrl),
+              categories,
+              rejections: [],
+              downloadUrl,
+            };
+          })
+          .filter((release): release is InternalRawRelease => !!release);
+      } catch {
+        return [];
+      }
+    }),
+  );
+  const unique = new Map<string, InternalRawRelease>();
+  for (const release of groups.flat()) unique.set(release.id, release);
+  return { configured: true, releases: [...unique.values()] };
+}
+
+async function arrReleaseDecisions(input: {
+  kind: MediaKind;
+  title: string;
+  originalTitle?: string;
+  season?: number;
+}): Promise<{ checked: boolean; releases: Record<string, any>[] }> {
+  const candidates = [input.title, input.originalTitle]
+    .filter(Boolean)
+    .map(normalizedMediaTitle);
+  for (const server of await servarrServers(input.kind)) {
+    const base = servarrBase(server);
+    const apiKey = String(server.apiKey ?? "").trim();
+    if (!base || !apiKey) continue;
+    const headers = { "X-Api-Key": apiKey };
+    try {
+      const path = input.kind === "tv" ? "series" : "movie";
+      const libraryResponse = await fetch(`${base}/api/v3/${path}`, {
+        headers,
+        cache: "no-store",
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!libraryResponse.ok) continue;
+      const library = await limitedJson<Record<string, any>[]>(libraryResponse);
+      const item = (Array.isArray(library) ? library : []).find((entry) =>
+        [entry.title, entry.sortTitle, entry.originalTitle]
+          .map(normalizedMediaTitle)
+          .some((title) => title && candidates.includes(title)),
+      );
+      if (!item?.id) continue;
+
+      let releasePath = `/api/v3/release?movieId=${encodeURIComponent(item.id)}`;
+      if (input.kind === "tv") {
+        const episodesResponse = await fetch(
+          `${base}/api/v3/episode?seriesId=${encodeURIComponent(item.id)}`,
+          {
+            headers,
+            cache: "no-store",
+            signal: AbortSignal.timeout(10000),
+          },
+        );
+        if (!episodesResponse.ok) continue;
+        const episodes = await limitedJson<Record<string, any>[]>(episodesResponse);
+        const wantedSeason = Math.max(1, Math.floor(input.season ?? 1));
+        const episode = (Array.isArray(episodes) ? episodes : [])
+          .filter((entry) => Number(entry.seasonNumber) === wantedSeason)
+          .sort(
+            (a, b) => Number(a.episodeNumber ?? 0) - Number(b.episodeNumber ?? 0),
+          )[0];
+        if (!episode?.id) continue;
+        releasePath = `/api/v3/release?episodeId=${encodeURIComponent(episode.id)}`;
+      }
+      const response = await fetch(`${base}${releasePath}`, {
+        headers,
+        cache: "no-store",
+        signal: AbortSignal.timeout(55000),
+      });
+      if (!response.ok) return { checked: false, releases: [] };
+      const releases = await limitedJson<Record<string, any>[]>(response);
+      return {
+        checked: true,
+        releases: Array.isArray(releases) ? releases : [],
+      };
+    } catch {
+      // Try another server when this one is unavailable.
+    }
+  }
+  return { checked: false, releases: [] };
+}
+
+export async function searchRawMediaReleases(input: {
+  kind: MediaKind;
+  query: string;
+  title: string;
+  originalTitle?: string;
+  season?: number;
+}): Promise<RawReleaseSearch> {
+  const query = input.query.trim().slice(0, 160);
+  if (!query)
+    return { configured: true, arrChecked: false, releases: [], error: "Enter a search phrase" };
+  const [raw, decisions] = await Promise.all([
+    rawProwlarrSearch(input.kind, query),
+    arrReleaseDecisions({ ...input, season: input.season }),
+  ]);
+  const byTitle = new Map(
+    decisions.releases.map((release) => [String(release.title ?? ""), release]),
+  );
+  return {
+    configured: raw.configured,
+    arrChecked: decisions.checked,
+    releases: raw.releases
+      .map(({ downloadUrl: _downloadUrl, ...release }) => {
+        const decision = byTitle.get(release.title);
+        return {
+          ...release,
+          approved: decision ? !decision.rejected : undefined,
+          rejections: decision
+            ? (Array.isArray(decision.rejections) ? decision.rejections : [])
+                .map(String)
+                .filter(Boolean)
+                .slice(0, 8)
+            : [],
+        };
+      })
+      .sort((a, b) => (b.seeders ?? -1) - (a.seeders ?? -1)),
+  };
+}
+
+async function arrDownloadCategory(kind: MediaKind): Promise<string> {
+  for (const server of await servarrServers(kind)) {
+    const base = servarrBase(server);
+    const apiKey = String(server.apiKey ?? "").trim();
+    if (!base || !apiKey) continue;
+    try {
+      const response = await fetch(`${base}/api/v3/downloadclient`, {
+        headers: { "X-Api-Key": apiKey },
+        cache: "no-store",
+        signal: AbortSignal.timeout(8000),
+      });
+      if (!response.ok) continue;
+      const clients = await limitedJson<Record<string, any>[]>(response);
+      const qbit = (Array.isArray(clients) ? clients : []).find(
+        (client) => /qbittorrent/i.test(String(client.implementation ?? client.name ?? "")),
+      );
+      const fieldName = kind === "tv" ? "tvCategory" : "movieCategory";
+      const category = String(
+        indexerField(qbit ?? {}, fieldName) ?? indexerField(qbit ?? {}, "category") ?? "",
+      ).trim();
+      if (category) return category.slice(0, 100);
+    } catch {
+      // Fall back to the conventional category below.
+    }
+  }
+  return kind === "tv" ? "tv-sonarr" : "radarr";
+}
+
+export async function addRawMediaRelease(input: {
+  kind: MediaKind;
+  query: string;
+  releaseId: string;
+}): Promise<{ ok: boolean; error?: string }> {
+  const query = input.query.trim().slice(0, 160);
+  if (!query || !/^[a-f0-9]{24}$/.test(input.releaseId))
+    return { ok: false, error: "Invalid release" };
+  const raw = await rawProwlarrSearch(input.kind, query);
+  const release = raw.releases.find((item) => item.id === input.releaseId);
+  if (!release) return { ok: false, error: "Release is no longer available" };
+  const session = await qbitSession();
+  if (!session) return { ok: false, error: "qBittorrent is not available" };
+  const category = await arrDownloadCategory(input.kind);
+  try {
+    const response = await fetch(`${session.cfg.url}/api/v2/torrents/add`, {
+      method: "POST",
+      headers: {
+        cookie: session.cookie,
+        referer: session.cfg.url,
+        "content-type": "application/x-www-form-urlencoded",
+      },
+      body: new URLSearchParams({
+        urls: release.downloadUrl,
+        category,
+      }),
+      cache: "no-store",
+      signal: AbortSignal.timeout(20000),
+    });
+    return response.ok
+      ? { ok: true }
+      : { ok: false, error: `qBittorrent returned HTTP ${response.status}` };
+  } catch {
+    return { ok: false, error: "qBittorrent did not respond" };
   }
 }
 

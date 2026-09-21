@@ -11,6 +11,8 @@ import {
   readMediaServiceIssues,
   requestMedia,
   searchMedia,
+  searchProwlarrReleases,
+  sendProwlarrRelease,
 } from "@/actions/media";
 import type { Dictionary } from "@/i18n";
 import type {
@@ -24,6 +26,7 @@ import type {
   MediaQualityProfile,
   MediaRequest,
   MediaServiceIssue,
+  RawReleaseSearch,
 } from "@/lib/media";
 import { Badge, EmptyState, Meter } from "@/components/ui";
 import { Button, Input, Select } from "@/components/form";
@@ -1113,10 +1116,194 @@ function MediaDetails({
           <span className="ml-2 text-muted">{d.media.alreadyTracked}</span>
         </div>
       )}
+      <ReleaseSearchPanel item={item} d={d} disabled={disabled} />
       <div className="flex justify-end">
         <Button onClick={onClose}>{d.common.close}</Button>
       </div>
     </div>
+  );
+}
+
+function ReleaseSearchPanel({
+  item,
+  d,
+  disabled,
+}: {
+  item: MediaDetailsData;
+  d: MediaDictionary;
+  disabled: boolean;
+}) {
+  const [query, setQuery] = useState(item.originalTitle || item.title);
+  const [season, setSeason] = useState(item.seasons[0]?.number ?? 1);
+  const [result, setResult] = useState<RawReleaseSearch | null>(null);
+  const [notice, setNotice] = useState("");
+  const [sent, setSent] = useState<Set<string>>(new Set());
+  const [releasePending, startReleaseTransition] = useTransition();
+
+  const search = () => {
+    if (!query.trim()) return;
+    setNotice("");
+    startReleaseTransition(async () => {
+      const next = await searchProwlarrReleases({
+        kind: item.kind,
+        query,
+        title: item.title,
+        originalTitle: item.originalTitle,
+        season,
+      });
+      setResult(next);
+      if (next.error) setNotice(next.error);
+    });
+  };
+
+  const send = (releaseId: string) => {
+    setNotice("");
+    startReleaseTransition(async () => {
+      const response = await sendProwlarrRelease({
+        kind: item.kind,
+        query,
+        releaseId,
+      });
+      if (response.ok) {
+        setSent((current) => new Set(current).add(releaseId));
+        setNotice(d.media.sentToQbit);
+      } else setNotice(response.error ?? d.common.failed);
+    });
+  };
+
+  return (
+    <section className="space-y-3 rounded-2xl border border-line bg-surface p-4">
+      <div>
+        <p className="font-semibold">{d.media.manualReleaseSearch}</p>
+        <p className="mt-1 text-xs leading-5 text-muted">
+          {d.media.manualReleaseSearchHint}
+        </p>
+      </div>
+      <div className="grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto_auto]">
+        <Input
+          value={query}
+          onChange={(event) => setQuery(event.target.value)}
+          placeholder={d.media.releaseQuery}
+          maxLength={160}
+        />
+        {item.kind === "tv" && item.seasons.length > 0 && (
+          <Select
+            value={season}
+            onChange={(event) => setSeason(Number(event.target.value))}
+          >
+            {item.seasons.map((entry) => (
+              <option key={entry.number} value={entry.number}>
+                {entry.name || `${d.media.seasons} ${entry.number}`}
+              </option>
+            ))}
+          </Select>
+        )}
+        <Button
+          type="button"
+          variant="primary"
+          disabled={releasePending || !query.trim()}
+          onClick={search}
+        >
+          {releasePending ? d.media.loadingDetails : d.media.searchReleases}
+        </Button>
+      </div>
+      {notice && (
+        <p role="status" className="text-xs text-muted">
+          {notice}
+        </p>
+      )}
+      {result && !result.configured && (
+        <p className="rounded-control border border-warn/30 bg-warn/5 p-3 text-sm text-warn">
+          {d.media.prowlarrNotConfigured}
+        </p>
+      )}
+      {result?.configured && result.releases.length === 0 && (
+        <p className="rounded-control bg-raised p-3 text-sm text-muted">
+          {d.media.noRawReleases}
+        </p>
+      )}
+      {result && result.releases.length > 0 && (
+        <div className="max-h-[32rem] space-y-2 overflow-y-auto pr-1">
+          {result.releases.map((release) => (
+            <article
+              key={release.id}
+              className="rounded-xl border border-line bg-raised p-3"
+            >
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="break-words text-sm font-medium leading-5">
+                    {release.title}
+                  </p>
+                  <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[11px] text-muted">
+                    <Badge tone="neutral">{release.indexer}</Badge>
+                    {release.size > 0 && <span>{size(release.size)}</span>}
+                    {release.seeders !== undefined && (
+                      <span>
+                        {release.seeders} {d.media.seeds}
+                      </span>
+                    )}
+                    {release.leechers !== undefined && (
+                      <span>
+                        {release.leechers} {d.media.leeches}
+                      </span>
+                    )}
+                    {release.publishedAt && (
+                      <span>
+                        {new Date(release.publishedAt).toLocaleDateString(d.lang)}
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <Badge
+                  tone={
+                    release.approved === true
+                      ? "ok"
+                      : release.approved === false
+                        ? "danger"
+                        : "neutral"
+                  }
+                >
+                  {release.approved === true
+                    ? d.media.releaseAccepted
+                    : release.approved === false
+                      ? d.media.releaseRejected
+                      : d.media.rawRelease}
+                </Badge>
+              </div>
+              {release.rejections.length > 0 && (
+                <ul className="mt-2 list-disc space-y-1 pl-4 text-xs text-danger">
+                  {release.rejections.map((reason) => (
+                    <li key={reason}>{reason}</li>
+                  ))}
+                </ul>
+              )}
+              <div className="mt-3 flex flex-wrap justify-end gap-2">
+                {release.infoUrl && (
+                  <a
+                    href={release.infoUrl}
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="rounded-control border border-line px-3 py-1.5 text-xs font-medium hover:bg-surface"
+                  >
+                    {d.media.details}
+                  </a>
+                )}
+                <Button
+                  size="sm"
+                  variant="primary"
+                  disabled={disabled || releasePending || sent.has(release.id)}
+                  onClick={() => send(release.id)}
+                >
+                  {sent.has(release.id)
+                    ? d.media.sentToQbit
+                    : d.media.sendToQbit}
+                </Button>
+              </div>
+            </article>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }
 

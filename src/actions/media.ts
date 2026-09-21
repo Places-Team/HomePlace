@@ -13,6 +13,7 @@ import {
 } from "@/lib/services";
 import {
   controlDownload,
+  addRawMediaRelease,
   createMediaRequest,
   deleteMediaRequest,
   discoverMedia,
@@ -24,11 +25,13 @@ import {
   mediaQualityProfiles,
   mediaAutomationTasks,
   mediaServiceIssues,
+  searchRawMediaReleases,
   updateMediaRequest,
   type JellyfinDetails,
   type MediaDetailsData,
   type MediaQualityProfile,
   type MediaKind,
+  type RawReleaseSearch,
 } from "@/lib/media";
 import {
   parseWatchHistory,
@@ -351,6 +354,34 @@ export async function manageDownload(
 ) {
   await requireRole("admin");
   const result = await controlDownload(hash, action, deleteFiles);
+  if (result.ok) revalidatePath("/media");
+  return result;
+}
+
+export async function searchProwlarrReleases(input: {
+  kind: MediaKind;
+  query: string;
+  title: string;
+  originalTitle?: string;
+  season?: number;
+}): Promise<RawReleaseSearch> {
+  await requireUser();
+  return searchRawMediaReleases({
+    kind: input.kind,
+    query: input.query.trim().slice(0, 160),
+    title: input.title.trim().slice(0, 240),
+    originalTitle: input.originalTitle?.trim().slice(0, 240),
+    season: Math.max(1, Math.min(999, Math.floor(Number(input.season) || 1))),
+  });
+}
+
+export async function sendProwlarrRelease(input: {
+  kind: MediaKind;
+  query: string;
+  releaseId: string;
+}) {
+  await requireRole("admin");
+  const result = await addRawMediaRelease(input);
   if (result.ok) revalidatePath("/media");
   return result;
 }

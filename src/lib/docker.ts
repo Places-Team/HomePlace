@@ -60,16 +60,19 @@ function httpError(status: number, body: string): string {
   return `HTTP ${status}${clean ? `: ${clean.slice(0, 160)}` : ""}`;
 }
 
-async function dockerFetch(host: DockerHost, path: string, init?: RequestInit) {
+async function dockerFetch(host: DockerHost, path: string, init?: RequestInit, timeoutMs = 6000) {
   const res = await fetch(`${host.url}${path}`, {
     ...init,
     cache: "no-store",
     redirect: "manual",
     // A hung endpoint must not hang the dashboard; every panel degrades on its own.
-    signal: AbortSignal.timeout(6000),
+    signal: AbortSignal.timeout(timeoutMs),
   });
   return res;
 }
+
+const containerListCache = new Map<string, { at: number; containers: Container[] }>();
+const CONTAINER_LIST_STALE_MS = 2 * 60 * 1000;
 
 /**
  * Containers a tile can be attached to.
@@ -83,10 +86,33 @@ export async function listContainers(hostKey?: string): Promise<Container[]> {
   const hosts = (await resolvedDockerHosts()).filter((h) => !hostKey || h.key === hostKey);
   const results = await Promise.allSettled(
     hosts.map(async (host) => {
-      const res = await dockerFetch(host, "/containers/json?all=1");
-      if (!res.ok) throw new Error(`docker ${host.key}: HTTP ${res.status}`);
-      const raw = (await res.json()) as RawContainer[];
-      return raw.map((c) => toContainer(c, host));
+      let lastError: unknown;
+
+      // A stats sweep can briefly keep a small socket proxy busy. Retry the
+      // cheap, read-only list request once instead of presenting that pause as
+      // an empty Docker host.
+      for (const timeoutMs of [6000, 10000]) {
+        try {
+          const res = await dockerFetch(host, "/containers/json?all=1", undefined, timeoutMs);
+          if (!res.ok) throw new Error(`docker ${host.key}: HTTP ${res.status}`);
+          const raw = (await res.json()) as RawContainer[];
+          const containers = raw.map((c) => toContainer(c, host));
+          containerListCache.set(host.key, { at: Date.now(), containers });
+          return containers;
+        } catch (error) {
+          lastError = error;
+        }
+      }
+
+      // Keep a transient timeout from making every container disappear. The
+      // fallback expires quickly so a real outage remains visible.
+      const cached = containerListCache.get(host.key);
+      if (cached && Date.now() - cached.at <= CONTAINER_LIST_STALE_MS) {
+        console.warn(`container listing temporarily failed for ${host.key}; using recent data`, lastError);
+        return cached.containers;
+      }
+
+      throw lastError;
     })
   );
 

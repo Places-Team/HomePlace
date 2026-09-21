@@ -95,7 +95,7 @@ export const ru: Dictionary = {
     noWatchHistory: "Список просмотренного пока пуст",
     noWatchHistoryHint: "Добавьте запись вручную или синхронизируйте Jellyfin.",
     saved: "Сохранено",
-    loadingDetails: "Загружаем детали из Jellyfin…",
+    loadingDetails: "Загружаем подробную информацию…",
     noOverview: "Описание не добавлено.",
     cast: "Актёры и создатели",
     seasons: "Сезоны",

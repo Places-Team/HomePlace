@@ -98,7 +98,7 @@ export const en = {
     noWatchHistory: "Your watched list is empty",
     noWatchHistoryHint: "Add a title manually or sync watched items from Jellyfin.",
     saved: "Saved",
-    loadingDetails: "Loading details from Jellyfin…",
+    loadingDetails: "Loading full details…",
     noOverview: "No description is available.",
     cast: "Cast and crew",
     seasons: "Seasons",

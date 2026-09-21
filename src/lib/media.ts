@@ -297,13 +297,15 @@ export async function jellyfinDetails(id: string): Promise<JellyfinDetails | nul
   const fields = "Overview,ProductionYear,CommunityRating,OfficialRating,RunTimeTicks,Genres,Studios,People,UserData";
 
   try {
-    const itemResponse = await fetch(`${serverUrl}/Items/${encodeURIComponent(itemId)}?Fields=${fields}`, {
+    const itemResponse = await fetch(`${serverUrl}/Items?Ids=${encodeURIComponent(itemId)}&Recursive=true&Limit=1&Fields=${fields}`, {
       headers,
       cache: "no-store",
       signal: AbortSignal.timeout(10000),
     });
     if (!itemResponse.ok) return null;
-    const raw = await limitedJson<Record<string, any>>(itemResponse);
+    const itemPayload = await limitedJson<{ Items?: Record<string, any>[] }>(itemResponse);
+    const raw = Array.isArray(itemPayload.Items) ? itemPayload.Items[0] : null;
+    if (!raw) return null;
     const isSeries = raw.Type === "Series";
 
     let seasonRows: Record<string, any>[] = [];

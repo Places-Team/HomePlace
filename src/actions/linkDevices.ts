@@ -54,13 +54,14 @@ export async function sendDeviceShare(
   type: "text" | "url",
   value: string,
 ): Promise<{ ok: boolean; error?: "invalid" | "unavailable" | "unsupported" | "full" }> {
-  await requireRole("admin");
+  const user = await requireRole("admin");
   const message = parseShareMessage({ targetDeviceId: id, type, value });
   if (!message) return { ok: false, error: "invalid" };
   const result = await queueDashboardShare(
     message.targetDeviceId,
     message.type,
     message.value,
+    user.id,
   );
   if (result !== "queued") return { ok: false, error: result };
   revalidatePath("/devices");

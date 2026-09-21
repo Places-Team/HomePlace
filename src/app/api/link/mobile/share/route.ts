@@ -25,7 +25,12 @@ export async function POST(request: Request) {
   if (!message) return NextResponse.json({ error: "invalid shared content" }, { status: 400 });
   const target = await resolveShareTarget(auth.device, message.targetDeviceId, message.type);
   if (!target) return NextResponse.json({ error: "target device is unavailable" }, { status: 404 });
-  const queued = await queueShareOffer(target.id, { type: message.type, value: message.value, sourceName: auth.device.name });
+  const queued = await queueShareOffer(target.id, {
+    type: message.type,
+    value: message.value,
+    sourceName: auth.device.name,
+    sameAccount: target.userId === auth.device.userId,
+  });
   if (!queued) return NextResponse.json({ error: "target device has too many pending offers" }, { status: 429 });
   return NextResponse.json({ ok: true }, { status: 201 });
 }

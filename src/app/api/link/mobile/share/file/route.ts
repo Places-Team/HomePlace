@@ -39,6 +39,7 @@ export async function POST(request: Request) {
     size: transfer.size,
     sha256: transfer.sha256,
     sourceName: auth.device.name,
+    sameAccount: target.userId === auth.device.userId,
   });
   if (!queued) {
     await discardFileTransfer(transfer.id, target.id);

@@ -227,7 +227,8 @@ latest-state record. Only meaningful transitions become history events.
 - `POST /api/link/mobile/share`: offer bounded text or a safe HTTP(S) URL to
   one explicitly selected, capable device approved for the same user.
 - `POST /api/link/mobile/share/file` and `GET /api/link/mobile/share/file/:id`:
-  create and consume a five-minute encrypted file offer of at most 5 MB.
+  create and consume a five-minute encrypted, streamed file offer of at most
+  500 MB.
 
 Administrator approval, rejection, test notification and revocation are server
 actions protected by the existing HomePlace administrator session.
@@ -240,13 +241,16 @@ when acknowledged. iOS does not advertise clipboard relay in the first mobile
 slice.
 
 Share routes require `share.relay`, require the source `share.send` capability,
-and return only targets with the matching receive capability and the same
-`userId`. Cross-account and unknown targets receive the same unavailable
-response. The sender chooses a target and confirms before transmission; the
-receiver separately accepts or declines. Temporary files use a random
-per-transfer AES-256-GCM key, are integrity checked, expire after five minutes,
-and can be downloaded once. Family sharing remains unavailable until an
-explicit household membership and consent model exists.
+and return only targets with the matching receive capability. Same-account
+targets are always eligible; a household target is eligible only after an
+administrator enables sharing on that receiving device. Cross-account and
+unknown targets receive the same unavailable response. Every offer includes a
+server-derived `sameAccount` boolean so a receiver never infers ownership from
+a device name or client state. The sender chooses a target and confirms before
+transmission; the receiver separately accepts or declines unless it has opted
+into the restricted same-account file flow. Temporary files use a random
+per-transfer AES-256-GCM key, are integrity checked, and expire after five
+minutes.
 
 ### Future API and gateway
 

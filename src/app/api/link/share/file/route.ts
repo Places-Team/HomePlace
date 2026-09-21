@@ -60,6 +60,7 @@ export async function POST(request: NextRequest) {
     size: transfer.size,
     sha256: transfer.sha256,
     sourceName: "HomePlace",
+    sameAccount: target.userId === user!.id,
   });
   if (!queued) {
     await discardFileTransfer(transfer.id, target.id);

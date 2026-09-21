@@ -289,7 +289,7 @@ export async function relayClipboard(source: { id: string; userId: string | null
     data: {
       deviceId: device.id,
       kind: "clipboard.offer",
-      payload: JSON.stringify({ text, sourceName: source.name }),
+      payload: JSON.stringify({ text, sourceName: source.name, sameAccount: true }),
     },
   })));
   return targets.length;
@@ -347,7 +347,7 @@ export async function resolveShareTarget(
       revokedAt: null,
       OR: [{ userId: source.userId }, { allowHouseholdShares: true }],
     },
-    select: { id: true, capabilities: true },
+    select: { id: true, capabilities: true, userId: true },
   });
   if (!target) return null;
   const required = type === "text" ? "text.receive" : type === "url" ? "url.open" : "file.receive";
@@ -391,7 +391,7 @@ export async function setLinkDevicePermission(
 
 export async function queueShareOffer(
   targetDeviceId: string,
-  payload: Record<string, string | number>,
+  payload: Record<string, string | number | boolean>,
 ) {
   await prisma.linkDeviceEvent.deleteMany({
     where: { deviceId: targetDeviceId, kind: "share.offer", createdAt: { lt: new Date(Date.now() - 5 * 60_000) } },
@@ -410,10 +410,11 @@ export async function queueDashboardShare(
   targetDeviceId: string,
   type: "text" | "url",
   value: string,
+  sourceUserId: string,
 ): Promise<"queued" | "unavailable" | "unsupported" | "full"> {
   const target = await prisma.linkDevice.findFirst({
     where: { id: targetDeviceId, revokedAt: null },
-    select: { id: true, capabilities: true },
+    select: { id: true, capabilities: true, userId: true },
   });
   if (!target) return "unavailable";
   const required = type === "url" ? "url.open" : "text.receive";
@@ -422,6 +423,7 @@ export async function queueDashboardShare(
     type,
     value,
     sourceName: "HomePlace",
+    sameAccount: target.userId === sourceUserId,
   });
   return queued ? "queued" : "full";
 }

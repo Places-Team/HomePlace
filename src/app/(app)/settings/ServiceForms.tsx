@@ -130,7 +130,13 @@ function AddToBoard({ d, widget, title, enabled }: { d: Dictionary; widget: stri
 
 function Result({ result, d }: { result: ServiceResult | null; d: Dictionary }) {
   if (!result) return null;
-  const error = result.error === "settings.jellyfinNoAnswer" ? d.settings.jellyfinNoAnswer : result.error;
+  const jellyfinErrors: Record<string, string> = {
+    "settings.jellyfinNoAnswer": d.settings.jellyfinNoAnswer,
+    "settings.jellyfinKeyRejected": d.settings.jellyfinKeyRejected,
+    "settings.jellyfinSessionsRejected": d.settings.jellyfinSessionsRejected,
+    "settings.jellyfinAuthUnavailable": d.settings.jellyfinAuthUnavailable,
+  };
+  const error = result.error ? jellyfinErrors[result.error] ?? result.error : undefined;
   return result.ok ? (
     <span className="text-xs text-ok">✓ {d.common.ok}</span>
   ) : (

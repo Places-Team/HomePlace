@@ -15,6 +15,7 @@ import {
   saveHa,
   jellyfinState,
   overseerrAvailable,
+  jellyfinConnectionProbes,
   qbitState,
   arrState,
   pbsState,
@@ -55,7 +56,18 @@ export async function saveJellyfinSettings(input: JellyfinSettings): Promise<Ser
   revalidatePath("/settings");
   revalidatePath("/");
   if (!input.url && !input.localUrl) return { ok: true };
-  return (await jellyfinState()) ? { ok: true } : { ok: false, error: "settings.jellyfinNoAnswer" };
+  if (await jellyfinState()) return { ok: true };
+  const probes = await jellyfinConnectionProbes();
+  if (probes.some((probe) => probe.publicStatus === 200 && [401, 403].includes(probe.authenticatedStatus))) {
+    return { ok: false, error: "settings.jellyfinKeyRejected" };
+  }
+  if (probes.some((probe) => probe.authenticatedStatus === 200 && probe.sessionsStatus !== 200)) {
+    return { ok: false, error: "settings.jellyfinSessionsRejected" };
+  }
+  if (probes.some((probe) => probe.publicStatus === 200)) {
+    return { ok: false, error: "settings.jellyfinAuthUnavailable" };
+  }
+  return { ok: false, error: "settings.jellyfinNoAnswer" };
 }
 
 export async function saveOverseerrSettings(input: OverseerrSettings): Promise<ServiceResult> {

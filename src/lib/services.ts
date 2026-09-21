@@ -110,7 +110,7 @@ export async function saveJellyfin(input: JellyfinSettings | null): Promise<void
     url: input.url ? trim(input.url) : "",
     localUrl: input.localUrl ? trim(input.localUrl) : "",
     appUrl: input.appUrl?.trim().slice(0, 512) ?? "",
-    apiKey: input.apiKey ? await encrypt(input.apiKey) : existing?.apiKey ?? "",
+    apiKey: input.apiKey.trim() ? await encrypt(input.apiKey.trim()) : existing?.apiKey ?? "",
   });
 }
 
@@ -154,7 +154,7 @@ export async function saveOverseerr(input: OverseerrSettings | null): Promise<vo
   const existing = await getSetting<OverseerrSettings | null>(KEY.overseerr, null);
   await setSetting(KEY.overseerr, {
     url: trim(input.url),
-    apiKey: input.apiKey ? await encrypt(input.apiKey) : existing?.apiKey ?? "",
+    apiKey: input.apiKey.trim() ? await encrypt(input.apiKey.trim()) : existing?.apiKey ?? "",
   });
 }
 
@@ -162,6 +162,42 @@ export async function overseerrAvailable(): Promise<boolean> {
   const cfg = await overseerrConfig();
   if (!cfg) return false;
   return !!(await get({ url: `${cfg.url}/api/v1/status`, headers: { "x-api-key": cfg.apiKey } }));
+}
+
+export type JellyfinConnectionProbe = {
+  url: string;
+  publicStatus: number;
+  authenticatedStatus: number;
+  sessionsStatus: number;
+};
+
+async function jellyfinStatus(url: string, path: string, apiKey?: string): Promise<number> {
+  try {
+    const response = await fetch(`${url}${path}`, {
+      headers: apiKey ? { "x-emby-token": apiKey } : undefined,
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(4000),
+    });
+    return response.status;
+  } catch {
+    return 0;
+  }
+}
+
+/** Safe connection diagnostics: statuses only, never credentials or bodies. */
+export async function jellyfinConnectionProbes(): Promise<JellyfinConnectionProbe[]> {
+  const cfg = await jellyfinConfig();
+  if (!cfg) return [];
+  const urls = [cfg.localUrl, cfg.url].filter((url, index, all): url is string => !!url && all.indexOf(url) === index);
+  return Promise.all(urls.map(async (url) => {
+    const [publicStatus, authenticatedStatus, sessionsStatus] = await Promise.all([
+      jellyfinStatus(url, "/System/Info/Public"),
+      jellyfinStatus(url, "/System/Info", cfg.apiKey),
+      jellyfinStatus(url, "/Sessions", cfg.apiKey),
+    ]);
+    return { url, publicStatus, authenticatedStatus, sessionsStatus };
+  }));
 }
 
 export async function jellyfinState(): Promise<JellyfinState | null> {

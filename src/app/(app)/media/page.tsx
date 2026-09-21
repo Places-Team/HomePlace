@@ -1,6 +1,6 @@
 import { pageUser } from "@/lib/pageUser";
 import { dict } from "@/i18n";
-import { discoverMedia, jellyfinLibrary, listDownloads, listMediaRequests } from "@/lib/media";
+import { discoverMedia, jellyfinLibrary, jellyfinProfiles, listDownloads, listMediaRequests } from "@/lib/media";
 import { servicesForDisplay } from "@/lib/services";
 import { MediaLibrary } from "@/components/media/MediaLibrary";
 import { watchHistory } from "@/lib/watchHistory";
@@ -18,12 +18,13 @@ export default async function MediaPage() {
   const user = await pageUser();
   const d = dict(user.locale);
   const services = await servicesForDisplay();
-  const [discover, library, requests, downloads, history] = await Promise.all([
+  const [discover, library, requests, downloads, history, profiles] = await Promise.all([
     within(discoverMedia(), { configured: !!services.overseerr.url, page: 1, pages: 1, items: [] }),
-    within(jellyfinLibrary(), { configured: !!(services.jellyfin.url || services.jellyfin.localUrl), items: [] }),
+    within(jellyfinLibrary(user.jellyfinUserId ?? undefined), { configured: !!(services.jellyfin.url || services.jellyfin.localUrl), items: [] }),
     within(listMediaRequests(), []),
     within(listDownloads(), { configured: !!services.qbittorrent.url, items: [] }),
     watchHistory(user.id),
+    within(jellyfinProfiles(), []),
   ]);
 
   return (
@@ -34,6 +35,8 @@ export default async function MediaPage() {
       requests={requests}
       downloads={downloads}
       initialHistory={history}
+      jellyfinProfiles={profiles}
+      jellyfinUserId={user.jellyfinUserId ?? ""}
       jellyfin={{
         url: services.jellyfin.url,
         localUrl: services.jellyfin.localUrl,

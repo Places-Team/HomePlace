@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { addWatchEntry, cancelMediaRequest, manageDownload, readJellyfinDetails, requestMedia, searchMedia } from "@/actions/media";
 import type { Dictionary } from "@/i18n";
-import type { DownloadItem, JellyfinDetails, JellyfinLibraryItem, MediaCard, MediaRequest } from "@/lib/media";
+import type { DownloadItem, JellyfinDetails, JellyfinLibraryItem, JellyfinProfile, MediaCard, MediaRequest } from "@/lib/media";
 import { Badge, EmptyState, Meter } from "@/components/ui";
 import { Button, Input, Select } from "@/components/form";
 import { Dialog } from "@/components/Dialog";
@@ -30,6 +30,8 @@ export function MediaLibrary({
   requests: initialRequests,
   downloads: initialDownloads,
   initialHistory,
+  jellyfinProfiles,
+  jellyfinUserId,
   jellyfin,
   canManage,
 }: {
@@ -39,6 +41,8 @@ export function MediaLibrary({
   requests: MediaRequest[];
   downloads: { configured: boolean; items: DownloadItem[] };
   initialHistory: WatchEntryView[];
+  jellyfinProfiles: JellyfinProfile[];
+  jellyfinUserId: string;
   jellyfin: { url: string; localUrl: string; appUrl: string };
   canManage: boolean;
 }) {
@@ -276,7 +280,7 @@ export function MediaLibrary({
 
       {tab === "library" && (!library.configured ? <EmptyState title={d.media.configureJellyfin} /> : libraryItems.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">{libraryItems.map((item) => <LibraryPoster key={item.id} item={item} d={d} webLink={webLink(item.id)} watched={history.some((entry) => entry.jellyfinId === item.id)} onWatch={() => addToHistory(item)} onDetails={() => openLibraryDetails(item)} onOpenApp={() => openApp(item.id)} hasApp={!!jellyfin.appUrl} />)}</div> : <EmptyState title={d.media.noResults} />)}
 
-      {tab === "history" && <WatchJournal d={dictionary} entries={history} onChange={setHistory} jellyfinConfigured={library.configured} />}
+      {tab === "history" && <WatchJournal d={dictionary} entries={history} onChange={setHistory} jellyfinConfigured={library.configured} jellyfinProfiles={jellyfinProfiles} initialJellyfinUserId={jellyfinUserId} />}
 
       {tab === "requests" && (requests.length ? <div className="space-y-2">{requests.map((item) => <div key={item.id} className="flex items-center gap-3 rounded-card border border-line bg-surface p-3">{item.poster ? <img src={item.poster} alt="" className="h-16 w-11 rounded-md object-cover" /> : <div className="h-16 w-11 rounded-md bg-raised" />}<div className="min-w-0 flex-1"><p className="truncate font-medium">{item.title}</p><p className="text-xs text-muted">{item.requestedBy} · {item.createdAt ? new Date(item.createdAt).toLocaleDateString(d.lang) : ""}</p></div><Badge tone={item.status === "approved" ? "ok" : item.status === "pending" ? "warn" : "neutral"}>{item.status}</Badge>{canManage && <Button variant="quiet" disabled={pending} onClick={() => startTransition(async () => { const response = await cancelMediaRequest(item.id); if (response.ok) setRequests((current) => current.filter((entry) => entry.id !== item.id)); else setMessage(response.error ?? d.common.failed); })}>{d.media.cancelRequest}</Button>}</div>)}</div> : <EmptyState title={result.configured ? d.media.noRequests : d.media.configureOverseerr} />)}
 

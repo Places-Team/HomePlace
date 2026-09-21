@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireRole, requireUser } from "@/lib/auth";
+import { prisma } from "@/lib/db";
 import {
   haMediaPlayers,
   haMediaCommand,
@@ -17,6 +18,7 @@ import {
   discoverMedia,
   jellyfinDetails,
   jellyfinPlayedItems,
+  jellyfinProfiles,
   updateMediaRequest,
   type JellyfinDetails,
   type MediaKind,
@@ -26,8 +28,8 @@ import { parseWatchHistory, recordWatch, removeWatch, updateWatch, type WatchEnt
 export type MediaResult = { ok: boolean; error?: string; players?: HaMediaPlayer[] };
 
 export async function readJellyfinDetails(id: string): Promise<{ ok: boolean; details?: JellyfinDetails; error?: string }> {
-  await requireUser();
-  const details = await jellyfinDetails(id);
+  const user = await requireUser();
+  const details = await jellyfinDetails(id, user.jellyfinUserId ?? undefined);
   return details ? { ok: true, details } : { ok: false, error: "Jellyfin did not return this item" };
 }
 
@@ -87,7 +89,8 @@ export async function deleteWatchEntry(id: string) {
 
 export async function syncJellyfinWatchHistory(): Promise<{ ok: boolean; entries?: WatchEntryView[]; imported?: number; error?: string }> {
   const user = await requireUser();
-  const items = await jellyfinPlayedItems();
+  if (!user.jellyfinUserId) return { ok: false, error: "Choose your Jellyfin profile first" };
+  const items = await jellyfinPlayedItems(user.jellyfinUserId);
   if (items.length === 0) return { ok: false, error: "Jellyfin did not return watched items" };
   const entries: WatchEntryView[] = [];
   for (const item of items) {
@@ -97,10 +100,20 @@ export async function syncJellyfinWatchHistory(): Promise<{ ok: boolean; entries
       title: item.title,
       year: item.year,
       poster: item.poster,
-      watchedAt: new Date().toISOString(),
+      watchedAt: item.lastPlayedAt ?? new Date().toISOString(),
     }, "jellyfin"));
   }
   return { ok: true, entries, imported: entries.length };
+}
+
+export async function selectJellyfinProfile(profileId: string) {
+  const user = await requireUser();
+  const profiles = await jellyfinProfiles();
+  const profile = profiles.find((item) => item.id === profileId);
+  if (!profile) return { ok: false, error: "Jellyfin profile not found" };
+  await prisma.user.update({ where: { id: user.id }, data: { jellyfinUserId: profile.id } });
+  revalidatePath("/media");
+  return { ok: true };
 }
 
 export async function importWatchHistory(text: string): Promise<{ ok: boolean; entries?: WatchEntryView[]; imported?: number; error?: string }> {

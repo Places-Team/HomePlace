@@ -44,6 +44,8 @@ model User {
   // light | dark | system
   theme  String @default("system")
   accent String @default("default")
+  // Jellyfin profile used for personal play state and watch-history sync.
+  jellyfinUserId String?
 
   // Bumped to invalidate every session this account has: changing a password,
   // or asking to be signed out everywhere. The number is carried in the cookie,

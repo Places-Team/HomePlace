@@ -89,12 +89,13 @@ export type JellyfinState = {
 
 export async function jellyfinConfig(): Promise<JellyfinSettings | null> {
   const stored = await getSetting<JellyfinSettings | null>(KEY.jellyfin, null);
-  if (!stored?.url || !stored.apiKey) return null;
-  const url = httpBaseUrl(stored.url);
-  return url
+  if ((!stored?.url && !stored?.localUrl) || !stored.apiKey) return null;
+  const url = stored.url ? httpBaseUrl(stored.url) : null;
+  const localUrl = stored.localUrl ? httpBaseUrl(stored.localUrl) : null;
+  return url || localUrl
     ? {
-        url,
-        localUrl: stored.localUrl ? httpBaseUrl(stored.localUrl) ?? undefined : undefined,
+        url: url ?? "",
+        localUrl: localUrl ?? undefined,
         appUrl: stored.appUrl?.trim() || undefined,
         apiKey: await decrypt(stored.apiKey),
       }
@@ -102,10 +103,11 @@ export async function jellyfinConfig(): Promise<JellyfinSettings | null> {
 }
 
 export async function saveJellyfin(input: JellyfinSettings | null): Promise<void> {
-  if (!input?.url) return void (await setSetting(KEY.jellyfin, null));
+  jellyfinRouteCache = null;
+  if (!input?.url && !input?.localUrl) return void (await setSetting(KEY.jellyfin, null));
   const existing = await getSetting<JellyfinSettings | null>(KEY.jellyfin, null);
   await setSetting(KEY.jellyfin, {
-    url: trim(input.url),
+    url: input.url ? trim(input.url) : "",
     localUrl: input.localUrl ? trim(input.localUrl) : "",
     appUrl: input.appUrl?.trim().slice(0, 512) ?? "",
     apiKey: input.apiKey ? await encrypt(input.apiKey) : existing?.apiKey ?? "",
@@ -117,8 +119,23 @@ export async function saveJellyfin(input: JellyfinSettings | null): Promise<void
  * A public reverse-proxy address may work for browsers but fail from inside the
  * same network when the router does not support NAT loopback.
  */
-export function jellyfinServerUrl(config: JellyfinSettings): string {
-  return config.localUrl || config.url;
+let jellyfinRouteCache: { key: string; url: string; until: number } | null = null;
+
+export async function jellyfinServerUrl(config: JellyfinSettings): Promise<string> {
+  const candidates = [config.localUrl, config.url].filter((url, index, all): url is string => !!url && all.indexOf(url) === index);
+  const key = candidates.join("|");
+  if (jellyfinRouteCache?.key === key && jellyfinRouteCache.until > Date.now()) return jellyfinRouteCache.url;
+
+  const headers = { "x-emby-token": config.apiKey };
+  for (const url of candidates) {
+    const info = await get<Record<string, unknown>>({ url: `${url}/System/Info`, headers, timeout: 3000 });
+    if (info) {
+      jellyfinRouteCache = { key, url, until: Date.now() + 5 * 60_000 };
+      return url;
+    }
+  }
+
+  return candidates[0] ?? config.url;
 }
 
 // ─────────────────────────────── Overseerr ──────────────────────────────
@@ -151,7 +168,7 @@ export async function jellyfinState(): Promise<JellyfinState | null> {
   const cfg = await jellyfinConfig();
   if (!cfg) return null;
 
-  const serverUrl = jellyfinServerUrl(cfg);
+  const serverUrl = await jellyfinServerUrl(cfg);
   const headers = { "x-emby-token": cfg.apiKey };
 
   // Four calls, in parallel: what is playing, how big the library is, what to

@@ -41,7 +41,7 @@ export type ServicesDisplay = {
 export function ServiceForms({ d, display }: { d: Dictionary; display: ServicesDisplay }) {
   type ServiceKey = "jellyfin" | "overseerr" | "qbittorrent" | "arr" | "pbs" | "homeassistant";
   const initiallyVisible: ServiceKey[] = [
-    ...(display.jellyfin.url ? ["jellyfin" as const] : []),
+    ...(display.jellyfin.url || display.jellyfin.localUrl ? ["jellyfin" as const] : []),
     ...(display.overseerr.url ? ["overseerr" as const] : []),
     ...(display.qbittorrent.url ? ["qbittorrent" as const] : []),
     ...(display.arr.length ? ["arr" as const] : []),
@@ -130,11 +130,12 @@ function AddToBoard({ d, widget, title, enabled }: { d: Dictionary; widget: stri
 
 function Result({ result, d }: { result: ServiceResult | null; d: Dictionary }) {
   if (!result) return null;
+  const error = result.error === "settings.jellyfinNoAnswer" ? d.settings.jellyfinNoAnswer : result.error;
   return result.ok ? (
     <span className="text-xs text-ok">✓ {d.common.ok}</span>
   ) : (
-    <span className="truncate text-xs text-danger" title={result.error}>
-      {result.error ?? d.common.failed}
+    <span className="truncate text-xs text-danger" title={error}>
+      {error ?? d.common.failed}
     </span>
   );
 }
@@ -146,7 +147,7 @@ function JellyfinForm({ d, value, onRemove }: { d: Dictionary; value: ServicesDi
 
   return (
     <Card>
-      <CardHeader icon={serviceLogo("jellyfin")} iconFallback={SERVICE_ICONS.jellyfin} title="Jellyfin" action={<Badge tone={value.url ? "ok" : "neutral"}>{value.url ? "on" : "off"}</Badge>} />
+      <CardHeader icon={serviceLogo("jellyfin")} iconFallback={SERVICE_ICONS.jellyfin} title="Jellyfin" action={<Badge tone={value.url || value.localUrl ? "ok" : "neutral"}>{value.url || value.localUrl ? "on" : "off"}</Badge>} />
       <div className="flex flex-col gap-3 p-4">
         <Field label={d.settings.jellyfinPublicUrl} hint={d.settings.jellyfinPublicUrlHint}>
           <Input
@@ -187,7 +188,7 @@ function JellyfinForm({ d, value, onRemove }: { d: Dictionary; value: ServicesDi
             {d.common.save}
           </Button>
           <Result result={result} d={d} />
-          <AddToBoard d={d} widget="jellyfin" title="Jellyfin" enabled={!!value.url} />
+          <AddToBoard d={d} widget="jellyfin" title="Jellyfin" enabled={!!(value.url || value.localUrl)} />
           <Button variant="quiet" disabled={pending} onClick={() => startTransition(async () => { const next = await saveJellyfinSettings({ url: "", localUrl: "", appUrl: "", apiKey: "" }); setResult(next); if (next.ok) onRemove(); })}>{d.common.delete}</Button>
         </div>
       </div>

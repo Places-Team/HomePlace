@@ -776,6 +776,7 @@ export const en = {
     servicesHint: "Read through each service\u2019s own API. Keys are stored encrypted and never shown again.",
     kind: "Kind",
     jellyfinKeyHint: "Jellyfin → Dashboard → API keys",
+    jellyfinNoAnswer: "Jellyfin did not answer through either the local or external address. Check the addresses and API key.",
     jellyfinPublicUrl: "External Jellyfin address",
     jellyfinPublicUrlHint: "Used away from home and as a safe fallback.",
     jellyfinLocalUrl: "Local Jellyfin address",

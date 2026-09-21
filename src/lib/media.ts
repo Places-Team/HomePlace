@@ -226,7 +226,7 @@ export async function updateMediaRequest(
 export async function jellyfinLibrary(): Promise<{ configured: boolean; items: JellyfinLibraryItem[] }> {
   const cfg = await jellyfinConfig();
   if (!cfg) return { configured: false, items: [] };
-  const serverUrl = jellyfinServerUrl(cfg);
+  const serverUrl = await jellyfinServerUrl(cfg);
   try {
     const fields = "Overview,ProductionYear,UserData,PrimaryImageAspectRatio";
     const response = await fetch(

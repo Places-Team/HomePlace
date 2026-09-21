@@ -773,6 +773,7 @@ export const ru: Dictionary = {
     servicesHint: "Читается через собственные API сервисов. Ключи хранятся зашифрованными и больше не показываются.",
     kind: "Тип",
     jellyfinKeyHint: "Jellyfin → Панель → API-ключи",
+    jellyfinNoAnswer: "Jellyfin не ответил ни по локальному, ни по внешнему адресу. Проверьте адреса и API-ключ.",
     jellyfinPublicUrl: "Внешний адрес Jellyfin",
     jellyfinPublicUrlHint: "Используется вне дома и как безопасный запасной адрес.",
     jellyfinLocalUrl: "Локальный адрес Jellyfin",

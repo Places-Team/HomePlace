@@ -7,7 +7,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   await requireUser();
   const cfg = await jellyfinConfig();
   if (!cfg) return new Response("Jellyfin is not configured", { status: 404 });
-  const serverUrl = jellyfinServerUrl(cfg);
+  const serverUrl = await jellyfinServerUrl(cfg);
 
   const { id } = await params;
   if (!/^[a-z0-9-]{1,80}$/i.test(id)) return new Response("Invalid item", { status: 400 });

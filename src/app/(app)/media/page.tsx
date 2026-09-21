@@ -6,15 +6,22 @@ import { MediaLibrary } from "@/components/media/MediaLibrary";
 
 export const dynamic = "force-dynamic";
 
+function within<T>(promise: Promise<T>, fallback: T, milliseconds = 4000): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<T>((resolve) => setTimeout(() => resolve(fallback), milliseconds)),
+  ]);
+}
+
 export default async function MediaPage() {
   const user = await pageUser();
   const d = dict(user.locale);
-  const [discover, library, requests, downloads, services] = await Promise.all([
-    discoverMedia(),
-    jellyfinLibrary(),
-    listMediaRequests(),
-    listDownloads(),
-    servicesForDisplay(),
+  const services = await servicesForDisplay();
+  const [discover, library, requests, downloads] = await Promise.all([
+    within(discoverMedia(), { configured: !!services.overseerr.url, page: 1, pages: 1, items: [] }),
+    within(jellyfinLibrary(), { configured: !!(services.jellyfin.url || services.jellyfin.localUrl), items: [] }),
+    within(listMediaRequests(), []),
+    within(listDownloads(), { configured: !!services.qbittorrent.url, items: [] }),
   ]);
 
   return (

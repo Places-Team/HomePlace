@@ -51,11 +51,11 @@ export async function saveJellyfinSettings(input: JellyfinSettings): Promise<Ser
   if (input.appUrl && (!/^[a-z][a-z0-9+.-]*:/i.test(input.appUrl) || input.appUrl.length > 512)) {
     return { ok: false, error: "the app address must be a valid URL or deep link" };
   }
-  await saveJellyfin(input.url ? input : null);
+  await saveJellyfin(input.url || input.localUrl ? input : null);
   revalidatePath("/settings");
   revalidatePath("/");
-  if (!input.url) return { ok: true };
-  return (await jellyfinState()) ? { ok: true } : { ok: false, error: "no answer — check the address and the API key" };
+  if (!input.url && !input.localUrl) return { ok: true };
+  return (await jellyfinState()) ? { ok: true } : { ok: false, error: "settings.jellyfinNoAnswer" };
 }
 
 export async function saveOverseerrSettings(input: OverseerrSettings): Promise<ServiceResult> {

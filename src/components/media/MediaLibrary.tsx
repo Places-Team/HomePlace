@@ -6,6 +6,7 @@ import {
   cancelMediaRequest,
   manageDownload,
   readJellyfinDetails,
+  readMediaAutomationTasks,
   readMediaDetails,
   readMediaServiceIssues,
   requestMedia,
@@ -18,6 +19,7 @@ import type {
   JellyfinLibraryItem,
   JellyfinProfile,
   MediaCard,
+  MediaAutomationTask,
   MediaDetailsData,
   MediaQualityProfile,
   MediaRequest,
@@ -100,6 +102,7 @@ export function MediaLibrary({
   initialHistory,
   jellyfinProfiles,
   initialServiceIssues,
+  initialAutomationTasks,
   jellyfinUserId,
   jellyfin,
   canManage,
@@ -112,6 +115,7 @@ export function MediaLibrary({
   initialHistory: WatchEntryView[];
   jellyfinProfiles: JellyfinProfile[];
   initialServiceIssues: MediaServiceIssue[];
+  initialAutomationTasks: MediaAutomationTask[];
   jellyfinUserId: string;
   jellyfin: { url: string; localUrl: string; appUrl: string };
   canManage: boolean;
@@ -145,6 +149,9 @@ export function MediaLibrary({
   const [downloads, setDownloads] = useState(initialDownloads.items);
   const [history, setHistory] = useState(initialHistory);
   const [serviceIssues, setServiceIssues] = useState(initialServiceIssues);
+  const [automationTasks, setAutomationTasks] = useState(
+    initialAutomationTasks,
+  );
   const [refreshingIssues, setRefreshingIssues] = useState(false);
   const [showAllServiceIssues, setShowAllServiceIssues] = useState(false);
   const [preferLocal, setPreferLocal] = useState(false);
@@ -178,6 +185,22 @@ export function MediaLibrary({
       window.clearInterval(timer);
     };
   }, []);
+
+  useEffect(() => {
+    if (tab !== "requests" && tab !== "downloads") return;
+    let stopped = false;
+    const refresh = async () => {
+      if (document.visibilityState !== "visible") return;
+      const tasks = await readMediaAutomationTasks();
+      if (!stopped) setAutomationTasks(tasks);
+    };
+    void refresh();
+    const timer = window.setInterval(() => void refresh(), 20_000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, [tab]);
 
   function refreshServiceHealth() {
     setRefreshingIssues(true);
@@ -362,7 +385,11 @@ export function MediaLibrary({
     { key: "discover", label: d.media.discover },
     { key: "library", label: d.media.library, count: library.items.length },
     { key: "history", label: d.media.watchHistory, count: history.length },
-    { key: "requests", label: d.media.requests, count: requests.length },
+    {
+      key: "requests",
+      label: d.media.requests,
+      count: requests.length + automationTasks.length,
+    },
     { key: "downloads", label: d.media.downloads, count: downloads.length },
     {
       key: "health",
@@ -659,9 +686,14 @@ export function MediaLibrary({
       )}
 
       {tab === "requests" &&
-        (requests.length ? (
-          <div className="space-y-2">
-            {requests.map((item) => (
+        (requests.length || automationTasks.length ? (
+          <div className="space-y-5">
+            {requests.length > 0 && (
+              <section className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                  {d.media.overseerrRequests}
+                </p>
+                {requests.map((item) => (
               <div
                 key={item.id}
                 className="flex items-center gap-3 rounded-card border border-line bg-surface p-3"
@@ -719,7 +751,19 @@ export function MediaLibrary({
                   </Button>
                 )}
               </div>
-            ))}
+                ))}
+              </section>
+            )}
+            {automationTasks.length > 0 && (
+              <section className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted">
+                  {d.media.automationActivity}
+                </p>
+                {automationTasks.map((task) => (
+                  <AutomationTaskRow key={task.id} task={task} d={d} />
+                ))}
+              </section>
+            )}
           </div>
         ) : (
           <EmptyState
@@ -1384,6 +1428,69 @@ function RequestProgress({
         </div>
       )}
     </div>
+  );
+}
+
+function AutomationTaskRow({
+  task,
+  d,
+}: {
+  task: MediaAutomationTask;
+  d: MediaDictionary;
+}) {
+  const stateLabels: Record<MediaAutomationTask["state"], string> = {
+    tracked: d.media.activityTracked,
+    searching: d.media.activitySearching,
+    queued: d.media.activityQueued,
+    downloading: d.media.downloading,
+    importing: d.media.activityImporting,
+    failed: d.media.activityFailed,
+    completed: d.media.activityCompleted,
+  };
+  const tone =
+    task.state === "failed"
+      ? "danger"
+      : task.state === "completed" || task.state === "tracked"
+        ? "ok"
+        : task.state === "searching" || task.state === "queued"
+          ? "warn"
+          : "accent";
+  return (
+    <article className="rounded-card border border-line bg-surface p-3.5">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 items-center gap-2">
+            <img
+              src={serviceLogo(task.service)}
+              alt=""
+              className="h-6 w-6 shrink-0 rounded-md object-contain"
+            />
+            <p className="truncate font-medium">{task.title}</p>
+          </div>
+          <p className="mt-1 text-xs text-muted">
+            {task.server}
+            {task.createdAt
+              ? ` · ${new Date(task.createdAt).toLocaleString(d.lang)}`
+              : ""}
+          </p>
+          {task.detail && (
+            <p className="mt-1 line-clamp-2 text-xs text-faint">
+              {task.detail}
+            </p>
+          )}
+        </div>
+        <Badge tone={tone}>{stateLabels[task.state]}</Badge>
+      </div>
+      {task.progress !== undefined && (
+        <div className="mt-3">
+          <div className="mb-1 flex justify-between text-[11px] text-muted">
+            <span>{d.media.downloadProgress}</span>
+            <span className="font-mono text-text">{task.progress.toFixed(0)}%</span>
+          </div>
+          <Meter value={task.progress} tone="ok" />
+        </div>
+      )}
+    </article>
   );
 }
 

@@ -6,6 +6,7 @@ import {
   jellyfinProfiles,
   listDownloads,
   listMediaRequests,
+  mediaAutomationTasks,
   mediaServiceIssues,
 } from "@/lib/media";
 import { servicesForDisplay } from "@/lib/services";
@@ -39,6 +40,7 @@ export default async function MediaPage() {
     history,
     profiles,
     serviceIssues,
+    automationTasks,
   ] = await Promise.all([
     within(discoverMedia(), {
       configured: !!services.overseerr.url,
@@ -58,6 +60,7 @@ export default async function MediaPage() {
     watchHistory(user.id),
     within(jellyfinProfiles(), []),
     within(mediaServiceIssues(), []),
+    within(mediaAutomationTasks(), []),
   ]);
 
   return (
@@ -70,6 +73,7 @@ export default async function MediaPage() {
       initialHistory={history}
       jellyfinProfiles={profiles}
       initialServiceIssues={serviceIssues}
+      initialAutomationTasks={automationTasks}
       jellyfinUserId={user.jellyfinUserId ?? ""}
       jellyfin={{
         url: services.jellyfin.url,

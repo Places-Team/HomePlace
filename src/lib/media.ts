@@ -64,6 +64,25 @@ export type MediaRequest = {
   poster?: string;
 };
 
+export type MediaAutomationTask = {
+  id: string;
+  title: string;
+  kind: MediaKind;
+  service: "sonarr" | "radarr";
+  server: string;
+  state:
+    | "tracked"
+    | "searching"
+    | "queued"
+    | "downloading"
+    | "importing"
+    | "failed"
+    | "completed";
+  detail: string;
+  progress?: number;
+  createdAt?: string;
+};
+
 export type JellyfinLibraryItem = {
   id: string;
   title: string;
@@ -401,6 +420,186 @@ export async function mediaServiceIssues(): Promise<MediaServiceIssue[]> {
     }),
   );
   return groups.flat(2);
+}
+
+const searchCommand = /^(episode|season|series|movie|movies|missingepisode|cutoffunmet).*search$/i;
+
+function taskDate(raw: Record<string, any>): string | undefined {
+  const value = String(raw.queued ?? raw.started ?? raw.ended ?? raw.added ?? "");
+  return Number.isNaN(Date.parse(value)) ? undefined : value;
+}
+
+/** Active and recent work started directly in Sonarr or Radarr. */
+export async function mediaAutomationTasks(): Promise<MediaAutomationTask[]> {
+  const services = ["sonarr", "radarr"] as const;
+  const now = Date.now();
+  const groups = await Promise.all(
+    services.map(async (service) => {
+      const payload = await overseerrGetValue(`/settings/${service}`);
+      const servers = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.results)
+          ? payload.results
+          : [];
+      return Promise.all(
+        servers.slice(0, 10).map(async (server: Record<string, any>) => {
+          const base = servarrBase(server);
+          const apiKey = String(server.apiKey ?? "").trim();
+          if (!base || !apiKey) return [];
+          const serverName = String(
+            server.name ?? (service === "sonarr" ? "Sonarr" : "Radarr"),
+          ).slice(0, 100);
+          const headers = { "X-Api-Key": apiKey };
+          const get = async (path: string): Promise<any | null> => {
+            try {
+              const response = await fetch(`${base}${path}`, {
+                headers,
+                cache: "no-store",
+                signal: AbortSignal.timeout(4000),
+              });
+              return response.ok ? await limitedJson<any>(response) : null;
+            } catch {
+              return null;
+            }
+          };
+          const [queuePayload, commandsPayload, mediaPayload] =
+            await Promise.all([
+              get(
+                "/api/v3/queue/details?page=1&pageSize=200&includeUnknownSeriesItems=true&includeSeries=true&includeEpisode=true&includeMovie=true",
+              ),
+              get("/api/v3/command"),
+              get(service === "sonarr" ? "/api/v3/series" : "/api/v3/movie"),
+            ]);
+          const media = Array.isArray(mediaPayload) ? mediaPayload : [];
+          const titles = new Map<number, string>(
+            media.map((item: Record<string, any>) => [
+              Number(item.id),
+              String(item.title ?? ""),
+            ]),
+          );
+          const tasks: MediaAutomationTask[] = [];
+          const queue = Array.isArray(queuePayload?.records)
+            ? queuePayload.records
+            : Array.isArray(queuePayload)
+              ? queuePayload
+              : [];
+          for (const item of queue.slice(0, 200)) {
+            const size = Number(item.size ?? 0);
+            const left = Number(item.sizeleft ?? size);
+            const progress =
+              size > 0 ? Math.max(0, Math.min(100, ((size - left) / size) * 100)) : undefined;
+            const messages = (Array.isArray(item.statusMessages)
+              ? item.statusMessages
+              : []
+            ).flatMap((entry: Record<string, any>) =>
+              Array.isArray(entry.messages) ? entry.messages : [],
+            );
+            const detail = String(
+              item.errorMessage ??
+                messages[0] ??
+                item.episode?.title ??
+                item.title ??
+                "",
+            ).slice(0, 500);
+            const rawState = `${item.status ?? ""} ${item.trackedDownloadState ?? ""} ${item.trackedDownloadStatus ?? ""}`;
+            const state: MediaAutomationTask["state"] =
+              /error|failed|warning/i.test(rawState) || item.errorMessage
+                ? "failed"
+                : /import/i.test(rawState)
+                  ? "importing"
+                  : /download/i.test(rawState)
+                    ? "downloading"
+                    : "queued";
+            tasks.push({
+              id: `${service}:${server.id}:queue:${item.id ?? item.downloadId ?? item.title}`,
+              title: String(
+                item.series?.title ??
+                  item.movie?.title ??
+                  item.title ??
+                  (service === "sonarr" ? "Series download" : "Movie download"),
+              ).slice(0, 240),
+              kind: service === "sonarr" ? "tv" : "movie",
+              service,
+              server: serverName,
+              state,
+              detail,
+              progress,
+              createdAt: taskDate(item),
+            });
+          }
+
+          const commands = Array.isArray(commandsPayload)
+            ? commandsPayload
+            : Array.isArray(commandsPayload?.records)
+              ? commandsPayload.records
+              : [];
+          for (const command of commands.slice(-100)) {
+            const name = String(command.name ?? command.commandName ?? "");
+            if (!searchCommand.test(name)) continue;
+            const createdAt = taskDate(command);
+            const age = createdAt ? now - Date.parse(createdAt) : Infinity;
+            const rawStatus = String(command.status ?? "").toLowerCase();
+            const active = /queued|started|running/.test(rawStatus);
+            const failed = /failed|aborted/.test(rawStatus);
+            if (!active && !failed && age > 30 * 60_000) continue;
+            if (failed && age > 24 * 60 * 60_000) continue;
+            const body = command.body ?? command;
+            const ids = [
+              body.seriesId,
+              body.movieId,
+              ...(Array.isArray(body.movieIds) ? body.movieIds : []),
+            ]
+              .map(Number)
+              .filter(Number.isInteger);
+            const title = ids.map((id) => titles.get(id)).find(Boolean);
+            tasks.push({
+              id: `${service}:${server.id}:command:${command.id ?? name}:${createdAt ?? "now"}`,
+              title:
+                title ??
+                String(command.title ?? name.replace(/([a-z])([A-Z])/g, "$1 $2")),
+              kind: service === "sonarr" ? "tv" : "movie",
+              service,
+              server: serverName,
+              state: failed ? "failed" : active ? "searching" : "completed",
+              detail: String(
+                command.message ??
+                  (active ? `${serverName} is searching for releases` : name),
+              ).slice(0, 500),
+              createdAt,
+            });
+          }
+
+          for (const item of media.slice(0, 5000)) {
+            const createdAt = taskDate(item);
+            if (!createdAt || now - Date.parse(createdAt) > 24 * 60 * 60_000)
+              continue;
+            const title = String(item.title ?? "").trim();
+            if (!title || tasks.some((task) => task.title === title)) continue;
+            tasks.push({
+              id: `${service}:${server.id}:tracked:${item.id}`,
+              title: title.slice(0, 240),
+              kind: service === "sonarr" ? "tv" : "movie",
+              service,
+              server: serverName,
+              state: "tracked",
+              detail: `${title} was added directly to ${serverName}`,
+              createdAt,
+            });
+          }
+          return tasks;
+        }),
+      );
+    }),
+  );
+  return groups
+    .flat(2)
+    .filter(
+      (task, index, all) =>
+        all.findIndex((candidate) => candidate.id === task.id) === index,
+    )
+    .sort((a, b) =>
+      String(b.createdAt ?? "").localeCompare(String(a.createdAt ?? "")),
+    );
 }
 
 export async function discoverMedia(

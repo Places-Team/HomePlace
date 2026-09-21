@@ -22,6 +22,7 @@ import {
   jellyfinProfiles,
   listMediaRequests,
   mediaQualityProfiles,
+  mediaAutomationTasks,
   mediaServiceIssues,
   updateMediaRequest,
   type JellyfinDetails,
@@ -263,6 +264,11 @@ export async function searchMedia(input: {
 export async function readMediaServiceIssues() {
   await requireUser();
   return mediaServiceIssues();
+}
+
+export async function readMediaAutomationTasks() {
+  await requireUser();
+  return mediaAutomationTasks();
 }
 
 export async function readMediaDetails(

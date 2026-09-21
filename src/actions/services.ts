@@ -8,11 +8,13 @@ import { NOTIFY_POLICY_KEY, normalizePolicy, type NotifyPolicy } from "@/lib/not
 import { httpBaseUrlError } from "@/lib/outbound";
 import {
   saveJellyfin,
+  saveOverseerr,
   saveQbit,
   saveArr,
   savePbs,
   saveHa,
   jellyfinState,
+  overseerrAvailable,
   qbitState,
   arrState,
   pbsState,
@@ -26,6 +28,7 @@ import {
   haHistory,
   type HaHistoryPoint,
   type JellyfinSettings,
+  type OverseerrSettings,
   type QbitSettings,
   type ArrInstance,
   type PbsSettings,
@@ -43,13 +46,29 @@ export type ServiceResult = { ok: boolean; error?: string };
 
 export async function saveJellyfinSettings(input: JellyfinSettings): Promise<ServiceResult> {
   await requireRole("admin");
-  const invalid = httpBaseUrlError(input.url);
+  const invalid = httpBaseUrlError(input.url) || (input.localUrl ? httpBaseUrlError(input.localUrl) : null);
   if (invalid) return { ok: false, error: invalid };
+  if (input.appUrl && (!/^[a-z][a-z0-9+.-]*:/i.test(input.appUrl) || input.appUrl.length > 512)) {
+    return { ok: false, error: "the app address must be a valid URL or deep link" };
+  }
   await saveJellyfin(input.url ? input : null);
   revalidatePath("/settings");
   revalidatePath("/");
   if (!input.url) return { ok: true };
   return (await jellyfinState()) ? { ok: true } : { ok: false, error: "no answer — check the address and the API key" };
+}
+
+export async function saveOverseerrSettings(input: OverseerrSettings): Promise<ServiceResult> {
+  await requireRole("admin");
+  const invalid = httpBaseUrlError(input.url);
+  if (invalid) return { ok: false, error: invalid };
+  await saveOverseerr(input.url ? input : null);
+  revalidatePath("/settings");
+  revalidatePath("/media");
+  if (!input.url) return { ok: true };
+  return (await overseerrAvailable())
+    ? { ok: true }
+    : { ok: false, error: "no answer — check the address and the API key" };
 }
 
 export async function saveQbitSettings(input: QbitSettings): Promise<ServiceResult> {

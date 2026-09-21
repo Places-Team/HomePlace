@@ -20,6 +20,7 @@ import {
 } from "@/actions/integrations";
 import { importConfig } from "@/actions/config";
 import { SecretField } from "./SecretField";
+import { SERVICE_ICONS, serviceLogo } from "@/lib/icons";
 import type { Dictionary } from "@/i18n";
 
 /**
@@ -105,6 +106,8 @@ function FatSecretForm({ d, value }: { d: Dictionary; value: Display["fatsecret"
   return (
     <Card>
       <CardHeader
+        icon={serviceLogo("fatsecret")}
+        iconFallback="🥗"
         title={d.settings.integrationFatSecret}
         action={<Badge tone={value.clientId ? "ok" : "neutral"}>{value.clientId ? d.common.ok : "none"}</Badge>}
       />
@@ -178,6 +181,8 @@ function PrometheusForm({ d, value }: { d: Dictionary; value: Display["prometheu
   return (
     <Card>
       <CardHeader
+        icon={serviceLogo("prometheus")}
+        iconFallback={SERVICE_ICONS.prometheus}
         title={d.settings.integrationPrometheus}
         action={<Badge tone={value.source === "none" ? "neutral" : "ok"}>{value.source}</Badge>}
       />
@@ -236,6 +241,8 @@ function ProxmoxForm({ d, value }: { d: Dictionary; value: Display["proxmox"] })
   return (
     <Card>
       <CardHeader
+        icon={serviceLogo("proxmox")}
+        iconFallback={SERVICE_ICONS.proxmox}
         title={d.settings.integrationProxmox}
         action={<Badge tone={value.source === "none" ? "neutral" : "ok"}>{value.source}</Badge>}
       />
@@ -337,6 +344,8 @@ function TelegramForm({ d, value }: { d: Dictionary; value: Display["telegram"] 
   return (
     <Card>
       <CardHeader
+        icon={serviceLogo("telegram")}
+        iconFallback={SERVICE_ICONS.telegram}
         title="Telegram"
         action={<Badge tone={value.source === "none" ? "neutral" : value.enabled ? "ok" : "neutral"}>{value.source}</Badge>}
       />
@@ -495,7 +504,7 @@ function TelegramBotMonitorForm({ d, value }: { d: Dictionary; value: Display["t
 
   return (
     <Card>
-      <CardHeader title={d.settings.telegramMonitors} action={<Badge tone={rows.length > 0 ? "ok" : "neutral"}>{rows.length}</Badge>} />
+      <CardHeader icon={serviceLogo("telegram")} iconFallback={SERVICE_ICONS.telegram} title={d.settings.telegramMonitors} action={<Badge tone={rows.length > 0 ? "ok" : "neutral"}>{rows.length}</Badge>} />
       <div className="space-y-3 p-4">
         <p className="text-sm text-muted">{d.settings.telegramMonitorsHint}</p>
         {rows.map((row, index) => (
@@ -561,7 +570,7 @@ function NowPlayingCard({ d, token, appUrl }: { d: Dictionary; token: string; ap
 
   return (
     <Card>
-      <CardHeader title={d.settings.nowPlaying} action={<Badge tone={current ? "ok" : "neutral"}>{current ? "on" : "off"}</Badge>} />
+      <CardHeader icon={serviceLogo("jellyfin")} iconFallback="♫" title={d.settings.nowPlaying} action={<Badge tone={current ? "ok" : "neutral"}>{current ? "on" : "off"}</Badge>} />
       <div className="flex flex-col gap-3 p-4">
         <p className="text-xs text-muted">{d.settings.nowPlayingHint}</p>
 
@@ -632,6 +641,8 @@ function GoogleCard({ d, value }: { d: Dictionary; value: Display["google"] }) {
   return (
     <Card>
       <CardHeader
+        icon={serviceLogo("google-calendar")}
+        iconFallback="G"
         title="Google"
         action={<Badge tone={value.linkedEmail ? "ok" : value.source === "none" ? "neutral" : "accent"}>{value.linkedEmail ? "linked" : value.source}</Badge>}
       />
@@ -706,7 +717,7 @@ function IconsCard({ d, enabled }: { d: Dictionary; enabled: boolean }) {
 
   return (
     <Card>
-      <CardHeader title={d.settings.icons} action={<Badge tone={on ? "ok" : "neutral"}>{on ? "on" : "off"}</Badge>} />
+      <CardHeader icon={serviceLogo("homarr")} iconFallback="▦" title={d.settings.icons} action={<Badge tone={on ? "ok" : "neutral"}>{on ? "on" : "off"}</Badge>} />
       <div className="flex flex-col gap-2 p-4">
         <p className="text-xs text-muted">{d.settings.iconsHint}</p>
         <label className="flex items-center gap-2 text-sm">
@@ -749,7 +760,7 @@ function ConfigCard({ d }: { d: Dictionary }) {
 
   return (
     <Card>
-      <CardHeader title={d.settings.configuration} />
+      <CardHeader icon={serviceLogo("home-assistant")} iconFallback="⚙" title={d.settings.configuration} />
       <div className="flex flex-col gap-3 p-4">
         <p className="text-xs text-muted">{d.settings.exportHint}</p>
 

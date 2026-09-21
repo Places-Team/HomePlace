@@ -31,6 +31,7 @@ export function AppNav({
     { href: "/monitoring", label: d.nav.monitoring },
     { href: "/containers", label: d.nav.containers },
     { href: "/home", label: d.nav.home },
+    { href: "/media", label: d.nav.media },
     ...(user.role === "viewer" ? [] : [{ href: "/devices", label: d.nav.devices }]),
     { href: "/events", label: d.nav.events },
   ];

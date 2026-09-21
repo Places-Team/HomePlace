@@ -1,6 +1,7 @@
 "use server";
 
-import { requireUser, requireRole } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
+import { requireRole, requireUser } from "@/lib/auth";
 import {
   haMediaPlayers,
   haMediaCommand,
@@ -9,18 +10,14 @@ import {
   type HaMediaPlayer,
   type MediaCommand,
 } from "@/lib/services";
-
-/**
- * The remote control.
- *
- * Reading is open to anyone signed in — a speaker in the kitchen is not a
- * secret. Pressing a button needs the admin role, the same line the rest of the
- * panel draws between watching the house and operating it.
- *
- * Every command answers with the player's fresh state, so the widget never has
- * to guess whether a press landed: it replaces what it is showing with what the
- * speaker now says about itself.
- */
+import {
+  controlDownload,
+  createMediaRequest,
+  deleteMediaRequest,
+  discoverMedia,
+  updateMediaRequest,
+  type MediaKind,
+} from "@/lib/media";
 
 export type MediaResult = { ok: boolean; error?: string; players?: HaMediaPlayer[] };
 
@@ -35,7 +32,7 @@ export async function sendMediaCommand(entityId: string, command: MediaCommand):
   await requireRole("admin");
   const result = await haMediaCommand(entityId, command);
   if (!result.ok) return result;
-  return { ok: true, players: (await afterCommand(entityId)) ?? undefined };
+  return { ok: true, players: (await refreshedPlayer(entityId)) ?? undefined };
 }
 
 export async function setMediaValue(
@@ -46,32 +43,63 @@ export async function setMediaValue(
   await requireRole("admin");
   const result = await haMediaSet(entityId, what, value);
   if (!result.ok) return result;
-  return { ok: true, players: (await afterCommand(entityId)) ?? undefined };
+  return { ok: true, players: (await refreshedPlayer(entityId)) ?? undefined };
 }
 
-/**
- * The widget's own button: whatever phrase the operator configured, sent to the
- * player. "Like" is the one everybody wants, and no two assistants spell it the
- * same way, so the panel does not pretend to know it.
- */
 export async function sendMediaPhrase(entityId: string, service: string, phrase: string): Promise<MediaResult> {
   await requireRole("admin");
   const result = await haMediaSay(entityId, service, phrase);
   if (!result.ok) return result;
-  return { ok: true, players: (await afterCommand(entityId)) ?? undefined };
+  return { ok: true, players: (await refreshedPlayer(entityId)) ?? undefined };
 }
 
-/**
- * Home Assistant acknowledges a service call before the device has finished
- * obeying it: reading straight back would return the state from before the
- * press. A short wait costs nothing on a click and is the difference between a
- * pause button that looks broken and one that does not.
- *
- * No `revalidatePath` here on purpose — the widget polls and repaints itself,
- * and re-rendering the whole dashboard on every volume step would send a page
- * worth of RSC payload for a number.
- */
-async function afterCommand(entityId: string): Promise<HaMediaPlayer[] | null> {
+async function refreshedPlayer(entityId: string): Promise<HaMediaPlayer[] | null> {
   await new Promise((resolve) => setTimeout(resolve, 400));
   return haMediaPlayers([entityId]);
+}
+
+export async function searchMedia(input: { query?: string; kind?: "all" | MediaKind; page?: number }) {
+  await requireUser();
+  return discoverMedia({
+    query: input.query?.trim().slice(0, 120),
+    kind: input.kind === "movie" || input.kind === "tv" ? input.kind : "all",
+    page: Math.max(1, Math.min(100, Number(input.page) || 1)),
+  });
+}
+
+export async function requestMedia(input: {
+  kind: MediaKind;
+  mediaId: number;
+  seasons?: number[];
+  is4k?: boolean;
+}) {
+  await requireRole("admin");
+  const result = await createMediaRequest(input);
+  if (result.ok) revalidatePath("/media");
+  return result;
+}
+
+export async function cancelMediaRequest(id: number) {
+  await requireRole("admin");
+  const result = await deleteMediaRequest(Math.floor(Number(id)));
+  if (result.ok) revalidatePath("/media");
+  return result;
+}
+
+export async function decideMediaRequest(id: number, decision: "approve" | "decline") {
+  await requireRole("admin");
+  const result = await updateMediaRequest(Math.floor(Number(id)), decision);
+  if (result.ok) revalidatePath("/media");
+  return result;
+}
+
+export async function manageDownload(
+  hash: string,
+  action: "pause" | "resume" | "recheck" | "delete",
+  deleteFiles = false
+) {
+  await requireRole("admin");
+  const result = await controlDownload(hash, action, deleteFiles);
+  if (result.ok) revalidatePath("/media");
+  return result;
 }

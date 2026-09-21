@@ -18,6 +18,7 @@ import { httpBaseUrl, limitedJson } from "./outbound";
 
 const KEY = {
   jellyfin: "integration.jellyfin",
+  overseerr: "integration.overseerr",
   qbittorrent: "integration.qbittorrent",
   arr: "integration.arr",
   pbs: "integration.pbs",
@@ -55,7 +56,15 @@ const trim = (url: string) => {
 
 // ──────────────────────────────── Jellyfin ───────────────────────────────
 
-export type JellyfinSettings = { url: string; apiKey: string };
+export type JellyfinSettings = {
+  /** Public address used away from home. */
+  url: string;
+  /** Optional address reachable only on the home network. */
+  localUrl?: string;
+  /** Native client URL. `{id}` is replaced with the Jellyfin item id. */
+  appUrl?: string;
+  apiKey: string;
+};
 export type JellyfinItem = {
   id: string;
   name: string;
@@ -82,7 +91,14 @@ export async function jellyfinConfig(): Promise<JellyfinSettings | null> {
   const stored = await getSetting<JellyfinSettings | null>(KEY.jellyfin, null);
   if (!stored?.url || !stored.apiKey) return null;
   const url = httpBaseUrl(stored.url);
-  return url ? { url, apiKey: await decrypt(stored.apiKey) } : null;
+  return url
+    ? {
+        url,
+        localUrl: stored.localUrl ? httpBaseUrl(stored.localUrl) ?? undefined : undefined,
+        appUrl: stored.appUrl?.trim() || undefined,
+        apiKey: await decrypt(stored.apiKey),
+      }
+    : null;
 }
 
 export async function saveJellyfin(input: JellyfinSettings | null): Promise<void> {
@@ -90,8 +106,36 @@ export async function saveJellyfin(input: JellyfinSettings | null): Promise<void
   const existing = await getSetting<JellyfinSettings | null>(KEY.jellyfin, null);
   await setSetting(KEY.jellyfin, {
     url: trim(input.url),
+    localUrl: input.localUrl ? trim(input.localUrl) : "",
+    appUrl: input.appUrl?.trim().slice(0, 512) ?? "",
     apiKey: input.apiKey ? await encrypt(input.apiKey) : existing?.apiKey ?? "",
   });
+}
+
+// ─────────────────────────────── Overseerr ──────────────────────────────
+
+export type OverseerrSettings = { url: string; apiKey: string };
+
+export async function overseerrConfig(): Promise<OverseerrSettings | null> {
+  const stored = await getSetting<OverseerrSettings | null>(KEY.overseerr, null);
+  if (!stored?.url || !stored.apiKey) return null;
+  const url = httpBaseUrl(stored.url);
+  return url ? { url, apiKey: await decrypt(stored.apiKey) } : null;
+}
+
+export async function saveOverseerr(input: OverseerrSettings | null): Promise<void> {
+  if (!input?.url) return void (await setSetting(KEY.overseerr, null));
+  const existing = await getSetting<OverseerrSettings | null>(KEY.overseerr, null);
+  await setSetting(KEY.overseerr, {
+    url: trim(input.url),
+    apiKey: input.apiKey ? await encrypt(input.apiKey) : existing?.apiKey ?? "",
+  });
+}
+
+export async function overseerrAvailable(): Promise<boolean> {
+  const cfg = await overseerrConfig();
+  if (!cfg) return false;
+  return !!(await get({ url: `${cfg.url}/api/v1/status`, headers: { "x-api-key": cfg.apiKey } }));
 }
 
 export async function jellyfinState(): Promise<JellyfinState | null> {
@@ -1164,8 +1208,9 @@ export async function haToggle(entityId: string): Promise<{ ok: boolean; error?:
 
 /** What the settings page shows: configured or not, secrets masked. */
 export async function servicesForDisplay() {
-  const [jellyfin, qbit, arr, pbs, ha] = await Promise.all([
+  const [jellyfin, overseerr, qbit, arr, pbs, ha] = await Promise.all([
     getSetting<JellyfinSettings | null>(KEY.jellyfin, null),
+    getSetting<OverseerrSettings | null>(KEY.overseerr, null),
     getSetting<QbitSettings | null>(KEY.qbittorrent, null),
     getSetting<ArrInstance[]>(KEY.arr, []),
     getSetting<PbsSettings | null>(KEY.pbs, null),
@@ -1173,7 +1218,13 @@ export async function servicesForDisplay() {
   ]);
 
   return {
-    jellyfin: { url: jellyfin?.url ?? "", hasKey: !!jellyfin?.apiKey },
+    jellyfin: {
+      url: jellyfin?.url ?? "",
+      localUrl: jellyfin?.localUrl ?? "",
+      appUrl: jellyfin?.appUrl ?? "",
+      hasKey: !!jellyfin?.apiKey,
+    },
+    overseerr: { url: overseerr?.url ?? "", hasKey: !!overseerr?.apiKey },
     qbittorrent: { url: qbit?.url ?? "", username: qbit?.username ?? "", hasPassword: !!qbit?.password },
     arr: arr.map((a) => ({ kind: a.kind, label: a.label, url: a.url, hasKey: !!a.apiKey })),
     pbs: { url: pbs?.url ?? "", tokenId: pbs?.tokenId ?? "", hasSecret: !!pbs?.tokenSecret, verifyTls: !!pbs?.verifyTls },

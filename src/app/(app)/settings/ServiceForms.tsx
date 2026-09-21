@@ -5,6 +5,7 @@ import { Card, CardHeader, Badge } from "@/components/ui";
 import { Field, Input, Select, Button } from "@/components/form";
 import {
   saveJellyfinSettings,
+  saveOverseerrSettings,
   saveQbitSettings,
   saveArrSettings,
   savePbsSettings,
@@ -29,7 +30,8 @@ import { SERVICE_ICONS, serviceLogo } from "@/lib/icons";
  */
 
 export type ServicesDisplay = {
-  jellyfin: { url: string; hasKey: boolean };
+  jellyfin: { url: string; localUrl: string; appUrl: string; hasKey: boolean };
+  overseerr: { url: string; hasKey: boolean };
   qbittorrent: { url: string; username: string; hasPassword: boolean };
   arr: { kind: string; label: string; url: string; hasKey: boolean }[];
   pbs: { url: string; tokenId: string; hasSecret: boolean; verifyTls: boolean };
@@ -37,9 +39,10 @@ export type ServicesDisplay = {
 };
 
 export function ServiceForms({ d, display }: { d: Dictionary; display: ServicesDisplay }) {
-  type ServiceKey = "jellyfin" | "qbittorrent" | "arr" | "pbs" | "homeassistant";
+  type ServiceKey = "jellyfin" | "overseerr" | "qbittorrent" | "arr" | "pbs" | "homeassistant";
   const initiallyVisible: ServiceKey[] = [
     ...(display.jellyfin.url ? ["jellyfin" as const] : []),
+    ...(display.overseerr.url ? ["overseerr" as const] : []),
     ...(display.qbittorrent.url ? ["qbittorrent" as const] : []),
     ...(display.arr.length ? ["arr" as const] : []),
     ...(display.pbs.url ? ["pbs" as const] : []),
@@ -65,6 +68,7 @@ export function ServiceForms({ d, display }: { d: Dictionary; display: ServicesD
 
   const choices = [
     { key: "jellyfin" as const, label: "Jellyfin", logo: "jellyfin" },
+    { key: "overseerr" as const, label: "Overseerr", logo: "overseerr" },
     { key: "qbittorrent" as const, label: "qBittorrent", logo: "qbittorrent" },
     { key: "arr" as const, kind: "sonarr", label: "Sonarr", logo: "sonarr" },
     { key: "arr" as const, kind: "radarr", label: "Radarr", logo: "radarr" },
@@ -83,6 +87,7 @@ export function ServiceForms({ d, display }: { d: Dictionary; display: ServicesD
       {visible.size === 0 && <button onClick={() => setAdding(true)} className="w-full rounded-card border border-dashed border-line px-6 py-10 text-center text-sm text-muted transition-colors hover:border-accent hover:text-text">＋ {d.settings.addFirstService}</button>}
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
         {visible.has("jellyfin") && <JellyfinForm d={d} value={display.jellyfin} onRemove={() => hide("jellyfin")} />}
+        {visible.has("overseerr") && <OverseerrForm d={d} value={display.overseerr} onRemove={() => hide("overseerr")} />}
         {visible.has("qbittorrent") && <QbitForm d={d} value={display.qbittorrent} onRemove={() => hide("qbittorrent")} />}
         {visible.has("arr") && <ArrForm d={d} value={display.arr} defaultKind={arrKind} onRemove={() => hide("arr")} />}
         {visible.has("pbs") && <PbsForm d={d} value={display.pbs} onRemove={() => hide("pbs")} />}
@@ -135,7 +140,7 @@ function Result({ result, d }: { result: ServiceResult | null; d: Dictionary }) 
 }
 
 function JellyfinForm({ d, value, onRemove }: { d: Dictionary; value: ServicesDisplay["jellyfin"]; onRemove: () => void }) {
-  const [form, setForm] = useState({ url: value.url, apiKey: "" });
+  const [form, setForm] = useState({ url: value.url, localUrl: value.localUrl, appUrl: value.appUrl, apiKey: "" });
   const [result, setResult] = useState<ServiceResult | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -143,7 +148,7 @@ function JellyfinForm({ d, value, onRemove }: { d: Dictionary; value: ServicesDi
     <Card>
       <CardHeader icon={serviceLogo("jellyfin")} iconFallback={SERVICE_ICONS.jellyfin} title="Jellyfin" action={<Badge tone={value.url ? "ok" : "neutral"}>{value.url ? "on" : "off"}</Badge>} />
       <div className="flex flex-col gap-3 p-4">
-        <Field label={d.settings.url}>
+        <Field label={d.settings.jellyfinPublicUrl} hint={d.settings.jellyfinPublicUrlHint}>
           <Input
             value={form.url}
             onChange={(e) => setForm({ ...form, url: e.target.value })}
@@ -151,6 +156,24 @@ function JellyfinForm({ d, value, onRemove }: { d: Dictionary; value: ServicesDi
             className="font-mono text-xs"
           />
         </Field>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label={d.settings.jellyfinLocalUrl} hint={d.settings.jellyfinLocalUrlHint}>
+            <Input
+              value={form.localUrl}
+              onChange={(e) => setForm({ ...form, localUrl: e.target.value })}
+              placeholder="http://192.168.0.10:8096"
+              className="font-mono text-xs"
+            />
+          </Field>
+          <Field label={d.settings.jellyfinAppUrl} hint={d.settings.jellyfinAppUrlHint}>
+            <Input
+              value={form.appUrl}
+              onChange={(e) => setForm({ ...form, appUrl: e.target.value })}
+              placeholder="jellyfin://details?id={id}"
+              className="font-mono text-xs"
+            />
+          </Field>
+        </div>
         <SecretField
           d={d}
           label="API key"
@@ -165,7 +188,30 @@ function JellyfinForm({ d, value, onRemove }: { d: Dictionary; value: ServicesDi
           </Button>
           <Result result={result} d={d} />
           <AddToBoard d={d} widget="jellyfin" title="Jellyfin" enabled={!!value.url} />
-          <Button variant="quiet" disabled={pending} onClick={() => startTransition(async () => { const next = await saveJellyfinSettings({ url: "", apiKey: "" }); setResult(next); if (next.ok) onRemove(); })}>{d.common.delete}</Button>
+          <Button variant="quiet" disabled={pending} onClick={() => startTransition(async () => { const next = await saveJellyfinSettings({ url: "", localUrl: "", appUrl: "", apiKey: "" }); setResult(next); if (next.ok) onRemove(); })}>{d.common.delete}</Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function OverseerrForm({ d, value, onRemove }: { d: Dictionary; value: ServicesDisplay["overseerr"]; onRemove: () => void }) {
+  const [form, setForm] = useState({ url: value.url, apiKey: "" });
+  const [result, setResult] = useState<ServiceResult | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <Card>
+      <CardHeader icon={serviceLogo("overseerr")} iconFallback={SERVICE_ICONS.overseerr} title="Overseerr" action={<Badge tone={value.url ? "ok" : "neutral"}>{value.url ? "on" : "off"}</Badge>} />
+      <div className="flex flex-col gap-3 p-4">
+        <Field label={d.settings.url} hint={d.settings.overseerrHint}>
+          <Input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="http://192.168.0.10:5055" className="font-mono text-xs" />
+        </Field>
+        <SecretField d={d} label="API key" hasSecret={value.hasKey} value={form.apiKey} onChange={(apiKey) => setForm({ ...form, apiKey })} />
+        <div className="flex items-center gap-3">
+          <Button variant="primary" disabled={pending} onClick={() => startTransition(async () => setResult(await saveOverseerrSettings(form)))}>{d.common.save}</Button>
+          <Result result={result} d={d} />
+          <Button variant="quiet" disabled={pending} onClick={() => startTransition(async () => { const next = await saveOverseerrSettings({ url: "", apiKey: "" }); setResult(next); if (next.ok) onRemove(); })}>{d.common.delete}</Button>
         </div>
       </div>
     </Card>

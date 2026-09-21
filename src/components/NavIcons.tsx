@@ -74,6 +74,16 @@ export function BulbIcon({ className }: IconProps) {
   );
 }
 
+export function MediaIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <rect x="3" y="5" width="18" height="14" rx="2.5" />
+      <path d="m10 9 5 3-5 3z" />
+      <path d="M7 2.5 10 5M17 2.5 14 5" />
+    </Svg>
+  );
+}
+
 export function SearchIcon({ className }: IconProps) {
   return (
     <Svg className={className}>

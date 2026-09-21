@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { HomeIcon, ChartIcon, BoxIcon, BellIcon, SearchIcon, BulbIcon } from "./NavIcons";
+import { HomeIcon, ChartIcon, BoxIcon, BellIcon, SearchIcon, MediaIcon } from "./NavIcons";
 import type { Dictionary } from "@/i18n";
 
 /**
@@ -23,7 +23,7 @@ export function MobileNav({ d }: { d: Dictionary }) {
     { href: "/", label: d.nav.dashboard, Icon: HomeIcon },
     { href: "/monitoring", label: d.nav.monitoring, Icon: ChartIcon },
     { href: "/containers", label: d.nav.containers, Icon: BoxIcon },
-    { href: "/home", label: d.nav.home, Icon: BulbIcon },
+    { href: "/media", label: d.nav.media, Icon: MediaIcon },
     { href: "/events", label: d.nav.events, Icon: BellIcon },
   ];
 

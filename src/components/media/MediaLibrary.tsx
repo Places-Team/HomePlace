@@ -8,7 +8,7 @@ import { Badge, EmptyState, Meter } from "@/components/ui";
 import { Button, Input, Select } from "@/components/form";
 import { Dialog } from "@/components/Dialog";
 import { serviceLogo } from "@/lib/icons";
-import { isHomeNetworkHost, jellyfinNativeLink, jellyfinWebLink } from "@/lib/jellyfinLinks";
+import { isHomeNetworkHost, jellyfinNativeLink, jellyfinWebBase, jellyfinWebLink } from "@/lib/jellyfinLinks";
 
 type Tab = "discover" | "library" | "requests" | "downloads";
 type DiscoverResult = { configured: boolean; page: number; pages: number; items: MediaCard[] };
@@ -55,6 +55,9 @@ export function MediaLibrary({
   const [downloads, setDownloads] = useState(initialDownloads.items);
   const [preferLocal, setPreferLocal] = useState(false);
   const [lanDetected, setLanDetected] = useState(false);
+  const [libraryQuery, setLibraryQuery] = useState("");
+  const [watchFilter, setWatchFilter] = useState<"all" | "unwatched" | "progress" | "played">("all");
+  const [librarySort, setLibrarySort] = useState<"recent" | "title" | "year" | "progress">("recent");
   const [pending, startTransition] = useTransition();
 
   useEffect(() => {
@@ -79,10 +82,24 @@ export function MediaLibrary({
       });
   }, [availability, rating, result.items, sort, year]);
 
-  const libraryItems = useMemo(
-    () => library.items.filter((item) => kind === "all" || item.kind === kind),
-    [kind, library.items]
-  );
+  const libraryItems = useMemo(() => {
+    const needle = libraryQuery.trim().toLocaleLowerCase();
+    return library.items
+      .filter((item) => kind === "all" || item.kind === kind)
+      .filter((item) => !needle || item.title.toLocaleLowerCase().includes(needle))
+      .filter((item) => {
+        if (watchFilter === "played") return item.played;
+        if (watchFilter === "progress") return !item.played && item.progress > 0;
+        if (watchFilter === "unwatched") return !item.played && item.progress <= 0;
+        return true;
+      })
+      .sort((a, b) => {
+        if (librarySort === "title") return a.title.localeCompare(b.title);
+        if (librarySort === "year") return (b.year ?? 0) - (a.year ?? 0);
+        if (librarySort === "progress") return b.progress - a.progress;
+        return 0;
+      });
+  }, [kind, library.items, libraryQuery, librarySort, watchFilter]);
 
   const libraryCounts = useMemo(() => ({
     all: library.items.length,
@@ -115,7 +132,7 @@ export function MediaLibrary({
     });
   }
 
-  const webBase = preferLocal && jellyfin.localUrl ? jellyfin.localUrl : jellyfin.url;
+  const webBase = jellyfinWebBase({ publicUrl: jellyfin.url, localUrl: jellyfin.localUrl, preferLocal });
   const webLink = (id: string) => jellyfinWebLink(webBase, id);
 
   function openApp(id: string) {
@@ -185,6 +202,24 @@ export function MediaLibrary({
       )}
 
       {message && <div role="status" className="rounded-control border border-line bg-raised px-3 py-2 text-sm">{message}</div>}
+
+      {tab === "library" && library.configured && (
+        <div className="grid gap-2 rounded-card border border-line bg-surface p-3 sm:grid-cols-[minmax(12rem,1fr)_auto_auto]">
+          <Input value={libraryQuery} onChange={(event) => setLibraryQuery(event.target.value)} placeholder={d.media.librarySearch} />
+          <Select value={watchFilter} onChange={(event) => setWatchFilter(event.target.value as typeof watchFilter)}>
+            <option value="all">{d.media.allWatchStates}</option>
+            <option value="unwatched">{d.media.unwatched}</option>
+            <option value="progress">{d.media.inProgress}</option>
+            <option value="played">{d.media.markPlayed}</option>
+          </Select>
+          <Select value={librarySort} onChange={(event) => setLibrarySort(event.target.value as typeof librarySort)}>
+            <option value="recent">{d.media.recentlyAdded}</option>
+            <option value="title">A–Z</option>
+            <option value="year">{d.media.year}</option>
+            <option value="progress">{d.media.watchProgress}</option>
+          </Select>
+        </div>
+      )}
 
       {tab === "discover" && (
         <section className="space-y-4">

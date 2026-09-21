@@ -17,6 +17,15 @@ export function jellyfinWebLink(base: string, id: string): string {
   return `${base.replace(/\/$/, "")}/web/index.html#!/details?id=${encodeURIComponent(id)}`;
 }
 
+export function jellyfinWebBase(options: {
+  publicUrl: string;
+  localUrl: string;
+  preferLocal: boolean;
+}): string {
+  if (options.preferLocal && options.localUrl) return options.localUrl;
+  return options.publicUrl || options.localUrl;
+}
+
 export function jellyfinNativeLink(template: string, id: string): string {
   return template.replaceAll("{id}", encodeURIComponent(id));
 }

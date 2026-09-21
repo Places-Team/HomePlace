@@ -6,6 +6,7 @@ import { Field, Input, Select, Button } from "@/components/form";
 import {
   saveJellyfinSettings,
   saveOverseerrSettings,
+  saveProwlarrSettings,
   saveQbitSettings,
   saveArrSettings,
   savePbsSettings,
@@ -33,6 +34,7 @@ import { SettingsFold } from "./SettingsFold";
 export type ServicesDisplay = {
   jellyfin: { url: string; localUrl: string; appUrl: string; cacheLocally: boolean; hasKey: boolean };
   overseerr: { url: string; hasKey: boolean };
+  prowlarr: { url: string; hasKey: boolean };
   qbittorrent: { url: string; username: string; hasPassword: boolean };
   arr: { kind: string; label: string; url: string; hasKey: boolean }[];
   pbs: { url: string; tokenId: string; hasSecret: boolean; verifyTls: boolean };
@@ -40,10 +42,11 @@ export type ServicesDisplay = {
 };
 
 export function ServiceForms({ d, display }: { d: Dictionary; display: ServicesDisplay }) {
-  type ServiceKey = "jellyfin" | "overseerr" | "qbittorrent" | "arr" | "pbs" | "homeassistant";
+  type ServiceKey = "jellyfin" | "overseerr" | "prowlarr" | "qbittorrent" | "arr" | "pbs" | "homeassistant";
   const initiallyVisible: ServiceKey[] = [
     ...(display.jellyfin.url || display.jellyfin.localUrl ? ["jellyfin" as const] : []),
     ...(display.overseerr.url ? ["overseerr" as const] : []),
+    ...(display.prowlarr.url ? ["prowlarr" as const] : []),
     ...(display.qbittorrent.url ? ["qbittorrent" as const] : []),
     ...(display.arr.length ? ["arr" as const] : []),
     ...(display.pbs.url ? ["pbs" as const] : []),
@@ -70,6 +73,7 @@ export function ServiceForms({ d, display }: { d: Dictionary; display: ServicesD
   const choices = [
     { key: "jellyfin" as const, label: "Jellyfin", logo: "jellyfin" },
     { key: "overseerr" as const, label: "Overseerr", logo: "overseerr" },
+    { key: "prowlarr" as const, label: "Prowlarr", logo: "prowlarr" },
     { key: "qbittorrent" as const, label: "qBittorrent", logo: "qbittorrent" },
     { key: "arr" as const, kind: "sonarr", label: "Sonarr", logo: "sonarr" },
     { key: "arr" as const, kind: "radarr", label: "Radarr", logo: "radarr" },
@@ -89,6 +93,7 @@ export function ServiceForms({ d, display }: { d: Dictionary; display: ServicesD
       <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
         {visible.has("jellyfin") && <SettingsFold title="Jellyfin" icon={serviceLogo("jellyfin")} fallback={SERVICE_ICONS.jellyfin} configured={!!(display.jellyfin.url || display.jellyfin.localUrl)}><JellyfinForm d={d} value={display.jellyfin} onRemove={() => hide("jellyfin")} /></SettingsFold>}
         {visible.has("overseerr") && <SettingsFold title="Overseerr" icon={serviceLogo("overseerr")} fallback={SERVICE_ICONS.overseerr} configured={!!display.overseerr.url}><OverseerrForm d={d} value={display.overseerr} onRemove={() => hide("overseerr")} /></SettingsFold>}
+        {visible.has("prowlarr") && <SettingsFold title="Prowlarr" icon={serviceLogo("prowlarr")} fallback={SERVICE_ICONS.prowlarr} configured={!!display.prowlarr.url}><ProwlarrForm d={d} value={display.prowlarr} onRemove={() => hide("prowlarr")} /></SettingsFold>}
         {visible.has("qbittorrent") && <SettingsFold title="qBittorrent" icon={serviceLogo("qbittorrent")} fallback={SERVICE_ICONS.qbittorrent} configured={!!display.qbittorrent.url}><QbitForm d={d} value={display.qbittorrent} onRemove={() => hide("qbittorrent")} /></SettingsFold>}
         {visible.has("arr") && <SettingsFold title="Radarr / Sonarr" icon={serviceLogo(arrKind)} fallback="◉" configured={display.arr.length > 0}><ArrForm d={d} value={display.arr} defaultKind={arrKind} onRemove={() => hide("arr")} /></SettingsFold>}
         {visible.has("pbs") && <SettingsFold title="Proxmox Backup Server" icon={serviceLogo("pbs")} fallback={SERVICE_ICONS.pbs} configured={!!display.pbs.url}><PbsForm d={d} value={display.pbs} onRemove={() => hide("pbs")} /></SettingsFold>}
@@ -224,6 +229,29 @@ function OverseerrForm({ d, value, onRemove }: { d: Dictionary; value: ServicesD
           <Button variant="primary" disabled={pending} onClick={() => startTransition(async () => setResult(await saveOverseerrSettings(form)))}>{d.common.save}</Button>
           <Result result={result} d={d} />
           <Button variant="quiet" disabled={pending} onClick={() => startTransition(async () => { const next = await saveOverseerrSettings({ url: "", apiKey: "" }); setResult(next); if (next.ok) onRemove(); })}>{d.common.delete}</Button>
+        </div>
+      </div>
+    </Card>
+  );
+}
+
+function ProwlarrForm({ d, value, onRemove }: { d: Dictionary; value: ServicesDisplay["prowlarr"]; onRemove: () => void }) {
+  const [form, setForm] = useState({ url: value.url, apiKey: "" });
+  const [result, setResult] = useState<ServiceResult | null>(null);
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <Card>
+      <CardHeader icon={serviceLogo("prowlarr")} iconFallback={SERVICE_ICONS.prowlarr} title="Prowlarr" action={<Badge tone={value.url ? "ok" : "neutral"}>{value.url ? "on" : "off"}</Badge>} />
+      <div className="flex flex-col gap-3 p-4">
+        <Field label={d.settings.url} hint={d.settings.prowlarrHint}>
+          <Input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="http://192.168.0.10:9696" className="font-mono text-xs" />
+        </Field>
+        <SecretField d={d} label="API key" hasSecret={value.hasKey} value={form.apiKey} onChange={(apiKey) => setForm({ ...form, apiKey })} />
+        <div className="flex items-center gap-3">
+          <Button variant="primary" disabled={pending} onClick={() => startTransition(async () => setResult(await saveProwlarrSettings(form)))}>{d.common.save}</Button>
+          <Result result={result} d={d} />
+          <Button variant="quiet" disabled={pending} onClick={() => startTransition(async () => { const next = await saveProwlarrSettings({ url: "", apiKey: "" }); setResult(next); if (next.ok) onRemove(); })}>{d.common.delete}</Button>
         </div>
       </div>
     </Card>

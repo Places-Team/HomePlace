@@ -180,7 +180,9 @@ export const ru: Dictionary = {
     sendToQbit: "Отправить в qBittorrent",
     sentToQbit: "Отправлено в qBittorrent",
     noRawReleases: "Prowlarr не вернул раздач",
-    prowlarrNotConfigured: "В Sonarr или Radarr не найден активный индексатор Prowlarr.",
+    prowlarrNotConfigured: "Подключите Prowlarr в настройках и включите хотя бы один индексатор для интерактивного поиска.",
+    prowlarrAuth: "Prowlarr отклонил сохранённый API-ключ. Обновите его в настройках.",
+    prowlarrUnavailable: "Prowlarr не ответил. Проверьте адрес и сетевой доступ.",
     seeds: "сиды",
     leeches: "личи",
     loadMore: "Показать ещё",
@@ -933,6 +935,8 @@ export const ru: Dictionary = {
       "Для Swiftfin: jellyfin://SERVER_ID/USER_ID/item/{id}. У Jellyfin Media Player на компьютере нет стандартной ссылки на конкретный материал — оставьте поле пустым для веб-плеера.",
     overseerrHint:
       "HomePlace использует Overseerr для поиска, статусов и запросов медиатеки.",
+    prowlarrHint:
+      "Используется для поиска раздач, причин отклонения и ручной отправки в qBittorrent.",
     haToken: "Долгоживущий токен",
     haTokenHint:
       "Home Assistant → профиль → безопасность → токены долгосрочного доступа",

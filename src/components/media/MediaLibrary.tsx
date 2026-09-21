@@ -1133,7 +1133,7 @@ function ReleaseSearchPanel({
   d: MediaDictionary;
   disabled: boolean;
 }) {
-  const [query, setQuery] = useState(item.originalTitle || item.title);
+  const [query, setQuery] = useState(item.title || item.originalTitle || "");
   const [season, setSeason] = useState(item.seasons[0]?.number ?? 1);
   const [result, setResult] = useState<RawReleaseSearch | null>(null);
   const [notice, setNotice] = useState("");
@@ -1152,7 +1152,14 @@ function ReleaseSearchPanel({
         season,
       });
       setResult(next);
-      if (next.error) setNotice(next.error);
+      if (next.error)
+        setNotice(
+          next.error === "prowlarrAuth"
+            ? d.media.prowlarrAuth
+            : next.error === "prowlarrUnavailable"
+              ? d.media.prowlarrUnavailable
+              : next.error,
+        );
     });
   };
 
@@ -1217,7 +1224,7 @@ function ReleaseSearchPanel({
           {d.media.prowlarrNotConfigured}
         </p>
       )}
-      {result?.configured && result.releases.length === 0 && (
+      {result?.configured && !result.error && result.releases.length === 0 && (
         <p className="rounded-control bg-raised p-3 text-sm text-muted">
           {d.media.noRawReleases}
         </p>

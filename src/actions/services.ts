@@ -9,12 +9,14 @@ import { httpBaseUrlError } from "@/lib/outbound";
 import {
   saveJellyfin,
   saveOverseerr,
+  saveProwlarr,
   saveQbit,
   saveArr,
   savePbs,
   saveHa,
   jellyfinState,
   overseerrAvailable,
+  prowlarrAvailable,
   jellyfinConnectionProbes,
   qbitState,
   arrState,
@@ -30,6 +32,7 @@ import {
   type HaHistoryPoint,
   type JellyfinSettings,
   type OverseerrSettings,
+  type ProwlarrSettings,
   type QbitSettings,
   type ArrInstance,
   type PbsSettings,
@@ -79,6 +82,19 @@ export async function saveOverseerrSettings(input: OverseerrSettings): Promise<S
   revalidatePath("/media");
   if (!input.url) return { ok: true };
   return (await overseerrAvailable())
+    ? { ok: true }
+    : { ok: false, error: "no answer — check the address and the API key" };
+}
+
+export async function saveProwlarrSettings(input: ProwlarrSettings): Promise<ServiceResult> {
+  await requireRole("admin");
+  const invalid = httpBaseUrlError(input.url);
+  if (invalid) return { ok: false, error: invalid };
+  await saveProwlarr(input.url ? input : null);
+  revalidatePath("/settings");
+  revalidatePath("/media");
+  if (!input.url) return { ok: true };
+  return (await prowlarrAvailable())
     ? { ok: true }
     : { ok: false, error: "no answer — check the address and the API key" };
 }

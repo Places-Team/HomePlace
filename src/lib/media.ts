@@ -8,6 +8,7 @@ import {
   jellyfinConfig,
   jellyfinServerUrl,
   overseerrConfig,
+  prowlarrConfig,
   qbitConfig,
 } from "./services";
 
@@ -1124,55 +1125,42 @@ async function servarrServers(kind: MediaKind): Promise<Record<string, any>[]> {
       : [];
 }
 
-/**
- * Reuse the Prowlarr Torznab connection already synced into Sonarr/Radarr.
- * This avoids a second API-key field while keeping the key on the server.
- */
-async function prowlarrSessions(kind: MediaKind): Promise<ProwlarrSession[]> {
-  const sessions = new Map<string, ProwlarrSession>();
-  for (const server of await servarrServers(kind)) {
-    const base = servarrBase(server);
-    const apiKey = String(server.apiKey ?? "").trim();
-    if (!base || !apiKey) continue;
-    try {
-      const response = await fetch(`${base}/api/v3/indexer`, {
-        headers: { "X-Api-Key": apiKey },
-        cache: "no-store",
-        signal: AbortSignal.timeout(8000),
-      });
-      if (!response.ok) continue;
-      const indexers = await limitedJson<Record<string, any>[]>(response);
-      for (const indexer of Array.isArray(indexers) ? indexers : []) {
-        if (indexer.enableInteractiveSearch === false) continue;
-        const torznabUrl = String(indexerField(indexer, "baseUrl") ?? "").trim();
-        const prowlarrKey = String(indexerField(indexer, "apiKey") ?? "").trim();
-        if (!torznabUrl || !prowlarrKey) continue;
-        const parsed = new URL(torznabUrl);
-        if (!['http:', 'https:'].includes(parsed.protocol) || parsed.username || parsed.password)
-          continue;
-        const parts = parsed.pathname.split("/").filter(Boolean);
-        const indexerId = Number(parts.at(-1));
-        if (!Number.isInteger(indexerId) || indexerId < 1) continue;
-        parts.pop();
-        parsed.pathname = parts.length ? `/${parts.join("/")}` : "";
-        parsed.search = "";
-        parsed.hash = "";
-        const baseUrl = parsed.toString().replace(/\/$/, "");
-        const key = `${baseUrl}\n${prowlarrKey}`;
-        const existing = sessions.get(key) ?? {
-          baseUrl,
-          apiKey: prowlarrKey,
-          indexerIds: [],
-        };
-        if (!existing.indexerIds.includes(indexerId))
-          existing.indexerIds.push(indexerId);
-        sessions.set(key, existing);
-      }
-    } catch {
-      // Try another configured Sonarr/Radarr server.
-    }
+type ProwlarrDiscovery = {
+  configured: boolean;
+  session?: ProwlarrSession;
+  error?: "prowlarrAuth" | "prowlarrUnavailable";
+};
+
+/** Read Prowlarr directly: Sonarr deliberately masks synced Torznab API keys. */
+async function prowlarrSession(): Promise<ProwlarrDiscovery> {
+  const cfg = await prowlarrConfig();
+  if (!cfg) return { configured: false };
+  try {
+    const response = await fetch(`${cfg.url}/api/v1/indexer`, {
+      headers: { "X-Api-Key": cfg.apiKey },
+      cache: "no-store",
+      signal: AbortSignal.timeout(10000),
+    });
+    if (response.status === 401 || response.status === 403)
+      return { configured: true, error: "prowlarrAuth" };
+    if (!response.ok)
+      return { configured: true, error: "prowlarrUnavailable" };
+    const indexers = await limitedJson<Record<string, any>[]>(response);
+    const indexerIds = (Array.isArray(indexers) ? indexers : [])
+      .filter(
+        (indexer) =>
+          indexer.enable !== false && indexer.enableInteractiveSearch !== false,
+      )
+      .map((indexer) => Number(indexer.id))
+      .filter((id) => Number.isInteger(id) && id > 0);
+    if (indexerIds.length === 0) return { configured: false };
+    return {
+      configured: true,
+      session: { baseUrl: cfg.url, apiKey: cfg.apiKey, indexerIds },
+    };
+  } catch {
+    return { configured: true, error: "prowlarrUnavailable" };
   }
-  return [...sessions.values()];
 }
 
 function releaseId(raw: Record<string, any>): string {
@@ -1196,11 +1184,16 @@ function safeInfoUrl(value: unknown): string | undefined {
 }
 
 async function rawProwlarrSearch(
-  kind: MediaKind,
   query: string,
-): Promise<{ configured: boolean; releases: InternalRawRelease[] }> {
-  const sessions = await prowlarrSessions(kind);
-  if (sessions.length === 0) return { configured: false, releases: [] };
+): Promise<{ configured: boolean; releases: InternalRawRelease[]; error?: string }> {
+  const discovery = await prowlarrSession();
+  if (!discovery.session)
+    return {
+      configured: discovery.configured,
+      releases: [],
+      error: discovery.error,
+    };
+  const sessions = [discovery.session];
   const groups = await Promise.all(
     sessions.map(async (session) => {
       const params = new URLSearchParams({
@@ -1347,7 +1340,7 @@ export async function searchRawMediaReleases(input: {
   if (!query)
     return { configured: true, arrChecked: false, releases: [], error: "Enter a search phrase" };
   const [raw, decisions] = await Promise.all([
-    rawProwlarrSearch(input.kind, query),
+    rawProwlarrSearch(query),
     arrReleaseDecisions({ ...input, season: input.season }),
   ]);
   const byTitle = new Map(
@@ -1356,6 +1349,7 @@ export async function searchRawMediaReleases(input: {
   return {
     configured: raw.configured,
     arrChecked: decisions.checked,
+    error: raw.error,
     releases: raw.releases
       .map(({ downloadUrl: _downloadUrl, ...release }) => {
         const decision = byTitle.get(release.title);
@@ -1410,7 +1404,7 @@ export async function addRawMediaRelease(input: {
   const query = input.query.trim().slice(0, 160);
   if (!query || !/^[a-f0-9]{24}$/.test(input.releaseId))
     return { ok: false, error: "Invalid release" };
-  const raw = await rawProwlarrSearch(input.kind, query);
+  const raw = await rawProwlarrSearch(query);
   const release = raw.releases.find((item) => item.id === input.releaseId);
   if (!release) return { ok: false, error: "Release is no longer available" };
   const session = await qbitSession();

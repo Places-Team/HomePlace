@@ -19,6 +19,7 @@ import { httpBaseUrl, limitedJson } from "./outbound";
 const KEY = {
   jellyfin: "integration.jellyfin",
   overseerr: "integration.overseerr",
+  prowlarr: "integration.prowlarr",
   qbittorrent: "integration.qbittorrent",
   arr: "integration.arr",
   pbs: "integration.pbs",
@@ -178,6 +179,41 @@ export async function overseerrAvailable(): Promise<boolean> {
   const cfg = await overseerrConfig();
   if (!cfg) return false;
   return !!(await get({ url: `${cfg.url}/api/v1/status`, headers: { "x-api-key": cfg.apiKey } }));
+}
+
+// ─────────────────────────────── Prowlarr ───────────────────────────────
+
+export type ProwlarrSettings = { url: string; apiKey: string };
+
+export async function prowlarrConfig(): Promise<ProwlarrSettings | null> {
+  const envUrl = process.env.PROWLARR_URL?.trim();
+  const envKey = process.env.PROWLARR_API_KEY?.trim();
+  if (envUrl && envKey) {
+    const url = httpBaseUrl(envUrl);
+    if (url) return { url, apiKey: envKey };
+  }
+  const stored = await getSetting<ProwlarrSettings | null>(KEY.prowlarr, null);
+  if (!stored?.url || !stored.apiKey) return null;
+  const url = httpBaseUrl(stored.url);
+  return url ? { url, apiKey: await decrypt(stored.apiKey) } : null;
+}
+
+export async function saveProwlarr(input: ProwlarrSettings | null): Promise<void> {
+  if (!input?.url) return void (await setSetting(KEY.prowlarr, null));
+  const existing = await getSetting<ProwlarrSettings | null>(KEY.prowlarr, null);
+  await setSetting(KEY.prowlarr, {
+    url: trim(input.url),
+    apiKey: input.apiKey.trim() ? await encrypt(input.apiKey.trim()) : existing?.apiKey ?? "",
+  });
+}
+
+export async function prowlarrAvailable(): Promise<boolean> {
+  const cfg = await prowlarrConfig();
+  if (!cfg) return false;
+  return !!(await get({
+    url: `${cfg.url}/api/v1/system/status`,
+    headers: { "X-Api-Key": cfg.apiKey },
+  }));
 }
 
 export type JellyfinConnectionProbe = {
@@ -1285,9 +1321,10 @@ export async function haToggle(entityId: string): Promise<{ ok: boolean; error?:
 
 /** What the settings page shows: configured or not, secrets masked. */
 export async function servicesForDisplay() {
-  const [jellyfin, overseerr, qbit, arr, pbs, ha] = await Promise.all([
+  const [jellyfin, overseerr, prowlarr, qbit, arr, pbs, ha] = await Promise.all([
     getSetting<JellyfinSettings | null>(KEY.jellyfin, null),
     getSetting<OverseerrSettings | null>(KEY.overseerr, null),
+    prowlarrConfig(),
     getSetting<QbitSettings | null>(KEY.qbittorrent, null),
     getSetting<ArrInstance[]>(KEY.arr, []),
     getSetting<PbsSettings | null>(KEY.pbs, null),
@@ -1303,6 +1340,7 @@ export async function servicesForDisplay() {
       hasKey: !!jellyfin?.apiKey,
     },
     overseerr: { url: overseerr?.url ?? "", hasKey: !!overseerr?.apiKey },
+    prowlarr: { url: prowlarr?.url ?? "", hasKey: !!prowlarr?.apiKey },
     qbittorrent: { url: qbit?.url ?? "", username: qbit?.username ?? "", hasPassword: !!qbit?.password },
     arr: arr.map((a) => ({ kind: a.kind, label: a.label, url: a.url, hasKey: !!a.apiKey })),
     pbs: { url: pbs?.url ?? "", tokenId: pbs?.tokenId ?? "", hasSecret: !!pbs?.tokenSecret, verifyTls: !!pbs?.verifyTls },

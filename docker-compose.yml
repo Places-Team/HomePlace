@@ -77,6 +77,8 @@ services:
       FRIENDPLACE_CLIENT_ID: "${FRIENDPLACE_CLIENT_ID:-}"
       FRIENDPLACE_CLIENT_SECRET: "${FRIENDPLACE_CLIENT_SECRET:-}"
       FRIENDPLACE_ADMINS_ONLY: "${FRIENDPLACE_ADMINS_ONLY:-true}"
+      PROWLARR_URL: "${PROWLARR_URL:-}"
+      PROWLARR_API_KEY: "${PROWLARR_API_KEY:-}"
 
       # ── Behaviour ─────────────────────────────────────────────────────
       DEFAULT_LOCALE: "${DEFAULT_LOCALE:-en}"

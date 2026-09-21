@@ -182,7 +182,9 @@ export const en = {
     sendToQbit: "Send to qBittorrent",
     sentToQbit: "Sent to qBittorrent",
     noRawReleases: "Prowlarr returned no releases",
-    prowlarrNotConfigured: "No active Prowlarr indexer was found in Sonarr or Radarr.",
+    prowlarrNotConfigured: "Configure Prowlarr in Settings and enable at least one interactive-search indexer.",
+    prowlarrAuth: "Prowlarr rejected the saved API key. Update it in Settings.",
+    prowlarrUnavailable: "Prowlarr did not answer. Check its address and network access.",
     seeds: "seeds",
     leeches: "leeches",
     loadMore: "Load more",
@@ -932,6 +934,8 @@ export const en = {
       "Swiftfin: jellyfin://SERVER_ID/USER_ID/item/{id}. Jellyfin Media Player on desktop has no standard item deep link; leave this empty to open the web player.",
     overseerrHint:
       "HomePlace uses Overseerr for discovery, availability and media requests.",
+    prowlarrHint:
+      "Used for raw release search, rejection diagnostics and manual qBittorrent handoff.",
     haToken: "Long-lived token",
     haTokenHint:
       "Home Assistant → your profile → security → long-lived access tokens",

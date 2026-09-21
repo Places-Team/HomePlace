@@ -1,0 +1,13 @@
+# Optional overlay for installations where Sonarr, Radarr and Prowlarr live on
+# another Compose network. Enable with:
+# COMPOSE_FILE=docker-compose.yml:docker-compose.media.yml
+services:
+  app:
+    networks:
+      - default
+      - homeplace-media
+
+networks:
+  homeplace-media:
+    external: true
+    name: "${HOMEPLACE_MEDIA_NETWORK:-media_default}"

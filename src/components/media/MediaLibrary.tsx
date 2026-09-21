@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState, useTransition } from "react";
-import { cancelMediaRequest, manageDownload, requestMedia, searchMedia } from "@/actions/media";
+import { cancelMediaRequest, manageDownload, readJellyfinDetails, requestMedia, searchMedia } from "@/actions/media";
 import type { Dictionary } from "@/i18n";
-import type { DownloadItem, JellyfinLibraryItem, MediaCard, MediaRequest } from "@/lib/media";
+import type { DownloadItem, JellyfinDetails, JellyfinLibraryItem, MediaCard, MediaRequest } from "@/lib/media";
 import { Badge, EmptyState, Meter } from "@/components/ui";
 import { Button, Input, Select } from "@/components/form";
 import { Dialog } from "@/components/Dialog";
@@ -51,6 +51,9 @@ export function MediaLibrary({
   const [sort, setSort] = useState("popularity");
   const [message, setMessage] = useState("");
   const [selected, setSelected] = useState<MediaCard | null>(null);
+  const [librarySelected, setLibrarySelected] = useState<JellyfinLibraryItem | null>(null);
+  const [libraryDetails, setLibraryDetails] = useState<JellyfinDetails | null>(null);
+  const [libraryDetailsError, setLibraryDetailsError] = useState("");
   const [requests, setRequests] = useState(initialRequests);
   const [downloads, setDownloads] = useState(initialDownloads.items);
   const [preferLocal, setPreferLocal] = useState(false);
@@ -129,6 +132,17 @@ export function MediaLibrary({
       if (response.ok) {
         setResult((current) => ({ ...current, items: current.items.map((entry) => entry.id === item.id ? { ...entry, status: "requested" } : entry) }));
       }
+    });
+  }
+
+  function openLibraryDetails(item: JellyfinLibraryItem) {
+    setLibrarySelected(item);
+    setLibraryDetails(null);
+    setLibraryDetailsError("");
+    startTransition(async () => {
+      const response = await readJellyfinDetails(item.id);
+      if (response.ok && response.details) setLibraryDetails(response.details);
+      else setLibraryDetailsError(response.error ?? d.common.failed);
     });
   }
 
@@ -237,13 +251,22 @@ export function MediaLibrary({
         </section>
       )}
 
-      {tab === "library" && (!library.configured ? <EmptyState title={d.media.configureJellyfin} /> : libraryItems.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">{libraryItems.map((item) => <LibraryPoster key={item.id} item={item} d={d} webLink={webLink(item.id)} onOpenApp={() => openApp(item.id)} hasApp={!!jellyfin.appUrl} />)}</div> : <EmptyState title={d.media.noResults} />)}
+      {tab === "library" && (!library.configured ? <EmptyState title={d.media.configureJellyfin} /> : libraryItems.length ? <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 xl:grid-cols-6">{libraryItems.map((item) => <LibraryPoster key={item.id} item={item} d={d} webLink={webLink(item.id)} onDetails={() => openLibraryDetails(item)} onOpenApp={() => openApp(item.id)} hasApp={!!jellyfin.appUrl} />)}</div> : <EmptyState title={d.media.noResults} />)}
 
       {tab === "requests" && (requests.length ? <div className="space-y-2">{requests.map((item) => <div key={item.id} className="flex items-center gap-3 rounded-card border border-line bg-surface p-3">{item.poster ? <img src={item.poster} alt="" className="h-16 w-11 rounded-md object-cover" /> : <div className="h-16 w-11 rounded-md bg-raised" />}<div className="min-w-0 flex-1"><p className="truncate font-medium">{item.title}</p><p className="text-xs text-muted">{item.requestedBy} · {item.createdAt ? new Date(item.createdAt).toLocaleDateString(d.lang) : ""}</p></div><Badge tone={item.status === "approved" ? "ok" : item.status === "pending" ? "warn" : "neutral"}>{item.status}</Badge>{canManage && <Button variant="quiet" disabled={pending} onClick={() => startTransition(async () => { const response = await cancelMediaRequest(item.id); if (response.ok) setRequests((current) => current.filter((entry) => entry.id !== item.id)); else setMessage(response.error ?? d.common.failed); })}>{d.media.cancelRequest}</Button>}</div>)}</div> : <EmptyState title={result.configured ? d.media.noRequests : d.media.configureOverseerr} />)}
 
       {tab === "downloads" && (!initialDownloads.configured ? <EmptyState title={d.media.configureQbit} /> : downloads.length ? <div className="space-y-2">{downloads.map((item) => <DownloadRow key={item.hash} item={item} d={d} disabled={pending || !canManage} onAction={(action, deleteFiles) => startTransition(async () => { const response = await manageDownload(item.hash, action, deleteFiles); if (!response.ok) setMessage(response.error ?? d.common.failed); if (response.ok && action === "delete") setDownloads((current) => current.filter((entry) => entry.hash !== item.hash)); })} />)}</div> : <EmptyState title={d.media.noDownloads} />)}
       <Dialog open={!!selected} onClose={() => setSelected(null)} title={selected?.title ?? d.media.details} wide>
         {selected && <MediaDetails item={selected} d={d} disabled={pending || !canManage} onClose={() => setSelected(null)} onRequest={() => sendRequest(selected)} />}
+      </Dialog>
+      <Dialog open={!!librarySelected} onClose={() => { setLibrarySelected(null); setLibraryDetails(null); }} title={librarySelected?.title ?? d.media.details} wide>
+        {librarySelected && (
+          libraryDetails
+            ? <LibraryDetails item={libraryDetails} d={d} webLink={webLink(libraryDetails.id)} onOpenApp={() => openApp(libraryDetails.id)} hasApp={!!jellyfin.appUrl} />
+            : libraryDetailsError
+              ? <EmptyState title={libraryDetailsError} />
+              : <div className="py-12 text-center text-sm text-muted">{d.media.loadingDetails}</div>
+        )}
       </Dialog>
     </div>
   );
@@ -258,8 +281,22 @@ function MediaDetails({ item, d, disabled, onClose, onRequest }: { item: MediaCa
   return <div className="space-y-4"><div className="relative overflow-hidden rounded-card bg-raised">{item.backdrop && <img src={item.backdrop} alt="" className="h-48 w-full object-cover opacity-70 sm:h-64" />}<div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent" /><div className="absolute inset-x-0 bottom-0 p-5 text-white"><p className="text-2xl font-semibold">{item.title}</p><p className="mt-1 text-sm text-white/75">{item.kind === "movie" ? d.media.movies : d.media.series}{item.year ? ` · ${item.year}` : ""}{item.rating ? ` · ★ ${item.rating.toFixed(1)}` : ""}</p></div></div><p className="whitespace-pre-line text-sm leading-6 text-muted">{item.overview || d.media.noResults}</p><div className="flex justify-end gap-2">{item.status === "missing" && <Button variant="primary" disabled={disabled} onClick={onRequest}>{d.media.request}</Button>}<Button onClick={onClose}>{d.common.close}</Button></div></div>;
 }
 
-function LibraryPoster({ item, d, webLink, onOpenApp, hasApp }: { item: JellyfinLibraryItem; d: MediaDictionary; webLink: string; onOpenApp: () => void; hasApp: boolean }) {
-  return <article className="group overflow-hidden rounded-card border border-line bg-surface"><div className="relative aspect-[2/3] bg-raised">{item.poster ? <img src={item.poster} alt="" loading="lazy" className="h-full w-full object-cover" /> : null}<div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-3 pt-12 text-white"><p className="line-clamp-2 text-sm font-semibold">{item.title}</p><p className="text-xs text-white/70">{item.year ?? ""}</p></div>{item.progress > 0 && <div className="absolute inset-x-2 bottom-1"><Meter value={item.progress} tone="ok" /></div>}</div><div className="flex flex-col gap-2 p-3">{hasApp && <Button size="sm" variant="primary" onClick={onOpenApp}>{d.media.openApp}</Button>}<a href={webLink} target="_blank" rel="noreferrer" className="rounded-control border border-line px-2.5 py-1 text-center text-xs font-medium hover:bg-raised">{d.media.openWeb}</a></div></article>;
+function LibraryPoster({ item, d, webLink, onDetails, onOpenApp, hasApp }: { item: JellyfinLibraryItem; d: MediaDictionary; webLink: string; onDetails: () => void; onOpenApp: () => void; hasApp: boolean }) {
+  return <article className="group overflow-hidden rounded-card border border-line bg-surface"><button type="button" onClick={onDetails} className="relative block aspect-[2/3] w-full bg-raised text-left">{item.poster ? <img src={item.poster} alt="" loading="lazy" className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]" /> : null}<div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/90 to-transparent p-3 pt-12 text-white"><p className="line-clamp-2 text-sm font-semibold">{item.title}</p><p className="text-xs text-white/70">{item.year ?? ""}{item.played ? ` · ${d.media.markPlayed}` : ""}</p></div>{item.progress > 0 && <div className="absolute inset-x-2 bottom-1"><Meter value={item.progress} tone="ok" /></div>}</button><div className="flex flex-col gap-2 p-3"><Button size="sm" onClick={onDetails}>{d.media.details}</Button>{hasApp && <Button size="sm" variant="primary" onClick={onOpenApp}>{d.media.openApp}</Button>}<a href={webLink} target="_blank" rel="noreferrer" className="rounded-control border border-line px-2.5 py-1 text-center text-xs font-medium hover:bg-raised">{d.media.openWeb}</a></div></article>;
+}
+
+function LibraryDetails({ item, d, webLink, onOpenApp, hasApp }: { item: JellyfinDetails; d: MediaDictionary; webLink: string; onOpenApp: () => void; hasApp: boolean }) {
+  const [seasonId, setSeasonId] = useState(item.seasons[0]?.id ?? "");
+  const episodes = item.episodes.filter((episode) => episode.seasonId === seasonId);
+  const metadata = [
+    item.kind === "movie" ? d.media.movies : d.media.series,
+    item.year ? String(item.year) : "",
+    item.runtimeMinutes ? `${item.runtimeMinutes} ${d.media.minutes}` : "",
+    item.rating ? `★ ${item.rating.toFixed(1)}` : "",
+    item.officialRating ?? "",
+  ].filter(Boolean);
+
+  return <div className="space-y-5"><div className="grid gap-5 sm:grid-cols-[10rem_1fr]"><div className="overflow-hidden rounded-xl bg-raised">{item.poster && <img src={item.poster} alt="" className="aspect-[2/3] h-full w-full object-cover" />}</div><div className="space-y-3"><div><p className="text-xl font-semibold">{item.title}</p><p className="mt-1 text-sm text-muted">{metadata.join(" · ")}</p></div>{item.genres.length > 0 && <div className="flex flex-wrap gap-1.5">{item.genres.map((genre) => <Badge key={genre}>{genre}</Badge>)}</div>}<p className="whitespace-pre-line text-sm leading-6 text-muted">{item.overview || d.media.noOverview}</p>{item.studios.length > 0 && <p className="text-xs text-faint">{item.studios.join(" · ")}</p>}<div className="flex flex-wrap gap-2">{hasApp && <Button variant="primary" onClick={onOpenApp}>{d.media.openApp}</Button>}<a href={webLink} target="_blank" rel="noreferrer" className="rounded-control border border-line px-3 py-2 text-sm font-medium hover:bg-raised">{d.media.openWeb}</a></div></div></div>{item.progress > 0 && <div><div className="mb-1 flex justify-between text-xs text-muted"><span>{d.media.watchProgress}</span><span>{Math.round(item.progress)}%</span></div><Meter value={item.progress} tone="ok" /></div>}{item.people.length > 0 && <section><p className="mb-2 text-sm font-semibold">{d.media.cast}</p><div className="flex flex-wrap gap-2">{item.people.map((person) => <span key={`${person.name}-${person.role}`} className="rounded-full border border-line bg-raised px-2.5 py-1 text-xs"><span className="font-medium">{person.name}</span>{person.role && <span className="text-muted"> · {person.role}</span>}</span>)}</div></section>}{item.seasons.length > 0 && <section className="space-y-3"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-semibold">{d.media.seasons}</p><Select value={seasonId} onChange={(event) => setSeasonId(event.target.value)}>{item.seasons.map((season) => <option key={season.id} value={season.id}>{season.title} · {season.episodeCount} {d.media.episodes}</option>)}</Select></div><div className="max-h-[24rem] space-y-2 overflow-y-auto pr-1">{episodes.length ? episodes.map((episode) => <article key={episode.id} className="rounded-xl border border-line bg-surface p-3"><div className="flex items-start justify-between gap-3"><div className="min-w-0"><p className="font-medium">{episode.number ? `${episode.number}. ` : ""}{episode.title}</p><p className="mt-0.5 text-xs text-muted">{episode.runtimeMinutes ? `${episode.runtimeMinutes} ${d.media.minutes}` : ""}{episode.played ? ` · ${d.media.markPlayed}` : ""}</p></div>{episode.progress > 0 && <Badge tone="accent">{Math.round(episode.progress)}%</Badge>}</div>{episode.overview && <p className="mt-2 line-clamp-3 text-xs leading-5 text-muted">{episode.overview}</p>}{episode.progress > 0 && <div className="mt-2"><Meter value={episode.progress} tone="ok" /></div>}</article>) : <EmptyState title={d.media.noEpisodes} />}</div></section>}</div>;
 }
 
 function DownloadRow({ item, d, disabled, onAction }: { item: DownloadItem; d: MediaDictionary; disabled: boolean; onAction: (action: "pause" | "resume" | "recheck" | "delete", deleteFiles?: boolean) => void }) {

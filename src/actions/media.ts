@@ -15,11 +15,19 @@ import {
   createMediaRequest,
   deleteMediaRequest,
   discoverMedia,
+  jellyfinDetails,
   updateMediaRequest,
+  type JellyfinDetails,
   type MediaKind,
 } from "@/lib/media";
 
 export type MediaResult = { ok: boolean; error?: string; players?: HaMediaPlayer[] };
+
+export async function readJellyfinDetails(id: string): Promise<{ ok: boolean; details?: JellyfinDetails; error?: string }> {
+  await requireUser();
+  const details = await jellyfinDetails(id);
+  return details ? { ok: true, details } : { ok: false, error: "Jellyfin did not return this item" };
+}
 
 export async function readMediaPlayers(ids?: string[]): Promise<MediaResult> {
   await requireUser();

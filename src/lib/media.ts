@@ -40,6 +40,37 @@ export type JellyfinLibraryItem = {
   progress: number;
 };
 
+export type JellyfinEpisode = {
+  id: string;
+  seasonId: string;
+  title: string;
+  number?: number;
+  overview: string;
+  runtimeMinutes?: number;
+  played: boolean;
+  progress: number;
+};
+
+export type JellyfinSeason = {
+  id: string;
+  title: string;
+  number?: number;
+  played: boolean;
+  episodeCount: number;
+  unplayedCount: number;
+};
+
+export type JellyfinDetails = JellyfinLibraryItem & {
+  rating?: number;
+  officialRating?: string;
+  runtimeMinutes?: number;
+  genres: string[];
+  studios: string[];
+  people: { name: string; role: string }[];
+  seasons: JellyfinSeason[];
+  episodes: JellyfinEpisode[];
+};
+
 export type DownloadItem = {
   hash: string;
   name: string;
@@ -253,6 +284,102 @@ export async function jellyfinLibrary(): Promise<{ configured: boolean; items: J
     };
   } catch {
     return { configured: true, items: [] };
+  }
+}
+
+export async function jellyfinDetails(id: string): Promise<JellyfinDetails | null> {
+  const itemId = id.trim();
+  if (!/^[a-zA-Z0-9-]{1,128}$/.test(itemId)) return null;
+  const cfg = await jellyfinConfig();
+  if (!cfg) return null;
+  const serverUrl = await jellyfinServerUrl(cfg);
+  const headers = jellyfinAuthHeaders(cfg.apiKey);
+  const fields = "Overview,ProductionYear,CommunityRating,OfficialRating,RunTimeTicks,Genres,Studios,People,UserData";
+
+  try {
+    const itemResponse = await fetch(`${serverUrl}/Items/${encodeURIComponent(itemId)}?Fields=${fields}`, {
+      headers,
+      cache: "no-store",
+      signal: AbortSignal.timeout(10000),
+    });
+    if (!itemResponse.ok) return null;
+    const raw = await limitedJson<Record<string, any>>(itemResponse);
+    const isSeries = raw.Type === "Series";
+
+    let seasonRows: Record<string, any>[] = [];
+    let episodeRows: Record<string, any>[] = [];
+    if (isSeries) {
+      const [seasonResponse, episodeResponse] = await Promise.all([
+        fetch(`${serverUrl}/Shows/${encodeURIComponent(itemId)}/Seasons?Fields=UserData`, {
+          headers,
+          cache: "no-store",
+          signal: AbortSignal.timeout(10000),
+        }),
+        fetch(`${serverUrl}/Shows/${encodeURIComponent(itemId)}/Episodes?Fields=Overview,RunTimeTicks,UserData&Limit=500`, {
+          headers,
+          cache: "no-store",
+          signal: AbortSignal.timeout(12000),
+        }),
+      ]);
+      if (seasonResponse.ok) {
+        const payload = await limitedJson<{ Items?: Record<string, any>[] }>(seasonResponse);
+        seasonRows = Array.isArray(payload.Items) ? payload.Items : [];
+      }
+      if (episodeResponse.ok) {
+        const payload = await limitedJson<{ Items?: Record<string, any>[] }>(episodeResponse);
+        episodeRows = Array.isArray(payload.Items) ? payload.Items : [];
+      }
+    }
+
+    const runtime = Number(raw.RunTimeTicks ?? 0);
+    const position = Number(raw.UserData?.PlaybackPositionTicks ?? 0);
+    const episodes: JellyfinEpisode[] = episodeRows.map((episode) => {
+      const episodeRuntime = Number(episode.RunTimeTicks ?? 0);
+      const episodePosition = Number(episode.UserData?.PlaybackPositionTicks ?? 0);
+      return {
+        id: String(episode.Id ?? ""),
+        seasonId: String(episode.SeasonId ?? episode.ParentId ?? ""),
+        title: String(episode.Name ?? "").trim(),
+        number: Number.isFinite(Number(episode.IndexNumber)) ? Number(episode.IndexNumber) : undefined,
+        overview: String(episode.Overview ?? "").slice(0, 1200),
+        runtimeMinutes: episodeRuntime > 0 ? Math.round(episodeRuntime / 600_000_000) : undefined,
+        played: !!episode.UserData?.Played,
+        progress: episodeRuntime > 0 && episodePosition > 0 ? (episodePosition / episodeRuntime) * 100 : 0,
+      };
+    }).filter((episode) => episode.id && episode.title);
+
+    return {
+      id: String(raw.Id ?? itemId),
+      title: String(raw.Name ?? "").trim(),
+      kind: isSeries ? "tv" : "movie",
+      year: Number(raw.ProductionYear) || undefined,
+      overview: String(raw.Overview ?? "").slice(0, 5000),
+      poster: `/api/media/jellyfin-image/${encodeURIComponent(String(raw.Id ?? itemId))}`,
+      played: !!raw.UserData?.Played,
+      progress: runtime > 0 && position > 0 ? (position / runtime) * 100 : 0,
+      rating: Number(raw.CommunityRating) || undefined,
+      officialRating: String(raw.OfficialRating ?? "").trim() || undefined,
+      runtimeMinutes: runtime > 0 ? Math.round(runtime / 600_000_000) : undefined,
+      genres: (Array.isArray(raw.Genres) ? raw.Genres : []).map(String).filter(Boolean).slice(0, 12),
+      studios: (Array.isArray(raw.Studios) ? raw.Studios : []).map((studio: any) => String(studio?.Name ?? studio)).filter(Boolean).slice(0, 6),
+      people: (Array.isArray(raw.People) ? raw.People : [])
+        .filter((person: any) => person?.Name)
+        .slice(0, 12)
+        .map((person: any) => ({ name: String(person.Name), role: String(person.Role ?? person.Type ?? "") })),
+      seasons: seasonRows.map((season) => ({
+        id: String(season.Id ?? ""),
+        title: String(season.Name ?? "").trim(),
+        number: Number.isFinite(Number(season.IndexNumber)) ? Number(season.IndexNumber) : undefined,
+        played: !!season.UserData?.Played,
+        episodeCount: Number(season.UserData?.PlayedPercentage) === 100
+          ? episodes.filter((episode) => episode.seasonId === String(season.Id)).length
+          : Number(season.ChildCount ?? episodes.filter((episode) => episode.seasonId === String(season.Id)).length),
+        unplayedCount: Number(season.UserData?.UnplayedItemCount ?? 0),
+      })).filter((season) => season.id && season.title),
+      episodes,
+    };
+  } catch {
+    return null;
   }
 }
 

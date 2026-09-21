@@ -9,11 +9,12 @@ export const dynamic = "force-dynamic";
 export async function GET(request: Request) {
   const auth = await authorizeMobile(request, "reminder.manage");
   if (!auth.ok) return NextResponse.json({ error: auth.error }, { status: auth.status });
+  const includeCompleted = new URL(request.url).searchParams.get("includeCompleted") === "1";
 
   const reminders = await prisma.reminder.findMany({
-    where: { userId: auth.device.userId, done: false },
-    orderBy: { at: "asc" },
-    take: 100,
+    where: includeCompleted ? { userId: auth.device.userId } : { userId: auth.device.userId, done: false },
+    orderBy: includeCompleted ? { createdAt: "desc" } : { at: "asc" },
+    take: includeCompleted ? 200 : 100,
     select: {
       id: true,
       title: true,

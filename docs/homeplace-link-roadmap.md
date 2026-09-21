@@ -227,7 +227,7 @@ latest-state record. Only meaningful transitions become history events.
 - `POST /api/link/mobile/share`: offer bounded text or a safe HTTP(S) URL to
   one explicitly selected, capable device approved for the same user.
 - `POST /api/link/mobile/share/file` and `GET /api/link/mobile/share/file/:id`:
-  create and consume a five-minute encrypted, streamed file offer of at most
+  create and consume a 30-minute encrypted, streamed file offer of at most
   500 MB.
 
 Administrator approval, rejection, test notification and revocation are server
@@ -249,8 +249,8 @@ server-derived `sameAccount` boolean so a receiver never infers ownership from
 a device name or client state. The sender chooses a target and confirms before
 transmission; the receiver separately accepts or declines unless it has opted
 into the restricted same-account file flow. Temporary files use a random
-per-transfer AES-256-GCM key, are integrity checked, and expire after five
-minutes.
+per-transfer AES-256-GCM key, are integrity checked, and expire after 30
+minutes. Clipboard offers remain limited to five minutes.
 
 ### Future API and gateway
 

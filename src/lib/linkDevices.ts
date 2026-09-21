@@ -7,6 +7,7 @@ import { LINK_PROTOCOL_MAX } from "./linkProtocol";
 import { linkServerId } from "./linkServer";
 import { secretsEqual } from "./security";
 import { discardFileTransfer, pruneExpiredFileTransfers } from "./linkFiles";
+import { SHARE_LIFETIME_MS } from "./linkShare";
 
 const PAIRING_LIFETIME_MS = 5 * 60_000;
 const MAX_PENDING_EVENTS = 50;
@@ -165,7 +166,8 @@ export function linkDeviceHasCapability(device: { capabilities: string }, capabi
 export async function heartbeatLinkDevice(deviceId: string, acknowledgedEventIds: string[], capabilities?: LinkCapability[]) {
   await pruneExpiredFileTransfers();
   const now = new Date();
-  const ephemeralCutoff = new Date(now.getTime() - 5 * 60_000);
+  const clipboardCutoff = new Date(now.getTime() - 5 * 60_000);
+  const shareCutoff = new Date(now.getTime() - SHARE_LIFETIME_MS);
   const declinedTransfers = acknowledgedEventIds.length ? await prisma.linkDeviceEvent.findMany({
     where: { deviceId, id: { in: acknowledgedEventIds }, kind: "share.offer" },
     select: { payload: true },
@@ -176,7 +178,13 @@ export async function heartbeatLinkDevice(deviceId: string, acknowledgedEventIds
       data: { lastSeenAt: now, ...(capabilities ? { capabilities: JSON.stringify(capabilities) } : {}) },
     });
     await tx.linkDeviceEvent.deleteMany({
-      where: { deviceId, kind: { in: ["clipboard.offer", "share.offer"] }, createdAt: { lt: ephemeralCutoff } },
+      where: {
+        deviceId,
+        OR: [
+          { kind: "clipboard.offer", createdAt: { lt: clipboardCutoff } },
+          { kind: "share.offer", createdAt: { lt: shareCutoff } },
+        ],
+      },
     });
     if (acknowledgedEventIds.length) {
       await tx.linkDeviceEvent.deleteMany({
@@ -394,7 +402,11 @@ export async function queueShareOffer(
   payload: Record<string, string | number | boolean>,
 ) {
   await prisma.linkDeviceEvent.deleteMany({
-    where: { deviceId: targetDeviceId, kind: "share.offer", createdAt: { lt: new Date(Date.now() - 5 * 60_000) } },
+    where: {
+      deviceId: targetDeviceId,
+      kind: "share.offer",
+      createdAt: { lt: new Date(Date.now() - SHARE_LIFETIME_MS) },
+    },
   });
   const pending = await prisma.linkDeviceEvent.count({
     where: { deviceId: targetDeviceId, kind: "share.offer", deliveredAt: null },

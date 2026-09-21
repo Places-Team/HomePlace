@@ -7,7 +7,7 @@ import { bytes, duration, latency, percent } from "../src/lib/format";
 import { dashboardIconSlugs, dashboardIconUrl, guessKey, guessIcon, autoIcon, faviconUrl } from "../src/lib/icons";
 import { nextOccurrence } from "../src/lib/recurrence";
 import { createLinkInfo, isLinkServerId, LINK_PROTOCOL_MAX, LINK_PROTOCOL_MIN, parseLinkCapabilities, parseLinkPairRequest } from "../src/lib/linkProtocol";
-import { parseShareMessage, safeFilename, safeSharedUrl } from "../src/lib/linkShare";
+import { parseShareMessage, safeFilename, safeSharedUrl, SHARE_LIFETIME_MS } from "../src/lib/linkShare";
 import { checkDeviceActionRateLimit } from "../src/lib/linkRateLimit";
 import { clientAddress, hasMinimumSecretLength, isLocalHostname, isSameOriginRequest, safeRequestOrigin, secretsEqual } from "../src/lib/security";
 import { compareVersions, releaseUpdateFrom } from "../src/lib/updates";
@@ -311,6 +311,11 @@ test("shared content accepts bounded text and safe web links", () => {
 test("shared filenames cannot escape the private transfer directory", () => {
   assert.equal(safeFilename("../../family/photo.jpg"), ".._.._family_photo.jpg");
   assert.equal(safeFilename("\u0000"), "shared-file");
+});
+
+test("share offers survive one delayed Android background check", () => {
+  assert.equal(SHARE_LIFETIME_MS, 30 * 60_000);
+  assert.ok(SHARE_LIFETIME_MS > 15 * 60_000);
 });
 
 test("authenticated share actions are rate limited per device", () => {

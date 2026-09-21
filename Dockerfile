@@ -1,5 +1,3 @@
-# syntax=docker/dockerfile:1
-
 # ── deps ────────────────────────────────────────────────────────────────
 ARG NODE_IMAGE=public.ecr.aws/docker/library/node:20-alpine
 

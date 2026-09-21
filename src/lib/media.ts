@@ -34,6 +34,9 @@ export type MediaCard = {
 };
 
 export type MediaDetailsData = MediaCard & {
+  /** Stable IDs used to match the same title in Sonarr/Radarr. */
+  tvdbId?: number;
+  imdbId?: string;
   genres: string[];
   runtimeMinutes?: number;
   tagline?: string;
@@ -678,7 +681,7 @@ export async function discoverMediaDetails(
       cacheKey,
       24 * 60 * 60_000,
     );
-    if (cached) return cached;
+    if (cached && (kind === "movie" || cached.tvdbId)) return cached;
   }
   const raw = await overseerrGet(
     `/${kind === "tv" ? "tv" : "movie"}/${mediaId}`,
@@ -688,6 +691,8 @@ export async function discoverMediaDetails(
   if (!base) return null;
   const details: MediaDetailsData = {
     ...base,
+    tvdbId: Number(raw.externalIds?.tvdbId) || undefined,
+    imdbId: String(raw.externalIds?.imdbId ?? "").trim() || undefined,
     overview: String(raw.overview ?? base.overview).slice(0, 5000),
     tagline: String(raw.tagline ?? "").trim() || undefined,
     releaseStatus: String(raw.status ?? "").trim() || undefined,
@@ -1262,6 +1267,8 @@ async function rawProwlarrSearch(
 
 async function arrReleaseDecisions(input: {
   kind: MediaKind;
+  mediaId?: number;
+  tvdbId?: number;
   title: string;
   originalTitle?: string;
   season?: number;
@@ -1283,11 +1290,16 @@ async function arrReleaseDecisions(input: {
       });
       if (!libraryResponse.ok) continue;
       const library = await limitedJson<Record<string, any>[]>(libraryResponse);
-      const item = (Array.isArray(library) ? library : []).find((entry) =>
-        [entry.title, entry.sortTitle, entry.originalTitle]
+      const item = (Array.isArray(library) ? library : []).find((entry) => {
+        const externalMatch =
+          input.kind === "tv"
+            ? Number(input.tvdbId) > 0 && Number(entry.tvdbId) === Number(input.tvdbId)
+            : Number(input.mediaId) > 0 && Number(entry.tmdbId) === Number(input.mediaId);
+        if (externalMatch) return true;
+        return [entry.title, entry.sortTitle, entry.originalTitle]
           .map(normalizedMediaTitle)
-          .some((title) => title && candidates.includes(title)),
-      );
+          .some((title) => title && candidates.includes(title));
+      });
       if (!item?.id) continue;
 
       let releasePath = `/api/v3/release?movieId=${encodeURIComponent(item.id)}`;
@@ -1331,6 +1343,8 @@ async function arrReleaseDecisions(input: {
 
 export async function searchRawMediaReleases(input: {
   kind: MediaKind;
+  mediaId?: number;
+  tvdbId?: number;
   query: string;
   title: string;
   originalTitle?: string;

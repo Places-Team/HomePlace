@@ -1146,6 +1146,8 @@ function ReleaseSearchPanel({
     startReleaseTransition(async () => {
       const next = await searchProwlarrReleases({
         kind: item.kind,
+        mediaId: item.id,
+        tvdbId: item.tvdbId,
         query,
         title: item.title,
         originalTitle: item.originalTitle,

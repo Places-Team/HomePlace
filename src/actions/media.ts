@@ -360,6 +360,8 @@ export async function manageDownload(
 
 export async function searchProwlarrReleases(input: {
   kind: MediaKind;
+  mediaId?: number;
+  tvdbId?: number;
   query: string;
   title: string;
   originalTitle?: string;
@@ -368,6 +370,8 @@ export async function searchProwlarrReleases(input: {
   await requireUser();
   return searchRawMediaReleases({
     kind: input.kind,
+    mediaId: Math.max(0, Math.floor(Number(input.mediaId) || 0)) || undefined,
+    tvdbId: Math.max(0, Math.floor(Number(input.tvdbId) || 0)) || undefined,
     query: input.query.trim().slice(0, 160),
     title: input.title.trim().slice(0, 240),
     originalTitle: input.originalTitle?.trim().slice(0, 240),

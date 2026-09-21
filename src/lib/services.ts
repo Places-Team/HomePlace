@@ -112,6 +112,15 @@ export async function saveJellyfin(input: JellyfinSettings | null): Promise<void
   });
 }
 
+/**
+ * Server-to-server Jellyfin traffic should stay on the LAN whenever possible.
+ * A public reverse-proxy address may work for browsers but fail from inside the
+ * same network when the router does not support NAT loopback.
+ */
+export function jellyfinServerUrl(config: JellyfinSettings): string {
+  return config.localUrl || config.url;
+}
+
 // ─────────────────────────────── Overseerr ──────────────────────────────
 
 export type OverseerrSettings = { url: string; apiKey: string };
@@ -142,24 +151,25 @@ export async function jellyfinState(): Promise<JellyfinState | null> {
   const cfg = await jellyfinConfig();
   if (!cfg) return null;
 
+  const serverUrl = jellyfinServerUrl(cfg);
   const headers = { "x-emby-token": cfg.apiKey };
 
   // Four calls, in parallel: what is playing, how big the library is, what to
   // continue, and what has just arrived. A tile that only answers "is anything
   // playing" is blank most of the day, which is most of the time you look at it.
   const [sessions, counts, resume, nextUp, recent] = await Promise.all([
-    get<Record<string, any>[]>({ url: `${cfg.url}/Sessions`, headers }),
-    get<Record<string, number>>({ url: `${cfg.url}/Items/Counts`, headers }),
+    get<Record<string, any>[]>({ url: `${serverUrl}/Sessions`, headers }),
+    get<Record<string, number>>({ url: `${serverUrl}/Items/Counts`, headers }),
     get<{ Items?: Record<string, any>[] }>({
-      url: `${cfg.url}/Items/Resume?Limit=8&MediaTypes=Video&Fields=SeriesName,IndexNumber,ParentIndexNumber`,
+      url: `${serverUrl}/Items/Resume?Limit=8&MediaTypes=Video&Fields=SeriesName,IndexNumber,ParentIndexNumber`,
       headers,
     }),
     get<{ Items?: Record<string, any>[] }>({
-      url: `${cfg.url}/Shows/NextUp?Limit=8&Fields=SeriesName,IndexNumber,ParentIndexNumber`,
+      url: `${serverUrl}/Shows/NextUp?Limit=8&Fields=SeriesName,IndexNumber,ParentIndexNumber`,
       headers,
     }),
     get<{ Items?: Record<string, any>[] }>({
-      url: `${cfg.url}/Items/Latest?Limit=8&IncludeItemTypes=Movie,Episode&Fields=SeriesName,IndexNumber,ParentIndexNumber`,
+      url: `${serverUrl}/Items/Latest?Limit=8&IncludeItemTypes=Movie,Episode&Fields=SeriesName,IndexNumber,ParentIndexNumber`,
       headers,
     }),
   ]);
@@ -181,9 +191,7 @@ export async function jellyfinState(): Promise<JellyfinState | null> {
       detail: [number, raw.SeriesName ? raw.Name : ""].filter(Boolean).join(" · "),
       // The key goes in the URL because the browser fetches the image directly
       // and cannot send a header; Jellyfin accepts it there for images.
-      image: raw.Id
-        ? `${cfg.url}/Items/${raw.Id}/Images/Primary?maxHeight=240&quality=80&api_key=${encodeURIComponent(cfg.apiKey)}`
-        : "",
+      image: raw.Id ? `/api/media/jellyfin-image/${encodeURIComponent(String(raw.Id))}` : "",
       progress: ticks > 0 && position > 0 ? (position / ticks) * 100 : 0,
       kind: String(raw.Type ?? ""),
     };

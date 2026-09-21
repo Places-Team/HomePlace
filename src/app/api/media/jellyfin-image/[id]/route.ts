@@ -1,5 +1,5 @@
 import { requireUser } from "@/lib/auth";
-import { jellyfinConfig } from "@/lib/services";
+import { jellyfinConfig, jellyfinServerUrl } from "@/lib/services";
 
 export const dynamic = "force-dynamic";
 
@@ -7,12 +7,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
   await requireUser();
   const cfg = await jellyfinConfig();
   if (!cfg) return new Response("Jellyfin is not configured", { status: 404 });
+  const serverUrl = jellyfinServerUrl(cfg);
 
   const { id } = await params;
   if (!/^[a-z0-9-]{1,80}$/i.test(id)) return new Response("Invalid item", { status: 400 });
 
   try {
-    const upstream = await fetch(`${cfg.url}/Items/${encodeURIComponent(id)}/Images/Primary?maxHeight=600&quality=85`, {
+    const upstream = await fetch(`${serverUrl}/Items/${encodeURIComponent(id)}/Images/Primary?maxHeight=600&quality=85`, {
       headers: { "x-emby-token": cfg.apiKey },
       cache: "no-store",
       redirect: "manual",

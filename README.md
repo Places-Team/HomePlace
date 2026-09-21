@@ -46,6 +46,10 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
+The build uses the official Node image mirrored by Amazon Public ECR to avoid
+Docker Hub anonymous pull limits. Set `NODE_IMAGE=node:20-alpine` in `.env` if
+you prefer Docker Hub, or point it at another compatible registry mirror.
+
 Open <http://localhost:3200> and the setup wizard asks you to create the owner
 account. That wizard is reachable only while the panel has no accounts at all —
 once the owner exists it closes for good.

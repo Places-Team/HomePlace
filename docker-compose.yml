@@ -12,6 +12,8 @@ services:
   app:
     build:
       context: .
+      args:
+        NODE_IMAGE: "${NODE_IMAGE:-public.ecr.aws/docker/library/node:20-alpine}"
     image: homeplace
     container_name: homeplace
     restart: unless-stopped

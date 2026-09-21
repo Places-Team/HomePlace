@@ -18,6 +18,7 @@ import type {
   JellyfinProfile,
   MediaCard,
   MediaDetailsData,
+  MediaQualityProfile,
   MediaRequest,
 } from "@/lib/media";
 import { Badge, EmptyState, Meter } from "@/components/ui";
@@ -67,6 +68,20 @@ const eta = (seconds: number) =>
     : seconds > 3600
       ? `${Math.floor(seconds / 3600)}h ${Math.floor((seconds % 3600) / 60)}m`
       : `${Math.ceil(seconds / 60)}m`;
+const mediaKey = (value: string) =>
+  value
+    .toLocaleLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .trim();
+const matchingDownload = (title: string, items: DownloadItem[]) => {
+  const key = mediaKey(title);
+  return (
+    items.find(
+      (item) =>
+        mediaKey(item.name).includes(key) || key.includes(mediaKey(item.name)),
+    ) ?? null
+  );
+};
 
 export function MediaLibrary({
   d: dictionary,
@@ -106,6 +121,9 @@ export function MediaLibrary({
   const [selected, setSelected] = useState<MediaCard | null>(null);
   const [selectedDetails, setSelectedDetails] =
     useState<MediaDetailsData | null>(null);
+  const [selectedProfiles, setSelectedProfiles] = useState<
+    MediaQualityProfile[]
+  >([]);
   const [selectedDetailsError, setSelectedDetailsError] = useState("");
   const [librarySelected, setLibrarySelected] =
     useState<JellyfinLibraryItem | null>(null);
@@ -202,7 +220,13 @@ export function MediaLibrary({
 
   function sendRequest(
     item: MediaCard,
-    options: { is4k: boolean; seasons?: number[] },
+    options: {
+      is4k: boolean;
+      seasons?: number[];
+      serverId?: number;
+      profileId?: number;
+      rootFolder?: string;
+    },
   ) {
     startTransition(async () => {
       const response = await requestMedia({
@@ -214,7 +238,8 @@ export function MediaLibrary({
         response.ok ? d.media.requestSent : (response.error ?? d.common.failed),
       );
       if (response.ok) {
-        if ("requests" in response && response.requests) setRequests(response.requests);
+        if ("requests" in response && response.requests)
+          setRequests(response.requests);
         setResult((current) => ({
           ...current,
           items: current.items.map((entry) =>
@@ -231,11 +256,14 @@ export function MediaLibrary({
   function openDiscoverDetails(item: MediaCard) {
     setSelected(item);
     setSelectedDetails(null);
+    setSelectedProfiles([]);
     setSelectedDetailsError("");
     startTransition(async () => {
       const response = await readMediaDetails(item.kind, item.id);
-      if (response.ok && response.details) setSelectedDetails(response.details);
-      else setSelectedDetailsError(response.error ?? d.common.failed);
+      if (response.ok && response.details) {
+        setSelectedDetails(response.details);
+        setSelectedProfiles(response.profiles ?? []);
+      } else setSelectedDetailsError(response.error ?? d.common.failed);
     });
   }
 
@@ -605,7 +633,11 @@ export function MediaLibrary({
                       ? new Date(item.createdAt).toLocaleDateString(d.lang)
                       : ""}
                   </p>
-                  <RequestProgress status={item.status} d={d} />
+                  <RequestProgress
+                    status={item.status}
+                    download={matchingDownload(item.title, downloads)}
+                    d={d}
+                  />
                 </div>
                 <Badge
                   tone={
@@ -694,6 +726,7 @@ export function MediaLibrary({
           (selectedDetails ? (
             <MediaDetails
               item={selectedDetails}
+              profiles={selectedProfiles}
               d={d}
               disabled={pending || !canManage}
               onClose={() => setSelected(null)}
@@ -703,6 +736,7 @@ export function MediaLibrary({
             <>
               <MediaDetails
                 item={{ ...selected, genres: [], studios: [], seasons: [] }}
+                profiles={[]}
                 d={d}
                 disabled={pending || !canManage}
                 onClose={() => setSelected(null)}
@@ -825,18 +859,26 @@ function MediaPoster({
 
 function MediaDetails({
   item,
+  profiles,
   d,
   disabled,
   onClose,
   onRequest,
 }: {
   item: MediaDetailsData;
+  profiles: MediaQualityProfile[];
   d: MediaDictionary;
   disabled: boolean;
   onClose: () => void;
-  onRequest: (options: { is4k: boolean; seasons?: number[] }) => void;
+  onRequest: (options: {
+    is4k: boolean;
+    seasons?: number[];
+    serverId?: number;
+    profileId?: number;
+    rootFolder?: string;
+  }) => void;
 }) {
-  const [quality, setQuality] = useState<"standard" | "4k">("standard");
+  const [quality, setQuality] = useState(profiles[0]?.key ?? "standard");
   const [allSeasons, setAllSeasons] = useState(true);
   const [seasons, setSeasons] = useState<number[]>([]);
   const metadata = [
@@ -852,6 +894,7 @@ function MediaDetails({
         ? current.filter((value) => value !== number)
         : [...current, number],
     );
+  const selectedProfile = profiles.find((profile) => profile.key === quality);
 
   return (
     <div className="space-y-5">
@@ -898,12 +941,20 @@ function MediaDetails({
             <FieldLabel label={d.media.quality}>
               <Select
                 value={quality}
-                onChange={(event) =>
-                  setQuality(event.target.value as "standard" | "4k")
-                }
+                onChange={(event) => setQuality(event.target.value)}
               >
-                <option value="standard">{d.media.standardQuality}</option>
-                <option value="4k">4K / UHD</option>
+                {profiles.length ? (
+                  profiles.map((profile) => (
+                    <option key={profile.key} value={profile.key}>
+                      {profile.label}
+                    </option>
+                  ))
+                ) : (
+                  <>
+                    <option value="standard">{d.media.standardQuality}</option>
+                    <option value="4k">4K / UHD</option>
+                  </>
+                )}
               </Select>
             </FieldLabel>
             {item.kind === "tv" && item.seasons.length > 0 && (
@@ -943,7 +994,10 @@ function MediaDetails({
             }
             onClick={() =>
               onRequest({
-                is4k: quality === "4k",
+                is4k: selectedProfile?.is4k ?? quality === "4k",
+                serverId: selectedProfile?.serverId,
+                profileId: selectedProfile?.profileId,
+                rootFolder: selectedProfile?.rootFolder,
                 seasons:
                   item.kind === "tv" && !allSeasons ? seasons : undefined,
               })
@@ -1223,10 +1277,64 @@ function LibraryDetails({
   );
 }
 
-function RequestProgress({ status, d }: { status: string; d: MediaDictionary }) {
-  const current = status === "approved" ? 2 : status === "declined" ? 0 : 1;
+function RequestProgress({
+  status,
+  download,
+  d,
+}: {
+  status: string;
+  download?: DownloadItem | null;
+  d: MediaDictionary;
+}) {
+  const percent = download
+    ? Math.max(0, Math.min(100, download.progress * 100))
+    : 0;
+  const complete = !!download && percent >= 99.95;
+  const current = complete ? 3 : download ? 2 : status === "approved" ? 1 : 0;
   const steps = [d.media.requested, d.media.approved, d.media.downloading];
-  return <div className="mt-2 flex max-w-md items-center">{steps.map((step, index) => <div key={step} className="flex min-w-0 flex-1 items-center last:flex-none"><span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] ${index <= current ? "bg-accent text-white" : "bg-raised text-faint"}`}>{index < current ? "✓" : index + 1}</span><span className={`ml-1 truncate text-[10px] ${index <= current ? "text-text" : "text-faint"}`}>{step}</span>{index < steps.length - 1 && <span className={`mx-2 h-px min-w-3 flex-1 ${index < current ? "bg-accent" : "bg-line"}`} />}</div>)}</div>;
+  return (
+    <div className="mt-2 max-w-xl">
+      <div className="flex items-center">
+        {steps.map((step, index) => (
+          <div
+            key={step}
+            className="flex min-w-0 flex-1 items-center last:flex-none"
+          >
+            <span
+              className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[10px] ${index <= current ? "bg-accent text-white" : "bg-raised text-faint"}`}
+            >
+              {index < current ? "✓" : index + 1}
+            </span>
+            <span
+              className={`ml-1 truncate text-[10px] ${index <= current ? "text-text" : "text-faint"}`}
+            >
+              {step}
+            </span>
+            {index < steps.length - 1 && (
+              <span
+                className={`mx-2 h-px min-w-3 flex-1 ${index < current ? "bg-accent" : "bg-line"}`}
+              />
+            )}
+          </div>
+        ))}
+      </div>
+      {download && (
+        <div className="mt-2 rounded-control border border-line bg-raised/60 px-2.5 py-2">
+          <div className="mb-1.5 flex items-center justify-between gap-3 text-[11px] text-muted">
+            <span className="truncate">{download.name}</span>
+            <span className="shrink-0 font-mono tabular-nums text-text">
+              {percent.toFixed(percent >= 10 ? 0 : 1)}%
+            </span>
+          </div>
+          <Meter value={percent} tone="ok" />
+          <p className="mt-1.5 text-[11px] text-faint">
+            ↓ {speed(download.downloadSpeed)} · {eta(download.eta)} ·{" "}
+            {size(download.size)}
+          </p>
+        </div>
+      )}
+    </div>
+  );
 }
 
 function DownloadRow({

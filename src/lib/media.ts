@@ -45,6 +45,15 @@ export type MediaDetailsData = MediaCard & {
   }[];
 };
 
+export type MediaQualityProfile = {
+  key: string;
+  label: string;
+  serverId: number;
+  profileId: number;
+  rootFolder?: string;
+  is4k: boolean;
+};
+
 export type MediaRequest = {
   id: number;
   title: string;
@@ -199,6 +208,97 @@ async function overseerrGet(path: string): Promise<Record<string, any> | null> {
   }
 }
 
+async function overseerrGetValue(path: string): Promise<any | null> {
+  const cfg = await overseerrConfig();
+  if (!cfg) return null;
+  try {
+    const response = await fetch(`${cfg.url}/api/v1${path}`, {
+      headers: { "x-api-key": cfg.apiKey },
+      cache: "no-store",
+      redirect: "manual",
+      signal: AbortSignal.timeout(10000),
+    });
+    return response.ok ? await limitedJson<any>(response) : null;
+  } catch {
+    return null;
+  }
+}
+
+export async function mediaQualityProfiles(
+  kind: MediaKind,
+): Promise<MediaQualityProfile[]> {
+  const service = kind === "tv" ? "sonarr" : "radarr";
+  const payload = await overseerrGetValue(`/settings/${service}`);
+  const servers = Array.isArray(payload)
+    ? payload
+    : Array.isArray(payload?.results)
+      ? payload.results
+      : [];
+  const choices: MediaQualityProfile[] = [];
+  for (const server of servers.slice(0, 20)) {
+    const serverId = Number(server?.id);
+    if (!Number.isInteger(serverId) || serverId < 0) continue;
+    const detail = await overseerrGetValue(
+      `/settings/${service}/${serverId}/profiles`,
+    );
+    const source = server;
+    const profiles =
+      [
+        detail,
+        detail?.profiles,
+        source?.profiles,
+        source?.qualityProfiles,
+      ].find(Array.isArray) ?? [];
+    const roots =
+      [source?.rootFolders, source?.directories].find(Array.isArray) ?? [];
+    const defaultRoot =
+      String(
+        source?.activeDirectory ?? source?.rootFolder ?? roots[0]?.path ?? "",
+      ).trim() || undefined;
+    const serverName = String(
+      source?.name ?? server?.name ?? (kind === "tv" ? "Sonarr" : "Radarr"),
+    );
+    const server4k = !!(source?.is4k ?? server?.is4k);
+    if (profiles.length) {
+      for (const profile of profiles.slice(0, 50)) {
+        const profileId = Number(profile?.id ?? profile?.profileId);
+        if (!Number.isInteger(profileId) || profileId < 1) continue;
+        const profileName = String(
+          profile?.name ?? profile?.label ?? `Profile ${profileId}`,
+        );
+        choices.push({
+          key: `${serverId}:${profileId}`,
+          label: `${serverName} · ${profileName}${server4k ? " · 4K" : ""}`,
+          serverId,
+          profileId,
+          rootFolder: defaultRoot,
+          is4k: server4k,
+        });
+      }
+    } else {
+      const profileId = Number(
+        source?.activeProfileId ??
+          server?.activeProfileId ??
+          source?.profileId ??
+          server?.profileId,
+      );
+      if (Number.isInteger(profileId) && profileId > 0)
+        choices.push({
+          key: `${serverId}:${profileId}`,
+          label: `${serverName}${server4k ? " · 4K" : " · default"}`,
+          serverId,
+          profileId,
+          rootFolder: defaultRoot,
+          is4k: server4k,
+        });
+    }
+  }
+  return choices.filter(
+    (choice, index, all) =>
+      all.findIndex((item) => item.key === choice.key) === index,
+  );
+}
+
 export async function discoverMedia(
   options: {
     query?: string;
@@ -317,6 +417,9 @@ export async function createMediaRequest(input: {
   mediaId: number;
   seasons?: number[];
   is4k?: boolean;
+  serverId?: number;
+  profileId?: number;
+  rootFolder?: string;
 }): Promise<{ ok: boolean; error?: string }> {
   const cfg = await overseerrConfig();
   if (!cfg) return { ok: false, error: "Overseerr is not configured" };
@@ -327,6 +430,12 @@ export async function createMediaRequest(input: {
     mediaId,
     is4k: !!input.is4k,
   };
+  if (Number.isInteger(input.serverId) && Number(input.serverId) >= 0)
+    body.serverId = Number(input.serverId);
+  if (Number.isInteger(input.profileId) && Number(input.profileId) > 0)
+    body.profileId = Number(input.profileId);
+  if (input.rootFolder?.trim())
+    body.rootFolder = input.rootFolder.trim().slice(0, 500);
   if (input.kind === "tv")
     body.seasons =
       input.seasons?.filter((n) => Number.isInteger(n) && n > 0) ?? "all";

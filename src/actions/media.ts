@@ -21,19 +21,35 @@ import {
   jellyfinPlayedItems,
   jellyfinProfiles,
   listMediaRequests,
+  mediaQualityProfiles,
   updateMediaRequest,
   type JellyfinDetails,
   type MediaDetailsData,
+  type MediaQualityProfile,
   type MediaKind,
 } from "@/lib/media";
-import { parseWatchHistory, recordWatch, removeWatch, updateWatch, type WatchEntryView } from "@/lib/watchHistory";
+import {
+  parseWatchHistory,
+  recordWatch,
+  removeWatch,
+  updateWatch,
+  type WatchEntryView,
+} from "@/lib/watchHistory";
 
-export type MediaResult = { ok: boolean; error?: string; players?: HaMediaPlayer[] };
+export type MediaResult = {
+  ok: boolean;
+  error?: string;
+  players?: HaMediaPlayer[];
+};
 
-export async function readJellyfinDetails(id: string): Promise<{ ok: boolean; details?: JellyfinDetails; error?: string }> {
+export async function readJellyfinDetails(
+  id: string,
+): Promise<{ ok: boolean; details?: JellyfinDetails; error?: string }> {
   const user = await requireUser();
   const details = await jellyfinDetails(id, user.jellyfinUserId ?? undefined);
-  return details ? { ok: true, details } : { ok: false, error: "Jellyfin did not return this item" };
+  return details
+    ? { ok: true, details }
+    : { ok: false, error: "Jellyfin did not return this item" };
 }
 
 function watchInput(input: {
@@ -50,39 +66,66 @@ function watchInput(input: {
   const title = input.title.trim().slice(0, 240);
   const watchedAt = new Date(input.watchedAt ?? new Date().toISOString());
   if (!title || Number.isNaN(watchedAt.getTime())) return null;
-  const rating = input.rating === undefined ? undefined : Math.round(Number(input.rating));
+  const rating =
+    input.rating === undefined ? undefined : Math.round(Number(input.rating));
   return {
     jellyfinId: input.jellyfinId?.trim().slice(0, 128) || undefined,
-    kind: input.kind === "tv" ? "tv" as const : "movie" as const,
+    kind: input.kind === "tv" ? ("tv" as const) : ("movie" as const),
     title,
-    year: input.year && input.year >= 1880 && input.year <= 2200 ? Math.round(input.year) : undefined,
+    year:
+      input.year && input.year >= 1880 && input.year <= 2200
+        ? Math.round(input.year)
+        : undefined,
     poster: input.poster?.slice(0, 1000),
     watchedAt: watchedAt.toISOString(),
     rating: rating && rating >= 1 && rating <= 10 ? rating : undefined,
     notes: input.notes?.slice(0, 4000),
-    rewatchCount: Math.max(1, Math.min(999, Math.round(input.rewatchCount ?? 1))),
+    rewatchCount: Math.max(
+      1,
+      Math.min(999, Math.round(input.rewatchCount ?? 1)),
+    ),
   };
 }
 
-export async function addWatchEntry(input: Parameters<typeof watchInput>[0]): Promise<{ ok: boolean; entry?: WatchEntryView; error?: string }> {
+export async function addWatchEntry(
+  input: Parameters<typeof watchInput>[0],
+): Promise<{ ok: boolean; entry?: WatchEntryView; error?: string }> {
   const user = await requireUser();
   const normalized = watchInput(input);
   if (!normalized) return { ok: false, error: "invalid watch entry" };
   return { ok: true, entry: await recordWatch(user.id, normalized) };
 }
 
-export async function editWatchEntry(id: string, input: { watchedAt: string; rating?: number; notes: string; rewatchCount: number }) {
+export async function editWatchEntry(
+  id: string,
+  input: {
+    watchedAt: string;
+    rating?: number;
+    notes: string;
+    rewatchCount: number;
+  },
+) {
   const user = await requireUser();
   const watchedAt = new Date(input.watchedAt);
-  const rating = input.rating === undefined ? undefined : Math.round(Number(input.rating));
-  if (Number.isNaN(watchedAt.getTime()) || (rating !== undefined && (rating < 1 || rating > 10))) return { ok: false, error: "invalid watch entry" };
+  const rating =
+    input.rating === undefined ? undefined : Math.round(Number(input.rating));
+  if (
+    Number.isNaN(watchedAt.getTime()) ||
+    (rating !== undefined && (rating < 1 || rating > 10))
+  )
+    return { ok: false, error: "invalid watch entry" };
   const entry = await updateWatch(user.id, id, {
     watchedAt: watchedAt.toISOString(),
     rating,
     notes: input.notes.slice(0, 4000),
-    rewatchCount: Math.max(1, Math.min(999, Math.round(input.rewatchCount || 1))),
+    rewatchCount: Math.max(
+      1,
+      Math.min(999, Math.round(input.rewatchCount || 1)),
+    ),
   });
-  return entry ? { ok: true, entry } : { ok: false, error: "watch entry not found" };
+  return entry
+    ? { ok: true, entry }
+    : { ok: false, error: "watch entry not found" };
 }
 
 export async function deleteWatchEntry(id: string) {
@@ -90,21 +133,34 @@ export async function deleteWatchEntry(id: string) {
   return { ok: await removeWatch(user.id, id) };
 }
 
-export async function syncJellyfinWatchHistory(): Promise<{ ok: boolean; entries?: WatchEntryView[]; imported?: number; error?: string }> {
+export async function syncJellyfinWatchHistory(): Promise<{
+  ok: boolean;
+  entries?: WatchEntryView[];
+  imported?: number;
+  error?: string;
+}> {
   const user = await requireUser();
-  if (!user.jellyfinUserId) return { ok: false, error: "Choose your Jellyfin profile first" };
+  if (!user.jellyfinUserId)
+    return { ok: false, error: "Choose your Jellyfin profile first" };
   const items = await jellyfinPlayedItems(user.jellyfinUserId);
-  if (items.length === 0) return { ok: false, error: "Jellyfin did not return watched items" };
+  if (items.length === 0)
+    return { ok: false, error: "Jellyfin did not return watched items" };
   const entries: WatchEntryView[] = [];
   for (const item of items) {
-    entries.push(await recordWatch(user.id, {
-      jellyfinId: item.id,
-      kind: item.kind,
-      title: item.title,
-      year: item.year,
-      poster: item.poster,
-      watchedAt: item.lastPlayedAt ?? new Date().toISOString(),
-    }, "jellyfin"));
+    entries.push(
+      await recordWatch(
+        user.id,
+        {
+          jellyfinId: item.id,
+          kind: item.kind,
+          title: item.title,
+          year: item.year,
+          poster: item.poster,
+          watchedAt: item.lastPlayedAt ?? new Date().toISOString(),
+        },
+        "jellyfin",
+      ),
+    );
   }
   return { ok: true, entries, imported: entries.length };
 }
@@ -114,20 +170,33 @@ export async function selectJellyfinProfile(profileId: string) {
   const profiles = await jellyfinProfiles();
   const profile = profiles.find((item) => item.id === profileId);
   if (!profile) return { ok: false, error: "Jellyfin profile not found" };
-  await prisma.user.update({ where: { id: user.id }, data: { jellyfinUserId: profile.id } });
+  await prisma.user.update({
+    where: { id: user.id },
+    data: { jellyfinUserId: profile.id },
+  });
   revalidatePath("/media");
   return { ok: true };
 }
 
-export async function importWatchHistory(text: string): Promise<{ ok: boolean; entries?: WatchEntryView[]; imported?: number; error?: string }> {
+export async function importWatchHistory(text: string): Promise<{
+  ok: boolean;
+  entries?: WatchEntryView[];
+  imported?: number;
+  error?: string;
+}> {
   const user = await requireUser();
   try {
     const rows = parseWatchHistory(text);
     const entries: WatchEntryView[] = [];
-    for (const row of rows) entries.push(await recordWatch(user.id, row, "import"));
+    for (const row of rows)
+      entries.push(await recordWatch(user.id, row, "import"));
     return { ok: true, entries, imported: entries.length };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message.slice(0, 300) : "invalid file" };
+    return {
+      ok: false,
+      error:
+        error instanceof Error ? error.message.slice(0, 300) : "invalid file",
+    };
   }
 }
 
@@ -138,7 +207,10 @@ export async function readMediaPlayers(ids?: string[]): Promise<MediaResult> {
   return { ok: true, players };
 }
 
-export async function sendMediaCommand(entityId: string, command: MediaCommand): Promise<MediaResult> {
+export async function sendMediaCommand(
+  entityId: string,
+  command: MediaCommand,
+): Promise<MediaResult> {
   await requireRole("admin");
   const result = await haMediaCommand(entityId, command);
   if (!result.ok) return result;
@@ -148,7 +220,7 @@ export async function sendMediaCommand(entityId: string, command: MediaCommand):
 export async function setMediaValue(
   entityId: string,
   what: "volume" | "seek" | "source",
-  value: number | string
+  value: number | string,
 ): Promise<MediaResult> {
   await requireRole("admin");
   const result = await haMediaSet(entityId, what, value);
@@ -156,19 +228,29 @@ export async function setMediaValue(
   return { ok: true, players: (await refreshedPlayer(entityId)) ?? undefined };
 }
 
-export async function sendMediaPhrase(entityId: string, service: string, phrase: string): Promise<MediaResult> {
+export async function sendMediaPhrase(
+  entityId: string,
+  service: string,
+  phrase: string,
+): Promise<MediaResult> {
   await requireRole("admin");
   const result = await haMediaSay(entityId, service, phrase);
   if (!result.ok) return result;
   return { ok: true, players: (await refreshedPlayer(entityId)) ?? undefined };
 }
 
-async function refreshedPlayer(entityId: string): Promise<HaMediaPlayer[] | null> {
+async function refreshedPlayer(
+  entityId: string,
+): Promise<HaMediaPlayer[] | null> {
   await new Promise((resolve) => setTimeout(resolve, 400));
   return haMediaPlayers([entityId]);
 }
 
-export async function searchMedia(input: { query?: string; kind?: "all" | MediaKind; page?: number }) {
+export async function searchMedia(input: {
+  query?: string;
+  kind?: "all" | MediaKind;
+  page?: number;
+}) {
   await requireUser();
   return discoverMedia({
     query: input.query?.trim().slice(0, 120),
@@ -177,10 +259,23 @@ export async function searchMedia(input: { query?: string; kind?: "all" | MediaK
   });
 }
 
-export async function readMediaDetails(kind: MediaKind, id: number): Promise<{ ok: boolean; details?: MediaDetailsData; error?: string }> {
+export async function readMediaDetails(
+  kind: MediaKind,
+  id: number,
+): Promise<{
+  ok: boolean;
+  details?: MediaDetailsData;
+  profiles?: MediaQualityProfile[];
+  error?: string;
+}> {
   await requireUser();
-  const details = await discoverMediaDetails(kind, id);
-  return details ? { ok: true, details } : { ok: false, error: "Media details are unavailable" };
+  const [details, profiles] = await Promise.all([
+    discoverMediaDetails(kind, id),
+    mediaQualityProfiles(kind),
+  ]);
+  return details
+    ? { ok: true, details, profiles }
+    : { ok: false, error: "Media details are unavailable" };
 }
 
 export async function requestMedia(input: {
@@ -188,11 +283,36 @@ export async function requestMedia(input: {
   mediaId: number;
   seasons?: number[];
   is4k?: boolean;
+  serverId?: number;
+  profileId?: number;
+  rootFolder?: string;
 }) {
   await requireRole("admin");
-  const result = await createMediaRequest(input);
+  let normalized = input;
+  if (input.serverId !== undefined || input.profileId !== undefined) {
+    const profile = (await mediaQualityProfiles(input.kind)).find(
+      (item) =>
+        item.serverId === Number(input.serverId) &&
+        item.profileId === Number(input.profileId),
+    );
+    if (!profile)
+      return {
+        ok: false,
+        error: "The selected quality profile is no longer available",
+      };
+    normalized = {
+      ...input,
+      serverId: profile.serverId,
+      profileId: profile.profileId,
+      rootFolder: profile.rootFolder,
+      is4k: profile.is4k,
+    };
+  }
+  const result = await createMediaRequest(normalized);
   if (result.ok) revalidatePath("/media");
-  return result.ok ? { ...result, requests: await listMediaRequests() } : result;
+  return result.ok
+    ? { ...result, requests: await listMediaRequests() }
+    : result;
 }
 
 export async function cancelMediaRequest(id: number) {
@@ -202,7 +322,10 @@ export async function cancelMediaRequest(id: number) {
   return result;
 }
 
-export async function decideMediaRequest(id: number, decision: "approve" | "decline") {
+export async function decideMediaRequest(
+  id: number,
+  decision: "approve" | "decline",
+) {
   await requireRole("admin");
   const result = await updateMediaRequest(Math.floor(Number(id)), decision);
   if (result.ok) revalidatePath("/media");
@@ -212,7 +335,7 @@ export async function decideMediaRequest(id: number, decision: "approve" | "decl
 export async function manageDownload(
   hash: string,
   action: "pause" | "resume" | "recheck" | "delete",
-  deleteFiles = false
+  deleteFiles = false,
 ) {
   await requireRole("admin");
   const result = await controlDownload(hash, action, deleteFiles);

@@ -212,6 +212,9 @@ latest-state record. Only meaningful transitions become history events.
 - `DELETE /api/link/device`: revoke the authenticated device.
 - `GET /api/link/mobile/overview`: scoped calendar, reminder, media, Telegram,
   monitoring and same-account share targets for the approved user.
+  Monitored dashboard checks and Docker containers are separate collections:
+  the check total includes only items with availability monitoring enabled,
+  while container entries provide read-only state, health and host summaries.
 - `POST /api/link/mobile/reminders`: create, edit, complete, restore, delete or
   clear completed personal reminders. Every lookup and bulk action is scoped to
   the paired user's ID.

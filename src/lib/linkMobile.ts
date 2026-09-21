@@ -2,6 +2,8 @@ import "server-only";
 import { prisma } from "./db";
 import { authenticateLinkDevice, linkDeviceHasPermission } from "./linkDevices";
 import { groupRecentEvents } from "./eventGroups";
+import { listContainers } from "./docker";
+import { mobileContainerSummary } from "./linkMonitoring";
 
 export type MobilePermission = "dashboard.read" | "calendar.read" | "calendar.manage" | "reminder.manage" | "media.request" | "telegram.send" | "clipboard.relay" | "share.relay";
 
@@ -19,7 +21,7 @@ export async function authorizeMobile(request: Request, permission: MobilePermis
 }
 
 export async function monitoringSummary() {
-  const [items, recent] = await Promise.all([
+  const [items, recent, containers] = await Promise.all([
     prisma.item.findMany({
       where: { checkKind: { not: "none" } },
       select: {
@@ -35,6 +37,7 @@ export async function monitoringSummary() {
       take: 32,
       select: { id: true, type: true, severity: true, title: true, detail: true, itemId: true, actor: true, at: true },
     }),
+    listContainers(),
   ]);
   const services = items.map((item) => ({
     id: item.id,
@@ -49,6 +52,7 @@ export async function monitoringSummary() {
     offline: services.filter((item) => item.status === "offline").length,
     unknown: services.filter((item) => item.status === "unknown").length,
     services,
+    containers: mobileContainerSummary(containers),
     recent: groupRecentEvents(recent).slice(0, 8).map((event) => ({
       id: event.id,
       type: event.type,

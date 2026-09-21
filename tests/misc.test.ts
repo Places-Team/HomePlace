@@ -8,6 +8,7 @@ import { dashboardIconSlugs, dashboardIconUrl, guessKey, guessIcon, autoIcon, fa
 import { nextOccurrence } from "../src/lib/recurrence";
 import { createLinkInfo, isLinkServerId, LINK_PROTOCOL_MAX, LINK_PROTOCOL_MIN, parseLinkCapabilities, parseLinkPairRequest } from "../src/lib/linkProtocol";
 import { parseShareMessage, safeFilename, safeSharedUrl, SHARE_LIFETIME_MS } from "../src/lib/linkShare";
+import { mobileContainerSummary } from "../src/lib/linkMonitoring";
 import { checkDeviceActionRateLimit } from "../src/lib/linkRateLimit";
 import { clientAddress, hasMinimumSecretLength, isLocalHostname, isSameOriginRequest, safeRequestOrigin, secretsEqual } from "../src/lib/security";
 import { compareVersions, releaseUpdateFrom } from "../src/lib/updates";
@@ -316,6 +317,19 @@ test("shared filenames cannot escape the private transfer directory", () => {
 test("share offers survive one delayed Android background check", () => {
   assert.equal(SHARE_LIFETIME_MS, 30 * 60_000);
   assert.ok(SHARE_LIFETIME_MS > 15 * 60_000);
+});
+
+test("mobile monitoring keeps container state separate from service checks", () => {
+  const summary = mobileContainerSummary([
+    { id: "a", name: "web", image: "web:1", state: "running", status: "Up", health: "healthy", hostKey: "main", hostLabel: "Server" },
+    { id: "b", name: "worker", image: "worker:1", state: "restarting", status: "Restarting", hostKey: "main", hostLabel: "Server" },
+    { id: "c", name: "db", image: "db:1", state: "exited", status: "Exited", hostKey: "backup", hostLabel: "Backup" },
+  ]);
+  assert.equal(summary.total, 3);
+  assert.equal(summary.running, 1);
+  assert.equal(summary.stopped, 2);
+  assert.equal(summary.problems, 1);
+  assert.equal(summary.items[0]?.id, "main:a");
 });
 
 test("authenticated share actions are rate limited per device", () => {

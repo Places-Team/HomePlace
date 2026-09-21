@@ -66,6 +66,8 @@ export const en = {
     serviceIssuesHint:
       "Live Sonarr and Radarr health. HomePlace refreshes this automatically.",
     refreshIssues: "Refresh",
+    showAllIssues: "Show all {count} issues",
+    hideIssues: "Collapse issues",
     contentType: "Media type",
     discover: "Discover",
     movies: "Movies",

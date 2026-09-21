@@ -63,6 +63,8 @@ export const ru: Dictionary = {
     serviceIssuesHint:
       "Состояние Sonarr и Radarr. HomePlace обновляет его автоматически.",
     refreshIssues: "Обновить",
+    showAllIssues: "Показать все проблемы: {count}",
+    hideIssues: "Свернуть проблемы",
     contentType: "Тип медиа",
     discover: "Обзор",
     movies: "Фильмы",

@@ -140,6 +140,7 @@ export function MediaLibrary({
   const [history, setHistory] = useState(initialHistory);
   const [serviceIssues, setServiceIssues] = useState(initialServiceIssues);
   const [refreshingIssues, setRefreshingIssues] = useState(false);
+  const [showAllServiceIssues, setShowAllServiceIssues] = useState(false);
   const [preferLocal, setPreferLocal] = useState(false);
   const [lanDetected, setLanDetected] = useState(false);
   const [libraryQuery, setLibraryQuery] = useState("");
@@ -423,7 +424,10 @@ export function MediaLibrary({
             </Button>
           </div>
           <div className="divide-y divide-line/70">
-            {serviceIssues.map((issue) => (
+            {(showAllServiceIssues
+              ? serviceIssues
+              : serviceIssues.slice(0, 5)
+            ).map((issue) => (
               <div
                 key={issue.key}
                 className="flex items-start gap-3 px-4 py-3 text-sm"
@@ -447,6 +451,20 @@ export function MediaLibrary({
               </div>
             ))}
           </div>
+          {serviceIssues.length > 5 && (
+            <button
+              type="button"
+              className="w-full border-t border-warn/20 px-4 py-2.5 text-left text-xs font-medium text-muted transition-colors hover:bg-warn/10 hover:text-text"
+              onClick={() => setShowAllServiceIssues((value) => !value)}
+            >
+              {showAllServiceIssues
+                ? d.media.hideIssues
+                : d.media.showAllIssues.replace(
+                    "{count}",
+                    String(serviceIssues.length),
+                  )}
+            </button>
+          )}
         </section>
       )}
 

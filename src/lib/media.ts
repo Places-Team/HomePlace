@@ -238,17 +238,9 @@ export async function mediaQualityProfiles(
   for (const server of servers.slice(0, 20)) {
     const serverId = Number(server?.id);
     if (!Number.isInteger(serverId) || serverId < 0) continue;
-    const detail = await overseerrGetValue(
-      `/settings/${service}/${serverId}/profiles`,
-    );
     const source = server;
     const profiles =
-      [
-        detail,
-        detail?.profiles,
-        source?.profiles,
-        source?.qualityProfiles,
-      ].find(Array.isArray) ?? [];
+      [source?.profiles, source?.qualityProfiles].find(Array.isArray) ?? [];
     const roots =
       [source?.rootFolders, source?.directories].find(Array.isArray) ?? [];
     const defaultRoot =
@@ -282,15 +274,21 @@ export async function mediaQualityProfiles(
           source?.profileId ??
           server?.profileId,
       );
-      if (Number.isInteger(profileId) && profileId > 0)
+      if (Number.isInteger(profileId) && profileId > 0) {
+        const profileName = String(
+          source?.activeProfileName ??
+            server?.activeProfileName ??
+            `Profile ${profileId}`,
+        );
         choices.push({
           key: `${serverId}:${profileId}`,
-          label: `${serverName}${server4k ? " · 4K" : " · default"}`,
+          label: `${serverName} · ${profileName}${server4k ? " · 4K" : ""}`,
           serverId,
           profileId,
           rootFolder: defaultRoot,
           is4k: server4k,
         });
+      }
     }
   }
   return choices.filter(

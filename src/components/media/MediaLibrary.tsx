@@ -1286,6 +1286,11 @@ function ReleaseSearchPanel({
                   ))}
                 </ul>
               )}
+              {release.notReturnedByArr && (
+                <p className="mt-2 text-xs leading-5 text-danger">
+                  {d.media.releaseNotReturnedByArr}
+                </p>
+              )}
               <div className="mt-3 flex flex-wrap justify-end gap-2">
                 {release.infoUrl && (
                   <a

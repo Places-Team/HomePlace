@@ -196,6 +196,8 @@ export type RawMediaRelease = {
   categories: string[];
   /** Present when Sonarr/Radarr returned the same release. */
   approved?: boolean;
+  /** Sonarr/Radarr search completed but omitted this raw Prowlarr result. */
+  notReturnedByArr?: boolean;
   rejections: string[];
 };
 
@@ -1358,7 +1360,7 @@ export async function searchRawMediaReleases(input: {
     arrReleaseDecisions({ ...input, season: input.season }),
   ]);
   const byTitle = new Map(
-    decisions.releases.map((release) => [String(release.title ?? ""), release]),
+    decisions.releases.map((release) => [normalizedMediaTitle(release.title), release]),
   );
   return {
     configured: raw.configured,
@@ -1366,10 +1368,11 @@ export async function searchRawMediaReleases(input: {
     error: raw.error,
     releases: raw.releases
       .map(({ downloadUrl: _downloadUrl, ...release }) => {
-        const decision = byTitle.get(release.title);
+        const decision = byTitle.get(normalizedMediaTitle(release.title));
         return {
           ...release,
-          approved: decision ? !decision.rejected : undefined,
+          approved: decision ? !decision.rejected : decisions.checked ? false : undefined,
+          notReturnedByArr: decisions.checked && !decision,
           rejections: decision
             ? (Array.isArray(decision.rejections) ? decision.rejections : [])
                 .map(String)

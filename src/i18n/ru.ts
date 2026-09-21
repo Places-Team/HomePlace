@@ -177,6 +177,7 @@ export const ru: Dictionary = {
     rawRelease: "Сырой результат Prowlarr",
     releaseAccepted: "Принято Sonarr/Radarr",
     releaseRejected: "Отклонено",
+    releaseNotReturnedByArr: "Sonarr/Radarr не вернул эту раздачу. Индексатор или правила разбора отфильтровали её до появления подробной причины отказа.",
     sendToQbit: "Отправить в qBittorrent",
     sentToQbit: "Отправлено в qBittorrent",
     noRawReleases: "Prowlarr не вернул раздач",

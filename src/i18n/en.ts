@@ -179,6 +179,7 @@ export const en = {
     rawRelease: "Raw Prowlarr result",
     releaseAccepted: "Accepted by Sonarr/Radarr",
     releaseRejected: "Rejected",
+    releaseNotReturnedByArr: "Sonarr/Radarr did not return this release. Its indexer or parsing rules filtered it before a detailed rejection was available.",
     sendToQbit: "Send to qBittorrent",
     sentToQbit: "Sent to qBittorrent",
     noRawReleases: "Prowlarr returned no releases",

@@ -63,11 +63,14 @@ export const en = {
     subtitle:
       "Discover, request, download and watch without jumping between services.",
     serviceIssues: "Media service issues",
+    serviceHealth: "Service health",
     serviceIssuesHint:
       "Live Sonarr and Radarr health. HomePlace refreshes this automatically.",
     refreshIssues: "Refresh",
     showAllIssues: "Show all {count} issues",
     hideIssues: "Collapse issues",
+    servicesHealthy: "Sonarr and Radarr are healthy",
+    servicesHealthyHint: "No current service warnings or connection errors.",
     contentType: "Media type",
     discover: "Discover",
     movies: "Movies",

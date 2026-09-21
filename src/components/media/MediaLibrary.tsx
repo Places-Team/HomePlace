@@ -36,7 +36,13 @@ import {
 import type { WatchEntryView } from "@/lib/watchHistory";
 import { WatchJournal } from "./WatchJournal";
 
-type Tab = "discover" | "library" | "history" | "requests" | "downloads";
+type Tab =
+  | "discover"
+  | "library"
+  | "history"
+  | "requests"
+  | "downloads"
+  | "health";
 type DiscoverResult = {
   configured: boolean;
   page: number;
@@ -358,6 +364,11 @@ export function MediaLibrary({
     { key: "history", label: d.media.watchHistory, count: history.length },
     { key: "requests", label: d.media.requests, count: requests.length },
     { key: "downloads", label: d.media.downloads, count: downloads.length },
+    {
+      key: "health",
+      label: d.media.serviceHealth,
+      count: serviceIssues.length,
+    },
   ];
 
   return (
@@ -401,73 +412,6 @@ export function MediaLibrary({
         )}
       </header>
 
-      {serviceIssues.length > 0 && (
-        <section className="overflow-hidden rounded-card border border-warn/35 bg-warn/5">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-warn/20 px-4 py-3">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="h-2 w-2 rounded-full bg-warn" aria-hidden />
-                <h2 className="font-semibold">{d.media.serviceIssues}</h2>
-                <Badge tone="warn">{serviceIssues.length}</Badge>
-              </div>
-              <p className="mt-1 text-xs text-muted">
-                {d.media.serviceIssuesHint}
-              </p>
-            </div>
-            <Button
-              size="sm"
-              variant="quiet"
-              disabled={refreshingIssues}
-              onClick={refreshServiceHealth}
-            >
-              {d.media.refreshIssues}
-            </Button>
-          </div>
-          <div className="divide-y divide-line/70">
-            {(showAllServiceIssues
-              ? serviceIssues
-              : serviceIssues.slice(0, 5)
-            ).map((issue) => (
-              <div
-                key={issue.key}
-                className="flex items-start gap-3 px-4 py-3 text-sm"
-              >
-                <span
-                  className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${issue.severity === "error" ? "bg-danger" : "bg-warn"}`}
-                  aria-hidden
-                />
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">{issue.server}</span>
-                    <Badge
-                      tone={issue.severity === "error" ? "danger" : "warn"}
-                    >
-                      {issue.service === "sonarr" ? "Sonarr" : "Radarr"}
-                    </Badge>
-                    <span className="text-xs text-faint">{issue.source}</span>
-                  </div>
-                  <p className="mt-1 leading-5 text-muted">{issue.message}</p>
-                </div>
-              </div>
-            ))}
-          </div>
-          {serviceIssues.length > 5 && (
-            <button
-              type="button"
-              className="w-full border-t border-warn/20 px-4 py-2.5 text-left text-xs font-medium text-muted transition-colors hover:bg-warn/10 hover:text-text"
-              onClick={() => setShowAllServiceIssues((value) => !value)}
-            >
-              {showAllServiceIssues
-                ? d.media.hideIssues
-                : d.media.showAllIssues.replace(
-                    "{count}",
-                    String(serviceIssues.length),
-                  )}
-            </button>
-          )}
-        </section>
-      )}
-
       <nav
         className="flex gap-1 overflow-x-auto border-b border-line"
         aria-label={d.media.title}
@@ -487,6 +431,17 @@ export function MediaLibrary({
           </button>
         ))}
       </nav>
+
+      {tab === "health" && (
+        <ServiceIssuesPanel
+          d={d}
+          issues={serviceIssues}
+          expanded={showAllServiceIssues}
+          refreshing={refreshingIssues}
+          onRefresh={refreshServiceHealth}
+          onToggle={() => setShowAllServiceIssues((value) => !value)}
+        />
+      )}
 
       {(tab === "discover" || tab === "library") && (
         <nav
@@ -1429,6 +1384,92 @@ function RequestProgress({
         </div>
       )}
     </div>
+  );
+}
+
+function ServiceIssuesPanel({
+  d,
+  issues,
+  expanded,
+  refreshing,
+  onRefresh,
+  onToggle,
+}: {
+  d: MediaDictionary;
+  issues: MediaServiceIssue[];
+  expanded: boolean;
+  refreshing: boolean;
+  onRefresh: () => void;
+  onToggle: () => void;
+}) {
+  if (issues.length === 0)
+    return (
+      <EmptyState
+        title={d.media.servicesHealthy}
+        hint={d.media.servicesHealthyHint}
+        action={
+          <Button size="sm" onClick={onRefresh} disabled={refreshing}>
+            {d.media.refreshIssues}
+          </Button>
+        }
+      />
+    );
+
+  return (
+    <section className="overflow-hidden rounded-card border border-warn/35 bg-warn/5">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-warn/20 px-4 py-3">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="h-2 w-2 rounded-full bg-warn" aria-hidden />
+            <h2 className="font-semibold">{d.media.serviceIssues}</h2>
+            <Badge tone="warn">{issues.length}</Badge>
+          </div>
+          <p className="mt-1 text-xs text-muted">{d.media.serviceIssuesHint}</p>
+        </div>
+        <Button
+          size="sm"
+          variant="quiet"
+          disabled={refreshing}
+          onClick={onRefresh}
+        >
+          {d.media.refreshIssues}
+        </Button>
+      </div>
+      <div className="divide-y divide-line/70">
+        {(expanded ? issues : issues.slice(0, 5)).map((issue) => (
+          <div
+            key={issue.key}
+            className="flex items-start gap-3 px-4 py-3 text-sm"
+          >
+            <span
+              className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${issue.severity === "error" ? "bg-danger" : "bg-warn"}`}
+              aria-hidden
+            />
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="font-medium">{issue.server}</span>
+                <Badge tone={issue.severity === "error" ? "danger" : "warn"}>
+                  {issue.service === "sonarr" ? "Sonarr" : "Radarr"}
+                </Badge>
+                <span className="text-xs text-faint">{issue.source}</span>
+              </div>
+              <p className="mt-1 leading-5 text-muted">{issue.message}</p>
+            </div>
+          </div>
+        ))}
+      </div>
+      {issues.length > 5 && (
+        <button
+          type="button"
+          className="w-full border-t border-warn/20 px-4 py-2.5 text-left text-xs font-medium text-muted transition-colors hover:bg-warn/10 hover:text-text"
+          onClick={onToggle}
+        >
+          {expanded
+            ? d.media.hideIssues
+            : d.media.showAllIssues.replace("{count}", String(issues.length))}
+        </button>
+      )}
+    </section>
   );
 }
 

@@ -60,11 +60,14 @@ export const ru: Dictionary = {
     subtitle:
       "Поиск, запрос, загрузка и просмотр без переходов между сервисами.",
     serviceIssues: "Проблемы медиасервисов",
+    serviceHealth: "Состояние",
     serviceIssuesHint:
       "Состояние Sonarr и Radarr. HomePlace обновляет его автоматически.",
     refreshIssues: "Обновить",
     showAllIssues: "Показать все проблемы: {count}",
     hideIssues: "Свернуть проблемы",
+    servicesHealthy: "Sonarr и Radarr работают нормально",
+    servicesHealthyHint: "Нет предупреждений и ошибок подключения.",
     contentType: "Тип медиа",
     discover: "Обзор",
     movies: "Фильмы",

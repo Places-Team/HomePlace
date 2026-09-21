@@ -151,6 +151,15 @@ export type DownloadItem = {
   category: string;
 };
 
+export type MediaServiceIssue = {
+  key: string;
+  service: "sonarr" | "radarr";
+  server: string;
+  severity: "warning" | "error";
+  source: string;
+  message: string;
+};
+
 const tmdbImage = (path: unknown, size: "w500" | "original") =>
   typeof path === "string" && path
     ? `/api/media/tmdb-image?size=${size}&path=${encodeURIComponent(path)}`
@@ -295,6 +304,103 @@ export async function mediaQualityProfiles(
     (choice, index, all) =>
       all.findIndex((item) => item.key === choice.key) === index,
   );
+}
+
+function servarrBase(server: Record<string, any>): string | null {
+  const hostname = String(server.hostname ?? "").trim();
+  const port = Number(server.port);
+  if (!hostname || !Number.isInteger(port) || port < 1 || port > 65535)
+    return null;
+  try {
+    const url = new URL(`${server.useSsl ? "https" : "http"}://${hostname}`);
+    if (
+      url.username ||
+      url.password ||
+      !["http:", "https:"].includes(url.protocol)
+    )
+      return null;
+    url.port = String(port);
+    const baseUrl = String(server.baseUrl ?? "").trim();
+    url.pathname = baseUrl ? `/${baseUrl.replace(/^\/+|\/+$/g, "")}` : "";
+    return url.toString().replace(/\/$/, "");
+  } catch {
+    return null;
+  }
+}
+
+/** Read Sonarr and Radarr health without exposing their API keys to the client. */
+export async function mediaServiceIssues(): Promise<MediaServiceIssue[]> {
+  const services = ["sonarr", "radarr"] as const;
+  const groups = await Promise.all(
+    services.map(async (service) => {
+      const payload = await overseerrGetValue(`/settings/${service}`);
+      const servers = Array.isArray(payload)
+        ? payload
+        : Array.isArray(payload?.results)
+          ? payload.results
+          : [];
+      return Promise.all(
+        servers.slice(0, 10).map(async (server: Record<string, any>) => {
+          const base = servarrBase(server);
+          const serverName = String(
+            server.name ?? (service === "sonarr" ? "Sonarr" : "Radarr"),
+          ).slice(0, 100);
+          const apiKey = String(server.apiKey ?? "").trim();
+          if (!base || !apiKey) return [];
+          try {
+            const response = await fetch(`${base}/api/v3/health`, {
+              headers: { "X-Api-Key": apiKey },
+              cache: "no-store",
+              signal: AbortSignal.timeout(4000),
+            });
+            if (!response.ok)
+              return [
+                {
+                  key: `${service}:${server.id}:http`,
+                  service,
+                  server: serverName,
+                  severity: "error" as const,
+                  source: "Connection",
+                  message: `${serverName} returned HTTP ${response.status}`,
+                },
+              ];
+            const health = await limitedJson<Record<string, any>[]>(response);
+            return (Array.isArray(health) ? health : [])
+              .map((issue, index): MediaServiceIssue | null => {
+                const message = String(issue.message ?? "")
+                  .trim()
+                  .slice(0, 500);
+                if (!message) return null;
+                const source = String(issue.source ?? "Health")
+                  .trim()
+                  .slice(0, 100);
+                return {
+                  key: `${service}:${server.id}:${source}:${index}`,
+                  service,
+                  server: serverName,
+                  severity: issue.type === "error" ? "error" : "warning",
+                  source,
+                  message,
+                };
+              })
+              .filter((issue): issue is MediaServiceIssue => !!issue);
+          } catch {
+            return [
+              {
+                key: `${service}:${server.id}:offline`,
+                service,
+                server: serverName,
+                severity: "error" as const,
+                source: "Connection",
+                message: `${serverName} did not respond within 4 seconds`,
+              },
+            ];
+          }
+        }),
+      );
+    }),
+  );
+  return groups.flat(2);
 }
 
 export async function discoverMedia(

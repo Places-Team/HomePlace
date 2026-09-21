@@ -7,6 +7,7 @@ import {
   manageDownload,
   readJellyfinDetails,
   readMediaDetails,
+  readMediaServiceIssues,
   requestMedia,
   searchMedia,
 } from "@/actions/media";
@@ -20,6 +21,7 @@ import type {
   MediaDetailsData,
   MediaQualityProfile,
   MediaRequest,
+  MediaServiceIssue,
 } from "@/lib/media";
 import { Badge, EmptyState, Meter } from "@/components/ui";
 import { Button, Input, Select } from "@/components/form";
@@ -91,6 +93,7 @@ export function MediaLibrary({
   downloads: initialDownloads,
   initialHistory,
   jellyfinProfiles,
+  initialServiceIssues,
   jellyfinUserId,
   jellyfin,
   canManage,
@@ -102,6 +105,7 @@ export function MediaLibrary({
   downloads: { configured: boolean; items: DownloadItem[] };
   initialHistory: WatchEntryView[];
   jellyfinProfiles: JellyfinProfile[];
+  initialServiceIssues: MediaServiceIssue[];
   jellyfinUserId: string;
   jellyfin: { url: string; localUrl: string; appUrl: string };
   canManage: boolean;
@@ -134,6 +138,8 @@ export function MediaLibrary({
   const [requests, setRequests] = useState(initialRequests);
   const [downloads, setDownloads] = useState(initialDownloads.items);
   const [history, setHistory] = useState(initialHistory);
+  const [serviceIssues, setServiceIssues] = useState(initialServiceIssues);
+  const [refreshingIssues, setRefreshingIssues] = useState(false);
   const [preferLocal, setPreferLocal] = useState(false);
   const [lanDetected, setLanDetected] = useState(false);
   const [libraryQuery, setLibraryQuery] = useState("");
@@ -151,6 +157,27 @@ export function MediaLibrary({
     const saved = window.localStorage.getItem("homeplace:jellyfin-local");
     setPreferLocal(saved === null ? detected : saved === "1");
   }, []);
+
+  useEffect(() => {
+    let stopped = false;
+    const refresh = async () => {
+      if (document.visibilityState !== "visible") return;
+      const issues = await readMediaServiceIssues();
+      if (!stopped) setServiceIssues(issues);
+    };
+    const timer = window.setInterval(() => void refresh(), 60_000);
+    return () => {
+      stopped = true;
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  function refreshServiceHealth() {
+    setRefreshingIssues(true);
+    void readMediaServiceIssues()
+      .then(setServiceIssues)
+      .finally(() => setRefreshingIssues(false));
+  }
 
   const filtered = useMemo(() => {
     const minRating = Number(rating) || 0;
@@ -372,6 +399,56 @@ export function MediaLibrary({
           </label>
         )}
       </header>
+
+      {serviceIssues.length > 0 && (
+        <section className="overflow-hidden rounded-card border border-warn/35 bg-warn/5">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-warn/20 px-4 py-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="h-2 w-2 rounded-full bg-warn" aria-hidden />
+                <h2 className="font-semibold">{d.media.serviceIssues}</h2>
+                <Badge tone="warn">{serviceIssues.length}</Badge>
+              </div>
+              <p className="mt-1 text-xs text-muted">
+                {d.media.serviceIssuesHint}
+              </p>
+            </div>
+            <Button
+              size="sm"
+              variant="quiet"
+              disabled={refreshingIssues}
+              onClick={refreshServiceHealth}
+            >
+              {d.media.refreshIssues}
+            </Button>
+          </div>
+          <div className="divide-y divide-line/70">
+            {serviceIssues.map((issue) => (
+              <div
+                key={issue.key}
+                className="flex items-start gap-3 px-4 py-3 text-sm"
+              >
+                <span
+                  className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${issue.severity === "error" ? "bg-danger" : "bg-warn"}`}
+                  aria-hidden
+                />
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">{issue.server}</span>
+                    <Badge
+                      tone={issue.severity === "error" ? "danger" : "warn"}
+                    >
+                      {issue.service === "sonarr" ? "Sonarr" : "Radarr"}
+                    </Badge>
+                    <span className="text-xs text-faint">{issue.source}</span>
+                  </div>
+                  <p className="mt-1 leading-5 text-muted">{issue.message}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       <nav
         className="flex gap-1 overflow-x-auto border-b border-line"

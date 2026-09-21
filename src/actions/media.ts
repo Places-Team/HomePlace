@@ -22,6 +22,7 @@ import {
   jellyfinProfiles,
   listMediaRequests,
   mediaQualityProfiles,
+  mediaServiceIssues,
   updateMediaRequest,
   type JellyfinDetails,
   type MediaDetailsData,
@@ -257,6 +258,11 @@ export async function searchMedia(input: {
     kind: input.kind === "movie" || input.kind === "tv" ? input.kind : "all",
     page: Math.max(1, Math.min(100, Number(input.page) || 1)),
   });
+}
+
+export async function readMediaServiceIssues() {
+  await requireUser();
+  return mediaServiceIssues();
 }
 
 export async function readMediaDetails(

@@ -60,7 +60,12 @@ export const en = {
   },
   mediaCenter: {
     title: "Media",
-    subtitle: "Discover, request, download and watch without jumping between services.",
+    subtitle:
+      "Discover, request, download and watch without jumping between services.",
+    serviceIssues: "Media service issues",
+    serviceIssuesHint:
+      "Live Sonarr and Radarr health. HomePlace refreshes this automatically.",
+    refreshIssues: "Refresh",
     contentType: "Media type",
     discover: "Discover",
     movies: "Movies",
@@ -85,7 +90,8 @@ export const en = {
     addEntry: "Add watched title",
     syncJellyfin: "Sync Jellyfin",
     jellyfinProfile: "Jellyfin profile",
-    jellyfinProfileHint: "Links personal play state and watch history to this HomePlace account.",
+    jellyfinProfileHint:
+      "Links personal play state and watch history to this HomePlace account.",
     chooseJellyfinProfile: "Choose profile",
     jellyfinProfileSaved: "Jellyfin profile linked",
     importList: "Import list",
@@ -96,7 +102,8 @@ export const en = {
     recentlyWatched: "Recently watched",
     notes: "Notes or a short review",
     noWatchHistory: "Your watched list is empty",
-    noWatchHistoryHint: "Add a title manually or sync watched items from Jellyfin.",
+    noWatchHistoryHint:
+      "Add a title manually or sync watched items from Jellyfin.",
     saved: "Saved",
     loadingDetails: "Loading full details…",
     noOverview: "No description is available.",
@@ -111,7 +118,8 @@ export const en = {
     all: "All",
     popular: "Popular now",
     noResults: "Nothing found",
-    configureOverseerr: "Add Overseerr in Settings to enable discovery and requests.",
+    configureOverseerr:
+      "Add Overseerr in Settings to enable discovery and requests.",
     configureJellyfin: "Add Jellyfin in Settings to browse your library.",
     configureQbit: "Add qBittorrent in Settings to manage downloads.",
     request: "Request",
@@ -119,7 +127,8 @@ export const en = {
     approved: "Approved",
     downloading: "Downloading",
     downloadSetup: "Request options",
-    downloadSetupHint: "Choose the version before sending the request. Progress will appear in Requests and Downloads.",
+    downloadSetupHint:
+      "Choose the version before sending the request. Progress will appear in Requests and Downloads.",
     quality: "Quality",
     standardQuality: "Standard quality (server profile)",
     allSeasons: "All seasons",
@@ -145,7 +154,8 @@ export const en = {
     recheck: "Recheck",
     remove: "Remove task",
     removeFiles: "Also delete downloaded files",
-    destructiveConfirm: "Delete the task and downloaded files? This cannot be undone.",
+    destructiveConfirm:
+      "Delete the task and downloaded files? This cannot be undone.",
     noRequests: "No media requests yet",
     noDownloads: "No downloads",
     loadMore: "Load more",
@@ -163,17 +173,21 @@ export const en = {
     next: "Next period",
     noEvents: "No events",
     notLinked: "Connect Google Calendar to see your events.",
-    loadFailed: "Calendar could not be loaded. Check the Google connection in Settings.",
+    loadFailed:
+      "Calendar could not be loaded. Check the Google connection in Settings.",
     openGoogle: "Open in Google Calendar",
   },
   devices: {
     title: "Devices",
-    intro: "Approve phones that show the same confirmation code, review their capabilities, and revoke access at any time.",
+    intro:
+      "Approve phones that show the same confirmation code, review their capabilities, and revoke access at any time.",
     connectTitle: "Connect a new device",
-    connectHint: "In HomePlace Mobile, choose Scan QR code. The app verifies this server and then sends a pairing request for your approval.",
+    connectHint:
+      "In HomePlace Mobile, choose Scan QR code. The app verifies this server and then sends a pairing request for your approval.",
     scanQr: "HomePlace server connection QR code",
     serverAddress: "Server address",
-    httpHint: "Plain HTTP is intended for a trusted local network. Use HTTPS when connecting over the internet.",
+    httpHint:
+      "Plain HTTP is intended for a trusted local network. Use HTTPS when connecting over the internet.",
     pending: "Waiting for approval",
     connected: "Connected devices",
     empty: "No HomePlace devices are connected yet",
@@ -196,17 +210,22 @@ export const en = {
     text: "Text",
     file: "File",
     send: "Send",
-    shareApprovalHint: "The desktop user must approve before the link opens or text enters the clipboard.",
-    fileApprovalHint: "Up to 500 MiB. The desktop user chooses where to save it after checksum verification.",
+    shareApprovalHint:
+      "The desktop user must approve before the link opens or text enters the clipboard.",
+    fileApprovalHint:
+      "Up to 500 MiB. The desktop user chooses where to save it after checksum verification.",
     uploadingFile: "Uploading… {progress}%",
     cancelUpload: "Cancel upload",
     uploadCancelled: "Upload cancelled.",
     fileTooLarge: "Choose a file no larger than 500 MiB.",
     shareSent: "Sent. Waiting for approval on the device.",
-    shareInvalid: "Enter a valid HTTP or HTTPS link, or text up to 8,000 characters.",
+    shareInvalid:
+      "Enter a valid HTTP or HTTPS link, or text up to 8,000 characters.",
     shareUnavailable: "The device is no longer available.",
-    shareUnsupported: "This version of the device app does not support that action.",
-    shareQueueFull: "The device has too many pending offers. Try again after they are reviewed.",
+    shareUnsupported:
+      "This version of the device app does not support that action.",
+    shareQueueFull:
+      "The device has too many pending offers. Try again after they are reviewed.",
     testNotification: "Send test notification",
     revoke: "Revoke",
     revokeConfirm: "Revoke this device? It will need to pair again.",
@@ -262,7 +281,8 @@ export const en = {
     addWidget: "Widget",
     addWidgetHint: "A metric, a chart, a clock, a note",
     addSection: "Section",
-    addSectionHint: "Just a heading to divide the board — it holds nothing; use a folder for that",
+    addSectionHint:
+      "Just a heading to divide the board — it holds nothing; use a folder for that",
 
     ownService: "Something of my own",
     containerMissing: "This container is not running here any more",
@@ -288,7 +308,8 @@ export const en = {
     folderEmpty: "This folder is empty",
     folderHint: "Drag a tile onto the folder while editing to file it here.",
     folderDisplay: "Show as",
-    folderDisplayHint: "A folder (compact, opens on click) or a panel (open on the board, tiles laid out inside).",
+    folderDisplayHint:
+      "A folder (compact, opens on click) or a panel (open on the board, tiles laid out inside).",
     displayFolder: "Folder",
     displayPanel: "Panel on the board",
     folderDetail: "Second column",
@@ -312,9 +333,12 @@ export const en = {
     iconLogo: "Logo",
     iconImage: "Your own image",
     iconCatalog: "Dashboard Icons",
-    iconCatalogHint: "Search the complete online catalogue by service name. The first 96 matches are shown.",
-    iconCatalogDisabled: "Enable the online icon pack in Settings → System to browse this catalogue.",
-    iconCatalogUnavailable: "The online icon catalogue is unavailable. Built-in icons still work.",
+    iconCatalogHint:
+      "Search the complete online catalogue by service name. The first 96 matches are shown.",
+    iconCatalogDisabled:
+      "Enable the online icon pack in Settings → System to browse this catalogue.",
+    iconCatalogUnavailable:
+      "The online icon catalogue is unavailable. Built-in icons still work.",
     iconCatalogEmpty: "No matching icons.",
 
     tileIconHint: "An emoji or an image URL",
@@ -331,12 +355,14 @@ export const en = {
     uptime7d: "7 d",
     responseTime: "Response",
     dragHint: "Drag tiles to move them, pull the corner to resize.",
-    reorderHint: "Use ↑ ↓ on a tile to reorder. Sizes and gaps are set on a wider screen.",
+    reorderHint:
+      "Use ↑ ↓ on a tile to reorder. Sizes and gaps are set on a wider screen.",
     moveUp: "Move up",
     moveDown: "Move down",
     background: "Background",
     backgroundUrl: "Image URL",
-    backgroundHint: "A photo behind the tiles. Dim and blur keep the labels readable.",
+    backgroundHint:
+      "A photo behind the tiles. Dim and blur keep the labels readable.",
     dim: "Dim",
     blur: "Blur",
   },
@@ -352,7 +378,8 @@ export const en = {
   containers: {
     title: "Containers",
     discovered: "Discovered",
-    discoveredHint: "Containers found on your server that are not on any dashboard yet.",
+    discoveredHint:
+      "Containers found on your server that are not on any dashboard yet.",
     onDashboard: "On dashboard",
     addToDashboard: "Add to dashboard",
     start: "Start",
@@ -366,13 +393,16 @@ export const en = {
     logs: "Logs",
     viewLogs: "View logs",
     checkUpdates: "Check updates",
-    checkUpdatesHint: "Ask each container's registry whether a newer image exists (uses the internet).",
+    checkUpdatesHint:
+      "Ask each container's registry whether a newer image exists (uses the internet).",
     updateAvailable: "A newer image is available",
     update: "update",
     updateHowTo: "Pull the new image, then recreate the container:",
-    updateComposeNote: "With Compose: run docker compose pull && docker compose up -d in the stack's folder.",
+    updateComposeNote:
+      "With Compose: run docker compose pull && docker compose up -d in the stack's folder.",
     pullImage: "Download image",
-    pullDone: "Image pulled — it applies on the next recreate (docker compose up -d).",
+    pullDone:
+      "Image pulled — it applies on the next recreate (docker compose up -d).",
     onlyMatches: "Only matching lines",
     downloadLogs: "Download logs",
     pause: "Pause",
@@ -456,7 +486,8 @@ export const en = {
     noPrometheusHint:
       "Point PROMETHEUS_URL at a Prometheus with node_exporter and cAdvisor to see hardware metrics and charts.",
     noProxmox: "Proxmox is not configured",
-    noProxmoxHint: "Set PROXMOX_URL and an API token to see hosts, guests and physical disks.",
+    noProxmoxHint:
+      "Set PROXMOX_URL and an API token to see hosts, guests and physical disks.",
 
     // Extra series and the numbers that go with the charts.
     swap: "Swap",
@@ -486,7 +517,8 @@ export const en = {
     guestNet: "Network",
     guestBoot: "Boot",
     guestOs: "OS type",
-    guestNotRunning: "This guest is not running — live metrics are unavailable.",
+    guestNotRunning:
+      "This guest is not running — live metrics are unavailable.",
     guestBackLink: "Monitoring",
     diskRead: "Disk read",
     diskWrite: "Disk write",
@@ -517,10 +549,12 @@ export const en = {
     noData: "No data",
     noteText: "Text",
     linksField: "Shortcuts",
-    linksHint: "One per line, as \"Label | address\". The label is optional; an address with no http(s):// is opened over http.",
+    linksHint:
+      'One per line, as "Label | address". The label is optional; an address with no http(s):// is opened over http.',
     load: "Container load",
     onlyContainers: "Only these containers",
-    onlyContainersHint: "One name per line. Empty means every container, busiest first.",
+    onlyContainersHint:
+      "One name per line. Empty means every container, busiest first.",
     sortBy: "Sort by",
     limit: "How many",
     weather: "Weather",
@@ -548,7 +582,8 @@ export const en = {
     countdownPassed: "ago",
     ical: "Calendar (iCal)",
     icalHint: "Set an .ics feed to show upcoming events.",
-    icalUrlHint: "Any .ics calendar URL — a shared family calendar, a schedule.",
+    icalUrlHint:
+      "Any .ics calendar URL — a shared family calendar, a schedule.",
     airquality: "Air quality",
     airHint: "Pick a place to show its air quality.",
     aqiGood: "Good",
@@ -565,7 +600,8 @@ export const en = {
     wol: "Wake-on-LAN",
     wolHint: "Add machines to wake with a magic packet.",
     wolMachines: "Machines",
-    wolMachinesHint: "One per line: Name | MAC | broadcast (broadcast optional).",
+    wolMachinesHint:
+      "One per line: Name | MAC | broadcast (broadcast optional).",
     wolWake: "Wake",
     wolSent: "sent",
     shopping: "Shopping list",
@@ -613,10 +649,14 @@ export const en = {
     nutritionNoMacros: "No nutrition data for this one.",
     nutritionFillIn: "No nutrition on file — fill it in (calories are enough):",
     nutritionPhoto: "Barcode photo",
-    nutritionPhotoFail: "Could not read a barcode in that photo — try a clearer one, the number, or enter it by hand:",
-    nutritionErrorIp: "FatSecret refused this server's IP ({ip}). Add it to the API allow-list in your FatSecret account, or log foods by hand:",
-    nutritionErrorAuth: "FatSecret is unreachable — check the credentials in settings, or log foods by hand:",
-    nutritionErrorApi: "FatSecret search failed. Try again, or log foods by hand:",
+    nutritionPhotoFail:
+      "Could not read a barcode in that photo — try a clearer one, the number, or enter it by hand:",
+    nutritionErrorIp:
+      "FatSecret refused this server's IP ({ip}). Add it to the API allow-list in your FatSecret account, or log foods by hand:",
+    nutritionErrorAuth:
+      "FatSecret is unreachable — check the credentials in settings, or log foods by hand:",
+    nutritionErrorApi:
+      "FatSecret search failed. Try again, or log foods by hand:",
     nutritionBarcode: "Barcode…",
     nutritionScan: "Scan a barcode",
     nutritionScanHint: "Point the camera at a barcode",
@@ -639,22 +679,28 @@ export const en = {
     nutritionGoalGain: "Gain weight",
     url: "Address",
     feedHint: "Set a feed address to read the latest items.",
-    feedUrlHint: "An RSS or Atom feed — a blog, the news, a repo's releases.atom.",
+    feedUrlHint:
+      "An RSS or Atom feed — a blog, the news, a repo's releases.atom.",
     embedHint: "Set an address to embed a page here.",
-    embedUrlHint: "Any web page — a Grafana panel, a camera, another dashboard.",
+    embedUrlHint:
+      "Any web page — a Grafana panel, a camera, another dashboard.",
     homeGroupBy: "Group by",
-    homeGroupsHint: "Which groups or rooms to show — pick one for a single-room tile. None chosen shows them all.",
-    noHomeGroups: "No groups or rooms yet — make groups on the Smart home page.",
+    homeGroupsHint:
+      "Which groups or rooms to show — pick one for a single-room tile. None chosen shows them all.",
+    noHomeGroups:
+      "No groups or rooms yet — make groups on the Smart home page.",
     noScenes: "No scenes or scripts in Home Assistant.",
     noPower: "No power sensors found in Home Assistant.",
     perHour: "h",
     energyPrice: "Price per kWh",
-    energyPriceHint: "Leave 0 to just show watts. Set it to see the running cost.",
+    energyPriceHint:
+      "Leave 0 to just show watts. Set it to see the running cost.",
     energyCurrency: "Currency",
     mediaplayer: "Media player",
 
     calendar: "Calendar",
-    calendarNotLinked: "Link a Google account in settings to see your calendar here.",
+    calendarNotLinked:
+      "Link a Google account in settings to see your calendar here.",
     calendarLink: "Connect Google",
     calendarEmpty: "Nothing coming up",
     calendarDays: "Days ahead",
@@ -714,7 +760,6 @@ export const en = {
     warnings: "Warnings",
     infos: "Info",
     noMatches: "Nothing matches that",
-
   },
   bell: {
     title: "Notifications",
@@ -735,25 +780,30 @@ export const en = {
     notifications: "Notifications",
     backups: "Backups",
     statusPage: "Public status page",
-    statusPageHint: "A sign-in-free page at /status showing only the services you tick — up or down, with a day's uptime.",
+    statusPageHint:
+      "A sign-in-free page at /status showing only the services you tick — up or down, with a day's uptime.",
     statusPageEnable: "Enable the public page",
     statusPageTitle: "Page title",
     statusPageServices: "Services to show",
     statusPageNoServices: "No services with an availability check yet.",
     kumaImport: "Import from Uptime Kuma",
-    kumaImportHint: "Paste an Uptime Kuma backup (Settings → Backup → Export) or drop the file. Each monitor becomes a link tile on your first dashboard.",
+    kumaImportHint:
+      "Paste an Uptime Kuma backup (Settings → Backup → Export) or drop the file. Each monitor becomes a link tile on your first dashboard.",
     kumaJson: "Backup JSON",
     kumaImportButton: "Import",
     kumaImported: "Imported",
-    backupsHint: "A snapshot of the whole database — dashboards, settings, history. Download one to keep it off the host.",
+    backupsHint:
+      "A snapshot of the whole database — dashboards, settings, history. Download one to keep it off the host.",
     createBackup: "Back up now",
     download: "Download",
     restore: "Restore",
-    restoreConfirm: "Replace the current database with this backup? It takes effect after the container restarts.",
+    restoreConfirm:
+      "Replace the current database with this backup? It takes effect after the container restarts.",
     restoreDone: "Restored — restart the container to load it.",
     // What reaches a phone, and what only lands in the event feed.
     notifyPolicy: "What gets sent",
-    notifyPolicyHint: "Everything is recorded in the feed either way. This decides what also becomes a notification.",
+    notifyPolicyHint:
+      "Everything is recorded in the feed either way. This decides what also becomes a notification.",
     minSeverity: "Notify from",
     sevInfo: "Info and up",
     sevWarn: "Warnings and up",
@@ -772,7 +822,8 @@ export const en = {
     kindLogin: "Sign-ins",
     kindTelegramBot: "Telegram bots",
     schedules: "Scheduled actions",
-    schedulesHint: "Do a thing on a clock — restart a container, run a scene, send a reminder. Run on the monitor's tick.",
+    schedulesHint:
+      "Do a thing on a clock — restart a container, run a scene, send a reminder. Run on the monitor's tick.",
     scheduleAdd: "New schedule",
     scheduleEdit: "Edit schedule",
     scheduleName: "Name",
@@ -794,11 +845,13 @@ export const en = {
     sa_backup: "Back up the database",
     sa_summary: "Send a daily digest",
     dockerHosts: "Docker hosts",
-    dockerHostsHint: "Add another machine's Docker socket proxy. Its containers appear alongside the rest, tagged with the host.",
+    dockerHostsHint:
+      "Add another machine's Docker socket proxy. Its containers appear alongside the rest, tagged with the host.",
     dockerHostLabel: "Label",
     dockerHostAdd: "Add host",
     email: "Email",
-    emailHint: "Alerts by email through your own SMTP server. A LAN relay, or a provider like Gmail with an app password.",
+    emailHint:
+      "Alerts by email through your own SMTP server. A LAN relay, or a provider like Gmail with an app password.",
     emailHost: "SMTP host",
     emailPort: "Port",
     emailSecure: "Implicit TLS (port 465)",
@@ -806,43 +859,59 @@ export const en = {
     emailFrom: "From address",
     emailTo: "Send to",
     push: "Push notifications",
-    ntfyHint: "A notifier you can host yourself. On the same network as this panel it keeps working when the connection to the outside world is what broke — which is when a server alert matters most.",
+    ntfyHint:
+      "A notifier you can host yourself. On the same network as this panel it keeps working when the connection to the outside world is what broke — which is when a server alert matters most.",
     ntfyTopic: "Topic",
     webhook: "Webhook",
-    webhookHint: "A POST with the whole event as JSON, for whatever else you run — Node-RED, a script, another bot.",
+    webhookHint:
+      "A POST with the whole event as JSON, for whatever else you run — Node-RED, a script, another bot.",
 
-    pushHint: "Alerts and reminders delivered by the browser. Each browser is allowed separately, and works even when Telegram is unreachable.",
+    pushHint:
+      "Alerts and reminders delivered by the browser. Each browser is allowed separately, and works even when Telegram is unreachable.",
     pushEnable: "Allow in this browser",
     pushDenied: "The browser refused permission",
     pushSent: "Sent — it should appear now",
-    pushUnsupported: "This browser cannot do push here. It needs HTTPS (or localhost), and on iPhone the panel must be installed to the home screen first.",
+    pushUnsupported:
+      "This browser cannot do push here. It needs HTTPS (or localhost), and on iPhone the panel must be installed to the home screen first.",
 
     services: "Your services",
     configuredServices: "Configured services",
-    configuredServicesHint: "Keep only the services you use. Add another one from the catalogue at any time.",
+    configuredServicesHint:
+      "Keep only the services you use. Add another one from the catalogue at any time.",
     addService: "Add service",
     addFirstService: "Add your first service",
-    servicesHint: "Read through each service\u2019s own API. Keys are stored encrypted and never shown again.",
+    servicesHint:
+      "Read through each service\u2019s own API. Keys are stored encrypted and never shown again.",
     kind: "Kind",
     jellyfinKeyHint: "Jellyfin → Dashboard → API keys",
     mediaCache: "Store artwork and metadata locally",
-    mediaCacheHint: "Keeps a persistent copy in HomePlace data storage for faster loading and resilience when external services are unavailable.",
-    jellyfinNoAnswer: "Jellyfin did not answer through either the local or external address. Check the addresses and API key.",
-    jellyfinKeyRejected: "Jellyfin is reachable, but it rejected the saved API key. Create a new API key in the Jellyfin dashboard and save it here.",
-    jellyfinSessionsRejected: "The API key works, but Jellyfin denied access to sessions. Check the key permissions and server logs.",
-    jellyfinAuthUnavailable: "The Jellyfin login page is reachable, but its authenticated API did not answer. Check the reverse proxy and Jellyfin logs.",
+    mediaCacheHint:
+      "Keeps a persistent copy in HomePlace data storage for faster loading and resilience when external services are unavailable.",
+    jellyfinNoAnswer:
+      "Jellyfin did not answer through either the local or external address. Check the addresses and API key.",
+    jellyfinKeyRejected:
+      "Jellyfin is reachable, but it rejected the saved API key. Create a new API key in the Jellyfin dashboard and save it here.",
+    jellyfinSessionsRejected:
+      "The API key works, but Jellyfin denied access to sessions. Check the key permissions and server logs.",
+    jellyfinAuthUnavailable:
+      "The Jellyfin login page is reachable, but its authenticated API did not answer. Check the reverse proxy and Jellyfin logs.",
     jellyfinPublicUrl: "External Jellyfin address",
     jellyfinPublicUrlHint: "Used away from home and as a safe fallback.",
     jellyfinLocalUrl: "Local Jellyfin address",
-    jellyfinLocalUrlHint: "Preferred on a private IP, localhost or .local network.",
+    jellyfinLocalUrlHint:
+      "Preferred on a private IP, localhost or .local network.",
     jellyfinAppUrl: "Jellyfin app link",
-    jellyfinAppUrlHint: "Swiftfin: jellyfin://SERVER_ID/USER_ID/item/{id}. Jellyfin Media Player on desktop has no standard item deep link; leave this empty to open the web player.",
-    overseerrHint: "HomePlace uses Overseerr for discovery, availability and media requests.",
+    jellyfinAppUrlHint:
+      "Swiftfin: jellyfin://SERVER_ID/USER_ID/item/{id}. Jellyfin Media Player on desktop has no standard item deep link; leave this empty to open the web player.",
+    overseerrHint:
+      "HomePlace uses Overseerr for discovery, availability and media requests.",
     haToken: "Long-lived token",
-    haTokenHint: "Home Assistant → your profile → security → long-lived access tokens",
+    haTokenHint:
+      "Home Assistant → your profile → security → long-lived access tokens",
 
     rules: "Metric rules",
-    rulesHint: "Conditions on numbers, checked every ten seconds. Availability is watched already and needs no rule here.",
+    rulesHint:
+      "Conditions on numbers, checked every ten seconds. Availability is watched already and needs no rule here.",
     rulesEmpty: "No rules yet",
     rulesTemplates: "Add the usual ones",
     rulesComparison: "When the value is",
@@ -857,11 +926,14 @@ export const en = {
     rulesSourcePrometheus: "Prometheus (PromQL)",
     rulesSourceHa: "Home Assistant sensor",
     rulesEntity: "Sensor entity",
-    rulesEntityHint: "A Home Assistant entity with a numeric state — copy its id from the Smart home page.",
+    rulesEntityHint:
+      "A Home Assistant entity with a numeric state — copy its id from the Smart home page.",
 
     about: "About",
-    aboutDescription: "A self-hosted control centre for personal infrastructure, devices, applications and services.",
-    dashboardIconsCredit: "Service logos are provided by Dashboard Icons. Thank you to the Homarr Labs team and every contributor.",
+    aboutDescription:
+      "A self-hosted control centre for personal infrastructure, devices, applications and services.",
+    dashboardIconsCredit:
+      "Service logos are provided by Dashboard Icons. Thank you to the Homarr Labs team and every contributor.",
     dashboardIconsLicense: "Dashboard Icons source and Apache 2.0 license",
     role: "Role",
     roleOwner: "Owner",
@@ -879,14 +951,16 @@ export const en = {
     integrationPrometheus: "Prometheus",
     integrationProxmox: "Proxmox",
     smartTitle: "Disk health (SMART)",
-    smartHint: "Watch the failing-sector counters from Proxmox and warn on any increase — a disk about to fail shows here first. The known count never pages you; only a change does.",
+    smartHint:
+      "Watch the failing-sector counters from Proxmox and warn on any increase — a disk about to fail shows here first. The known count never pages you; only a change does.",
     smartEnable: "Watch disk health",
     smartReallocated: "Reallocated sectors",
     smartPending: "Pending sectors",
     smartUncorrectable: "Uncorrectable sectors",
     smartHealth: "SMART verdict drops",
     integrationFatSecret: "FatSecret",
-    fatSecretHint: "Client credentials from the FatSecret Platform API, for food search in the diary widget. The КБЖУ targets need no account.",
+    fatSecretHint:
+      "Client credentials from the FatSecret Platform API, for food search in the diary widget. The КБЖУ targets need no account.",
     fatSecretClientId: "Client ID",
     fatSecretSecret: "Client secret",
     secretStored: "A secret is stored — leave blank to keep it.",
@@ -910,14 +984,17 @@ export const en = {
     telegramDelay: "Notify after",
     telegramRecovery: "Also notify on recovery",
     telegramCommands: "Add reminders from the chat",
-    telegramCommandsHint: "Let the bot read your messages: write a reminder to it and it appears on the site. Only your configured chat is answered.",
+    telegramCommandsHint:
+      "Let the bot read your messages: write a reminder to it and it appears on the site. Only your configured chat is answered.",
     telegramQuiet: "Quiet hours",
     telegramQuietHint: "23:00-08:00 — nothing is sent during this window",
     telegramProxy: "Proxy",
-    telegramProxyHint: "For when Telegram is not reachable directly. SOCKS5 or HTTP only — MTProto proxies work with the Telegram app, not with the Bot API this uses.",
+    telegramProxyHint:
+      "For when Telegram is not reachable directly. SOCKS5 or HTTP only — MTProto proxies work with the Telegram app, not with the Bot API this uses.",
     telegramTest: "Send a test message",
     telegramMonitors: "Telegram bot monitoring",
-    telegramMonitorsHint: "The main HomePlace bot is checked automatically. Add other bots here; HomePlace verifies Telegram API access and recent webhook errors every minute, then alerts paired phones.",
+    telegramMonitorsHint:
+      "The main HomePlace bot is checked automatically. Add other bots here; HomePlace verifies Telegram API access and recent webhook errors every minute, then alerts paired phones.",
     telegramMonitorName: "Bot name",
     telegramMonitorAdd: "Add bot",
     telegramMonitorSave: "Save and check",
@@ -928,16 +1005,19 @@ export const en = {
     rotate: "New token",
     turnOff: "Turn off",
     icons: "Icons",
-    googleHint: "Create an OAuth client in Google Cloud (type: web application), paste its id and secret here, then link your account. Only the calendar is read, and only for the account that links it.",
+    googleHint:
+      "Create an OAuth client in Google Cloud (type: web application), paste its id and secret here, then link your account. Only the calendar is read, and only for the account that links it.",
     googleRedirect: "Redirect URI — paste this into Google",
     googleLink: "Link a Google account",
     googleUnlink: "Unlink",
 
-    iconsHint: "Services are recognised by name and given an icon automatically. The pack replaces those with real logos, fetched from the internet — leave it off on a panel with no route out.",
+    iconsHint:
+      "Services are recognised by name and given an icon automatically. The pack replaces those with real logos, fetched from the internet — leave it off on a panel with no route out.",
     iconsPack: "Use the online icon pack",
     configuration: "Configuration",
     exportConfig: "Export",
-    exportHint: "Dashboards, tiles and layout as one file. No accounts, no credentials.",
+    exportHint:
+      "Dashboards, tiles and layout as one file. No accounts, no credentials.",
     importConfig: "Import",
     importMerge: "Add to what is here",
     importReplace: "Replace everything",
@@ -945,10 +1025,11 @@ export const en = {
   },
   help: {
     title: "Quick guide",
-    intro: "Everything in HomePlace is optional. What you have not connected simply does not appear.",
+    intro:
+      "Everything in HomePlace is optional. What you have not connected simply does not appear.",
     dashboardTitle: "Dashboard",
     dashboardText:
-      "+ adds a tile: a container, any link, a folder, or a widget. \"Edit layout\" turns on dragging — move a tile anywhere, pull its bottom-right corner to resize. Tabs across the top are separate boards; each one can have its own background photo.",
+      '+ adds a tile: a container, any link, a folder, or a widget. "Edit layout" turns on dragging — move a tile anywhere, pull its bottom-right corner to resize. Tabs across the top are separate boards; each one can have its own background photo.',
     containersTitle: "Containers",
     containersText:
       "The containers page is the operations view: every container on the machine, with live CPU and memory, search, a filter for the ones misbehaving, and controls on each row. The arrow opens one — logs streaming live, mounts, ports, restarts. Start and stop need the socket proxy from docker-compose.yml and can be switched off entirely with ALLOW_CONTAINER_CONTROL=false.",
@@ -961,20 +1042,20 @@ export const en = {
     nowPlayingTitle: "Now playing",
     nowPlayingText:
       "The panel cannot see what your PC is playing, so the PC tells it: generate a token and POST the track to /api/now-playing from a script or a browser extension. The example command is on this page.",
-    boardTitle:
-      "Arranging the board",
+    boardTitle: "Arranging the board",
     boardText:
       "Edit layout turns on dragging: move a tile anywhere, pull its bottom-right corner to resize, and with a tile focused the arrow keys move it — Shift with them resizes. Drop a tile onto a folder to file it away; it keeps working in there, widgets included. The padlock pins a tile so nothing can shove it.",
-    remindersTitle:
-      "Reminders and the home half",
+    remindersTitle: "Reminders and the home half",
     remindersText:
       "A reminder is a line and a time, added straight on its tile, repeating if you want; it notifies whoever set it. Weather needs nothing, a calendar needs a linked Google account, and a tab can have a background photo from your phone.",
     shortcutsTitle: "Shortcuts",
-    shortcutsText: "Ctrl+K opens search — services, containers, pages. Arrows to move, Enter to go.",
+    shortcutsText:
+      "Ctrl+K opens search — services, containers, pages. Arrows to move, Enter to go.",
   },
   services: {
     haEntities: "Devices",
-    haPickerHint: "Discovered from Home Assistant. Pick what belongs on the tile; the ones marked ⇄ can be switched from here.",
+    haPickerHint:
+      "Discovered from Home Assistant. Pick what belongs on the tile; the ones marked ⇄ can be switched from here.",
     haAllDomains: "All kinds",
 
     notConfigured: "Not set up — add it in settings",
@@ -999,7 +1080,8 @@ export const en = {
     added: "Added",
     noBackups: "no backups",
     entities: "Entities",
-    entitiesHint: "One entity id per line, e.g. light.kitchen. Lights, switches, scenes and scripts can be operated; everything else is shown read-only.",
+    entitiesHint:
+      "One entity id per line, e.g. light.kitchen. Lights, switches, scenes and scripts can be operated; everything else is shown read-only.",
     pickEntities: "Choose which entities to show",
   },
 
@@ -1037,7 +1119,8 @@ export const en = {
     bgPulse: "Breathing gradient",
     bgStill: "Still",
     likePhrase: "Command for the button",
-    likePhraseHint: "What to say to the speaker — \u201clike\u201d on a Yandex station. Empty means no button.",
+    likePhraseHint:
+      "What to say to the speaker — \u201clike\u201d on a Yandex station. Empty means no button.",
     likeLabel: "Button name",
     likeService: "Home Assistant service",
     likeServiceHint: "media_player.play_media suits a Yandex station.",
@@ -1045,7 +1128,8 @@ export const en = {
   home: {
     title: "Smart home",
     notConfigured: "Home Assistant is not connected",
-    notConfiguredHint: "Add its address and a long-lived token in Settings → Services, and the whole house appears here.",
+    notConfiguredHint:
+      "Add its address and a long-lived token in Settings → Services, and the whole house appears here.",
     unreachable: "Home Assistant did not answer",
     byRoom: "By room",
     byDevice: "By device",
@@ -1112,8 +1196,10 @@ export const en = {
     examples: {
       cpu: "Processor load as a percentage, averaged over two minutes.",
       diskFree: "Bytes still free on the root filesystem.",
-      containerCpu: "Processor use per container — one line each, from cAdvisor.",
-      network: "Bytes per second arriving, ignoring loopback and container interfaces.",
+      containerCpu:
+        "Processor use per container — one line each, from cAdvisor.",
+      network:
+        "Bytes per second arriving, ignoring loopback and container interfaces.",
       temperature: "The hottest sensor the machine reports, in degrees.",
       swap: "How much swap is in use; anything above zero on a healthy server is worth a look.",
       processes: "Processes currently running, as opposed to sleeping.",

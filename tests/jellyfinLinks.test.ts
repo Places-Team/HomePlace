@@ -13,5 +13,8 @@ test("Jellyfin local routing recognizes private and local hosts", () => {
 
 test("Jellyfin links encode item ids and normalize a trailing slash", () => {
   assert.equal(jellyfinWebLink("https://media.example.com/", "film 1"), "https://media.example.com/web/index.html#!/details?id=film%201");
-  assert.equal(jellyfinNativeLink("jellyfin://details?id={id}", "film/1"), "jellyfin://details?id=film%2F1");
+  assert.equal(
+    jellyfinNativeLink("jellyfin://server/user/item/{id}", "film/1"),
+    "jellyfin://server/user/item/film%2F1"
+  );
 });

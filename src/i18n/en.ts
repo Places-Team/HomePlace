@@ -781,7 +781,7 @@ export const en = {
     jellyfinLocalUrl: "Local Jellyfin address",
     jellyfinLocalUrlHint: "Preferred on a private IP, localhost or .local network.",
     jellyfinAppUrl: "Jellyfin app link",
-    jellyfinAppUrlHint: "Optional native deep link. Use {id} where the media id belongs.",
+    jellyfinAppUrlHint: "Swiftfin: jellyfin://SERVER_ID/USER_ID/item/{id}. Jellyfin Media Player on desktop has no standard item deep link; leave this empty to open the web player.",
     overseerrHint: "HomePlace uses Overseerr for discovery, availability and media requests.",
     haToken: "Long-lived token",
     haTokenHint: "Home Assistant → your profile → security → long-lived access tokens",

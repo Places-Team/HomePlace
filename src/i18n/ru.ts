@@ -778,7 +778,7 @@ export const ru: Dictionary = {
     jellyfinLocalUrl: "Локальный адрес Jellyfin",
     jellyfinLocalUrlHint: "Предпочитается в сети с частным IP, localhost или .local.",
     jellyfinAppUrl: "Ссылка приложения Jellyfin",
-    jellyfinAppUrlHint: "Необязательная deep link-ссылка. Вместо идентификатора используйте {id}.",
+    jellyfinAppUrlHint: "Для Swiftfin: jellyfin://SERVER_ID/USER_ID/item/{id}. У Jellyfin Media Player на компьютере нет стандартной ссылки на конкретный материал — оставьте поле пустым для веб-плеера.",
     overseerrHint: "HomePlace использует Overseerr для поиска, статусов и запросов медиатеки.",
     haToken: "Долгоживущий токен",
     haTokenHint: "Home Assistant → профиль → безопасность → токены долгосрочного доступа",

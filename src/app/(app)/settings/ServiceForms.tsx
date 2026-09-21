@@ -169,7 +169,7 @@ function JellyfinForm({ d, value, onRemove }: { d: Dictionary; value: ServicesDi
             <Input
               value={form.appUrl}
               onChange={(e) => setForm({ ...form, appUrl: e.target.value })}
-              placeholder="jellyfin://details?id={id}"
+              placeholder="jellyfin://SERVER_ID/USER_ID/item/{id}"
               className="font-mono text-xs"
             />
           </Field>

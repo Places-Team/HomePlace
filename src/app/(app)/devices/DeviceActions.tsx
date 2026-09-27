@@ -10,6 +10,7 @@ import {
   sendDeviceTestNotification,
   updateDeviceHouseholdSharing,
   updateDeviceIdeasAccess,
+  updateDevicePlantsAccess,
   updateDeviceQuickSharing,
 } from "@/actions/linkDevices";
 import { Dialog } from "@/components/Dialog";
@@ -43,6 +44,7 @@ export function DeviceActions({
   allowHouseholdShares,
   quickSharingEnabled,
   ideasAccessEnabled = false,
+  plantsAccessEnabled = false,
   ownerAssigned = false,
   compact = false,
   d,
@@ -55,6 +57,7 @@ export function DeviceActions({
   allowHouseholdShares: boolean;
   quickSharingEnabled: boolean;
   ideasAccessEnabled?: boolean;
+  plantsAccessEnabled?: boolean;
   ownerAssigned?: boolean;
   compact?: boolean;
   d: Dictionary;
@@ -73,6 +76,7 @@ export function DeviceActions({
   const upload = useRef<XMLHttpRequest | null>(null);
   const [result, setResult] = useState<{ ok: boolean; error?: string } | null>(null);
   const [ideasAccessError, setIdeasAccessError] = useState(false);
+  const [plantsAccessError, setPlantsAccessError] = useState(false);
   const busy = pending || uploading;
 
   useEffect(() => {
@@ -214,6 +218,18 @@ export function DeviceActions({
         {ideasAccessEnabled ? d.devices.disableIdeasAccess : d.devices.enableIdeasAccess}
       </Button>}
       {ideasAccessError && <p role="alert" className="text-sm text-danger">{d.devices.ideasAccessError}</p>}
+      {!compact && ownerAssigned && <Button disabled={busy} onClick={() => {
+        if (!plantsAccessEnabled && !window.confirm(d.devices.plantsAccessConfirm)) return;
+        setPlantsAccessError(false);
+        startTransition(async () => {
+          try {
+            const changed = await updateDevicePlantsAccess(id, !plantsAccessEnabled);
+            if (!changed) setPlantsAccessError(true);
+            router.refresh();
+          } catch { setPlantsAccessError(true); }
+        });
+      }}>{plantsAccessEnabled ? d.devices.disablePlantsAccess : d.devices.enablePlantsAccess}</Button>}
+      {plantsAccessError && <p role="alert" className="text-sm text-danger">{d.devices.plantsAccessError}</p>}
       {!compact && <Button
         disabled={pending}
         onClick={() => startTransition(() => updateDeviceHouseholdSharing(id, !allowHouseholdShares))}

@@ -112,6 +112,7 @@ export default async function DevicesPage() {
                     allowHouseholdShares={device.allowHouseholdShares}
                     quickSharingEnabled={permissions.includes("share.relay")}
                     ideasAccessEnabled={permissions.includes("ideas.manage")}
+                    plantsAccessEnabled={permissions.includes("plants.manage")}
                     ownerAssigned={!!device.userId}
                     d={d}
                   />

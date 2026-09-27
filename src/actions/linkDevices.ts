@@ -56,6 +56,13 @@ export async function updateDeviceIdeasAccess(id: string, enabled: boolean): Pro
   return changed;
 }
 
+export async function updateDevicePlantsAccess(id: string, enabled: boolean): Promise<boolean> {
+  await requireRole("admin");
+  const changed = await setLinkDevicePermission(id, "plants.manage", enabled);
+  if (changed) revalidatePath("/devices");
+  return changed;
+}
+
 export async function sendDeviceShare(
   id: string,
   type: "text" | "url",

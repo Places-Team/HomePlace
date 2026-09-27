@@ -40,13 +40,14 @@ export const LINK_PERMISSIONS = new Set([
   "calendar.manage",
   "reminder.manage",
   "ideas.manage",
+  "plants.manage",
   "media.request",
   "telegram.send",
   "clipboard.relay",
   "share.relay",
 ]);
 
-export type LinkPermission = "dashboard.read" | "calendar.read" | "calendar.manage" | "reminder.manage" | "ideas.manage" | "media.request" | "telegram.send" | "clipboard.relay" | "share.relay";
+export type LinkPermission = "dashboard.read" | "calendar.read" | "calendar.manage" | "reminder.manage" | "ideas.manage" | "plants.manage" | "media.request" | "telegram.send" | "clipboard.relay" | "share.relay";
 export type LinkPlatform = "android" | "ios" | "macos" | "windows" | "linux";
 
 export type LinkCapability = {

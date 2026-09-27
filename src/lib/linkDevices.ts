@@ -396,7 +396,7 @@ export async function setHouseholdSharing(deviceId: string, enabled: boolean) {
 
 export async function setLinkDevicePermission(
   deviceId: string,
-  permission: "share.relay" | "ideas.manage",
+  permission: "share.relay" | "ideas.manage" | "plants.manage",
   enabled: boolean,
 ) {
   const device = await prisma.linkDevice.findFirst({
@@ -404,7 +404,7 @@ export async function setLinkDevicePermission(
     select: { permissions: true, userId: true },
   });
   if (!device) return false;
-  if (permission === "ideas.manage" && !device.userId) return false;
+  if (permission !== "share.relay" && !device.userId) return false;
   let current: string[] = [];
   try {
     const parsed = JSON.parse(device.permissions) as unknown;
@@ -419,7 +419,7 @@ export async function setLinkDevicePermission(
     where: {
       id: deviceId,
       revokedAt: null,
-      ...(permission === "ideas.manage" ? { userId: device.userId } : {}),
+      ...(permission !== "share.relay" ? { userId: device.userId } : {}),
     },
     data: { permissions: JSON.stringify([...permissions].sort()) },
   });

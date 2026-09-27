@@ -5,7 +5,7 @@ import { groupRecentEvents } from "./eventGroups";
 import { listContainers } from "./docker";
 import { mobileContainerSummary } from "./linkMonitoring";
 
-export type MobilePermission = "dashboard.read" | "calendar.read" | "calendar.manage" | "reminder.manage" | "media.request" | "telegram.send" | "clipboard.relay" | "share.relay";
+export type MobilePermission = "dashboard.read" | "calendar.read" | "calendar.manage" | "reminder.manage" | "ideas.manage" | "media.request" | "telegram.send" | "clipboard.relay" | "share.relay";
 
 export type MobileAuthorization =
   | { ok: true; device: Awaited<ReturnType<typeof authenticateLinkDevice>> & { userId: string } }

@@ -58,6 +58,43 @@ model User {
   dashboards  Dashboard[]
   linkDevices LinkDevice[]
   watchEntries WatchEntry[]
+  ideaCategories IdeaCategory[]
+  ideas Idea[]
+}
+
+// Personal idea sections are account-scoped and shared by approved Link clients.
+model IdeaCategory {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  key       String
+  position  Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ideas     Idea[]
+
+  @@unique([userId, key])
+  @@index([userId, position])
+}
+
+model Idea {
+  id         String       @id @default(cuid())
+  userId     String
+  categoryId String
+  sourceId   String?
+  title      String
+  note       String       @default("")
+  pinned     Boolean      @default(false)
+  archived   Boolean      @default(false)
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+  user       User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category   IdeaCategory @relation(fields: [categoryId], references: [id])
+
+  @@unique([userId, sourceId])
+  @@index([userId, archived, pinned, updatedAt])
+  @@index([userId, categoryId])
 }
 
 // ─────────────────────────────── Dashboards ─────────────────────────────

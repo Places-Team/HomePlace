@@ -18,7 +18,10 @@ type Watched = { id: string; title: string; ok: boolean; error: string | null };
 
 export async function processAlerts(current: Watched[]): Promise<void> {
   const cfg = await telegramConfig();
-  const enabled = !!cfg?.enabled;
+  // Telegram is only one delivery route. Browser push and paired devices must
+  // still receive incidents when no Telegram bot is configured.
+  const delaySeconds = cfg?.delaySeconds ?? 300;
+  const quietHours = cfg?.quietHours ?? "";
 
   const states = await prisma.alertState.findMany({ where: { itemId: { in: current.map((c) => c.id) } } });
   const stateBy = new Map(states.map((s) => [s.itemId, s]));
@@ -39,16 +42,16 @@ export async function processAlerts(current: Watched[]): Promise<void> {
 
       // Recovery is only worth a message if the outage itself was reported —
       // otherwise it announces the end of something nobody heard about.
-      if (enabled && item.ok && wasNotifiedDown && cfg!.notifyRecovery) {
-        await deliver(`✅ <b>${escapeHtml(item.title)}</b> is back online`, cfg!.quietHours, item.id, "up");
+      if (item.ok && wasNotifiedDown && (cfg?.notifyRecovery ?? true)) {
+        await deliver(`✅ <b>${escapeHtml(item.title)}</b> is back online`, quietHours, item.id, "up");
       }
       continue;
     }
 
-    if (item.ok || previous.notifiedAt || !enabled) continue;
+    if (item.ok || previous.notifiedAt) continue;
 
     const downFor = (now.getTime() - previous.since.getTime()) / 1000;
-    if (downFor < cfg!.delaySeconds) continue;
+    if (downFor < delaySeconds) continue;
 
     const detail = item.error ? `\n<code>${escapeHtml(item.error.slice(0, 200))}</code>` : "";
     const minutes = Math.round(downFor / 60);
@@ -57,7 +60,7 @@ export async function processAlerts(current: Watched[]): Promise<void> {
         (minutes >= 1 ? ` (${minutes} min)` : "") +
         detail +
         `\n${appUrl()}`,
-      cfg!.quietHours,
+      quietHours,
       item.id,
       "down"
     );
@@ -84,6 +87,7 @@ async function deliver(text: string, quietHours: string, itemId: string, state: 
       severity: state === "down" ? "error" : "info",
       type: state,
       tag: `item-${itemId}`,
+      url: "/events",
     });
 
     // Nothing got through: leave it unmarked so the next tick tries again. A

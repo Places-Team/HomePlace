@@ -86,6 +86,7 @@ async function processTelegramBotHealth(checks: CheckedBot[]): Promise<void> {
         severity: "error",
         type: "telegram-bot",
         tag: itemId,
+        url: "/events?type=telegram-bot",
         respectQuietHours: false,
         skipTelegram: true,
         urgent: true,

@@ -11,7 +11,7 @@
  * the browser's own offline page is the honest answer.
  */
 
-const STATIC_CACHE = "homeplace-static-v1";
+const STATIC_CACHE = "homeplace-static-v2";
 
 self.addEventListener("install", (event) => {
   // Take over immediately instead of waiting for every tab to close — this is
@@ -84,7 +84,7 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
-  // Build output and icons only: their URLs change when their contents change.
+  // Build output is content-hashed; icon cache changes with STATIC_CACHE.
   const cacheable = url.pathname.startsWith("/_next/static/") || url.pathname.startsWith("/icon-");
   if (!cacheable) return;
 

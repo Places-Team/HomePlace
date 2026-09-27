@@ -825,12 +825,19 @@ export const ru: Dictionary = {
     warnings: "Предупреждения",
     infos: "Информация",
     noMatches: "Ничего не найдено",
+    details: "Подробности",
+    telegramBot: "Telegram-бот",
+    container: "контейнер",
+    openContainers: "Открыть контейнеры",
+    openIntegrations: "Открыть интеграции",
   },
   bell: {
     title: "Уведомления",
     empty: "Тихо — ничего нового",
     all: "Все события",
     aria: "Уведомления",
+    noDetails: "Дополнительные сведения не записаны.",
+    openEvent: "Посмотреть событие",
   },
   settings: {
     addToBoard: "Вынести на доску",
@@ -886,6 +893,7 @@ export const ru: Dictionary = {
     kindSystem: "Система",
     kindLogin: "Входы",
     kindTelegramBot: "Telegram-боты",
+    kindContainer: "Контейнеры",
     schedules: "Действия по расписанию",
     schedulesHint:
       "Делать что-то по времени — перезапуск контейнера, сцена HA, напоминание. Выполняется на тике монитора.",

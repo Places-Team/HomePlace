@@ -5,8 +5,7 @@ import Link from "next/link";
 import { fetchNotifications, markNotificationsSeen } from "@/actions/notifications";
 import { ago } from "@/lib/format";
 import type { Dictionary } from "@/i18n";
-
-type Item = { id: string; type: string; severity: string; title: string; detail: string | null; at: number; count: number };
+import type { FeedItem } from "@/lib/notifications";
 
 /**
  * The notification bell in the top bar.
@@ -19,9 +18,10 @@ type Item = { id: string; type: string; severity: string; title: string; detail:
  */
 export function NotificationBell({ d, initialUnread }: { d: Dictionary; initialUnread: number }) {
   const [open, setOpen] = useState(false);
-  const [items, setItems] = useState<Item[]>([]);
+  const [items, setItems] = useState<FeedItem[]>([]);
   const [unread, setUnread] = useState(initialUnread);
   const [loaded, setLoaded] = useState(false);
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   // Keep the badge honest without a page navigation: while the panel is closed
   // and the tab is visible, re-count every minute. The panel being open already
@@ -91,7 +91,7 @@ export function NotificationBell({ d, initialUnread }: { d: Dictionary; initialU
               absolute right-0 dropdown of a fixed width runs off the left edge.
               Pin it to the viewport just under the header there, and fall back
               to the anchored dropdown from sm up. */}
-          <div className="fixed right-2 top-14 z-30 w-[calc(100vw-1rem)] overflow-hidden rounded-card border border-line bg-surface shadow-pop sm:absolute sm:right-0 sm:top-auto sm:mt-1 sm:w-80">
+          <div className="fixed right-2 top-14 z-30 w-[calc(100vw-1rem)] overflow-hidden rounded-card border border-line bg-surface shadow-pop sm:absolute sm:right-0 sm:top-auto sm:mt-1 sm:w-[26rem]">
             <div className="flex items-center justify-between border-b border-line px-3 py-2">
               <span className="text-sm font-semibold">{d.bell.title}</span>
               <Link
@@ -108,25 +108,70 @@ export function NotificationBell({ d, initialUnread }: { d: Dictionary; initialU
                 <li className="px-3 py-8 text-center text-sm text-muted">{d.bell.empty}</li>
               )}
               {items.map((it) => (
-                <li key={it.id} className="flex gap-2.5 px-3 py-2.5">
-                  <span
-                    aria-hidden
-                    className={`mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full ${
-                      it.severity === "error"
-                        ? "bg-danger"
-                        : it.severity === "warn"
-                          ? "bg-warn"
-                          : "bg-faint"
-                    }`}
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className="flex items-center gap-1.5 truncate text-sm font-medium">
+                <li key={it.id} className="px-3 py-2.5">
+                  <button
+                    type="button"
+                    className="flex w-full gap-2.5 rounded-control text-left outline-none hover:text-text focus-visible:ring-2 focus-visible:ring-accent"
+                    aria-expanded={expanded === it.id}
+                    onClick={() => setExpanded(expanded === it.id ? null : it.id)}
+                  >
+                    <span
+                      aria-hidden
+                      className={`mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-[7px] ${
+                        it.severity === "error"
+                          ? "bg-danger/10 text-danger"
+                          : it.severity === "warn"
+                            ? "bg-warn/10 text-warn"
+                            : "bg-raised text-muted"
+                      }`}
+                    >
+                      <svg viewBox="0 0 16 16" className="h-4 w-4" fill="none" aria-hidden>
+                        <rect x="2.5" y="2.5" width="11" height="11" rx="3" stroke="currentColor" strokeWidth="1.2" />
+                        <path d="M8 5.2v3.5m0 2.1h.01" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                      </svg>
+                    </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-1.5 truncate text-sm font-medium">
                       <span className="truncate">{it.title}</span>
-                      {it.count > 1 && <span className="shrink-0 text-[11px] text-faint">×{it.count}</span>}
-                    </p>
-                    {it.detail && <p className="truncate text-xs text-muted">{it.detail}</p>}
-                    <p className="mt-0.5 text-[11px] text-faint">{ago(it.at, d)}</p>
-                  </div>
+                      {it.count > 1 && <span className="shrink-0 rounded-control bg-raised px-1.5 text-xs tabular-nums text-muted">×{it.count}</span>}
+                    </span>
+                    {it.detail && <span className="block truncate text-xs text-muted">{it.detail}</span>}
+                    <span className="mt-0.5 block text-[11px] text-faint">{ago(it.at, d)}</span>
+                  </span>
+                    <svg
+                      viewBox="0 0 16 16"
+                      aria-hidden
+                      className={`h-4 w-4 self-center text-muted transition-transform ${expanded === it.id ? "rotate-180" : ""}`}
+                    >
+                      <path d="m4.5 6 3.5 3.5L11.5 6" fill="none" stroke="currentColor" strokeWidth="1.4" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </button>
+                  {expanded === it.id && (
+                    <div id={`notification-${it.id}`} className="ml-4 mt-3 border-l border-line pl-3">
+                      <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-muted">
+                        {it.detail || d.bell.noDetails}
+                      </p>
+                      {it.count > 1 && (
+                        <ol className="mt-2 max-h-36 space-y-1 overflow-y-auto text-xs text-faint">
+                          {it.occurrences.map((occurrence) => (
+                            <li key={occurrence.id} className="flex gap-2">
+                              <time className="shrink-0 tabular-nums" dateTime={new Date(occurrence.at).toISOString()}>
+                                {new Date(occurrence.at).toLocaleString(document.documentElement.lang)}
+                              </time>
+                              {occurrence.detail && <span className="truncate">{occurrence.detail}</span>}
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                      <Link
+                        href={`/events?event=${encodeURIComponent(it.id)}#event-${encodeURIComponent(it.id)}`}
+                        onClick={() => setOpen(false)}
+                        className="mt-3 inline-flex rounded-control px-2 py-1 text-sm font-medium text-accent hover:bg-raised focus-visible:ring-2 focus-visible:ring-accent"
+                      >
+                        {d.bell.openEvent} →
+                      </Link>
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

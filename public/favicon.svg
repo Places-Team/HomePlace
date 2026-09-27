@@ -1,7 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
-  <!-- A house whose roof doubles as a rising line: the dashboard and the
-       monitoring, in one mark. Uses currentColor so it follows the tab theme. -->
-  <rect width="32" height="32" rx="7" fill="#326dff"/>
-  <path d="M6 17.5 16 9l10 8.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-  <path d="M9.5 16.5V24h13v-7.5" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
-</svg>

@@ -251,7 +251,7 @@ export async function queueTestNotification(deviceId: string) {
 /** Queue an alert for every paired, capable device owned by these users. */
 export async function queueLinkNotifications(
   userIds: string[],
-  message: { title: string; body: string; tag?: string; urgent?: boolean },
+  message: { title: string; body: string; url?: string; tag?: string; urgent?: boolean },
 ): Promise<number> {
   if (userIds.length === 0) return 0;
   const devices = await prisma.linkDevice.findMany({

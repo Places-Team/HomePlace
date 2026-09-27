@@ -825,12 +825,19 @@ export const en = {
     warnings: "Warnings",
     infos: "Info",
     noMatches: "Nothing matches that",
+    details: "Details",
+    telegramBot: "Telegram bot",
+    container: "container",
+    openContainers: "Inspect containers",
+    openIntegrations: "Inspect integrations",
   },
   bell: {
     title: "Notifications",
     empty: "All quiet — nothing new",
     all: "All events",
     aria: "Notifications",
+    noDetails: "No additional details were recorded.",
+    openEvent: "Inspect event",
   },
   settings: {
     addToBoard: "Put on the board",
@@ -886,6 +893,7 @@ export const en = {
     kindSystem: "System",
     kindLogin: "Sign-ins",
     kindTelegramBot: "Telegram bots",
+    kindContainer: "Containers",
     schedules: "Scheduled actions",
     schedulesHint:
       "Do a thing on a clock — restart a container, run a scene, send a reminder. Run on the monitor's tick.",

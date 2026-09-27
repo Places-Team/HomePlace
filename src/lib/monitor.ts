@@ -13,6 +13,7 @@ import { checkSmartDrift } from "./smart";
 import { probeInternet } from "./netmon";
 import { checkContainerUpdatesDue } from "./imageUpdates";
 import { checkTelegramBotsDue } from "./telegramHealth";
+import { checkContainerHealthDue } from "./containerHealth";
 import { isDue } from "./cadence";
 
 /**
@@ -85,6 +86,7 @@ async function tick(): Promise<void> {
     // Bot identity and webhook health are independent from Telegram being a
     // notification route: a broken Telegram bot must still alert Link devices.
     await checkTelegramBotsDue();
+    await checkContainerHealthDue();
     // The Telegram bot runs its own long-polling loop (startTelegramPolling) so
     // replies are instant rather than up to a tick late — it is not driven from
     // here any more.

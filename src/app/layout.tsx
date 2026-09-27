@@ -7,12 +7,11 @@ import { ServiceWorker } from "@/components/ServiceWorker";
 export const metadata: Metadata = {
   title: "HomePlace",
   description: "Self-hosted dashboard and monitoring panel for your home server.",
-  // .ico first for the browsers that ask for /favicon.ico regardless of what
-  // the document declares; the SVG is what modern ones actually use.
+  // Browser and installed-app icons use the same mark as the native apps.
   icons: {
     icon: [
-      { url: "/favicon.svg", type: "image/svg+xml" },
       { url: "/favicon.ico", sizes: "32x32" },
+      { url: "/icon-192.png", type: "image/png", sizes: "192x192" },
     ],
     apple: "/icon-192.png",
   },

@@ -154,6 +154,8 @@ export async function saveWebhook(input: Partial<WebhookSettings>): Promise<void
 export type Notification = {
   title: string;
   body: string;
+  /** Local destination opened when a browser or Link alert is selected. */
+  url?: string;
   /** info | warn | error — decides the ntfy priority and the webhook field. */
   severity?: "info" | "warn" | "error";
   /**
@@ -199,6 +201,7 @@ export async function notifyPolicy(): Promise<NotifyPolicy> {
  *  monitor down with it is worse than a missed message. */
 export async function notify(message: Notification): Promise<DeliveryResult> {
   const result: DeliveryResult = { push: 0, link: 0, telegram: false, ntfy: false, webhook: false, email: false, quiet: false, suppressed: false };
+  const targetUrl = message.url?.startsWith("/") && !message.url.startsWith("//") ? message.url : "/";
 
   // The policy decides what a phone hears; the event has already been recorded.
   if (message.type) {
@@ -222,14 +225,14 @@ export async function notify(message: Notification): Promise<DeliveryResult> {
   if (!message.skipPush) {
     const recipients = await alertRecipients();
     jobs.push(
-      sendPush(recipients, { title: message.title, body: message.body, tag: message.tag, urgent: message.urgent })
+      sendPush(recipients, { title: message.title, body: message.body, url: targetUrl, tag: message.tag, urgent: message.urgent })
         .then((r) => {
           result.push = r.sent;
         })
         .catch(() => {})
     );
     jobs.push(
-      queueLinkNotifications(recipients, { title: message.title, body: message.body, tag: message.tag, urgent: message.urgent })
+      queueLinkNotifications(recipients, { title: message.title, body: message.body, url: targetUrl, tag: message.tag, urgent: message.urgent })
         .then((queued) => {
           result.link = queued;
         })
@@ -346,7 +349,6 @@ export async function sendWebhook(cfg: WebhookSettings, message: Notification): 
  * ntfy decodes RFC 2047 words, which is the encoding that survives that.
  */
 function encodeHeader(value: string): string {
-  // eslint-disable-next-line no-control-regex
   if (/^[\x00-\x7F]*$/.test(value)) return value;
   return `=?UTF-8?B?${Buffer.from(value, "utf8").toString("base64")}?=`;
 }

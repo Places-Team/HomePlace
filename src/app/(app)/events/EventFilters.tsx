@@ -41,6 +41,8 @@ export function EventFilters({
     { value: "down", label: d.events.wentDown },
     { value: "up", label: d.events.cameUp },
     { value: "restart", label: d.events.restarted },
+    { value: "container", label: d.events.container },
+    { value: "telegram-bot", label: d.events.telegramBot },
     { value: "command", label: d.events.command },
     { value: "login", label: d.events.signedIn },
     { value: "auth-fail", label: d.events.authFailed },

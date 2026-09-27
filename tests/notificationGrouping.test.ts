@@ -32,3 +32,12 @@ test("repeated bot failures become one bell item even if error details differ", 
     ["oldest", 1],
   ]);
 });
+
+test("identical container incidents become one expandable bell item", () => {
+  const grouped = groupNotificationEvents([
+    event("new", "container", "error", "jellyfin unavailable", "health check failed", 20),
+    event("old", "container", "error", "jellyfin unavailable", "health check failed", 8),
+  ]);
+  assert.equal(grouped.length, 1);
+  assert.deepEqual(grouped[0].eventIds, ["new", "old"]);
+});

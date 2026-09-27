@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { prisma } from "@/lib/db";
 import { pageUser } from "@/lib/pageUser";
 import { dict } from "@/i18n";
@@ -19,7 +20,7 @@ export const dynamic = "force-dynamic";
 export default async function EventsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ type?: string; q?: string; severity?: string }>;
+  searchParams: Promise<{ type?: string; q?: string; severity?: string; event?: string }>;
 }) {
   const user = await pageUser();
   const d = dict(user.locale);
@@ -53,6 +54,7 @@ export default async function EventsPage({
     include: { item: { select: { title: true } } },
   });
   const events = groupRecentEvents(rows);
+  const rowsById = new Map(rows.map((row) => [row.id, row]));
 
   const label: Record<string, string> = {
     down: d.events.wentDown,
@@ -63,6 +65,8 @@ export default async function EventsPage({
     discovery: d.events.discovered,
     command: d.events.command,
     system: d.events.system,
+    "telegram-bot": "",
+    container: "",
   };
 
   return (
@@ -79,8 +83,15 @@ export default async function EventsPage({
       ) : (
       <Card>
         <ul className="divide-y divide-line">
-          {events.map((event) => (
-            <li key={event.id} className="flex items-start gap-3 px-4 py-3">
+          {events.map((event) => {
+            const focused = !!query.event && event.eventIds.includes(query.event);
+            const contextHref = event.type === "container" ? "/containers" : event.type === "telegram-bot" ? "/settings?section=integrations" : null;
+            return (
+            <li
+              key={event.id}
+              id={`event-${event.id}`}
+              className={`flex scroll-mt-24 items-start gap-3 px-4 py-3 ${focused ? "bg-accent/10" : ""}`}
+            >
               <span
                 className={`mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${
                   event.severity === "error" ? "bg-danger" : event.severity === "warn" ? "bg-warn" : "bg-ok"
@@ -90,16 +101,36 @@ export default async function EventsPage({
               <div className="min-w-0 flex-1">
                 <p className="text-sm">
                   <span className="font-medium">{event.item?.title ?? event.title}</span>{" "}
-                  <span className="text-muted">{label[event.type] ?? event.type}</span>
+                  {label[event.type] && <span className="text-muted">{label[event.type]}</span>}
                 </p>
-                {event.detail && (
-                  <details className="group mt-1 min-w-0">
-                    <summary className="cursor-pointer truncate font-mono text-xs leading-relaxed text-muted hover:text-text focus-visible:text-text">
-                      {event.detail}
+                {(event.detail || event.count > 1 || contextHref) && (
+                  <details className="group mt-1 min-w-0" open={focused}>
+                    <summary className="cursor-pointer text-xs leading-relaxed text-muted hover:text-text focus-visible:text-text">
+                      {event.detail ? <span className="line-clamp-2">{event.detail}</span> : d.events.details}
                     </summary>
-                    <p className="mt-2 whitespace-pre-wrap break-all rounded-control bg-raised px-3 py-2 font-mono text-xs leading-relaxed text-muted">
-                      {event.detail}
-                    </p>
+                    <div className="mt-2 space-y-2 rounded-control bg-raised px-3 py-2 text-xs leading-relaxed text-muted">
+                      {event.detail && <p className="whitespace-pre-wrap break-words">{event.detail}</p>}
+                      {event.count > 1 && (
+                        <ol className="space-y-1 border-t border-line pt-2">
+                          {event.eventIds.map((id) => {
+                            const occurrence = rowsById.get(id);
+                            return occurrence ? (
+                              <li key={id} className="flex flex-wrap gap-2">
+                                <time className="tabular-nums" dateTime={occurrence.at.toISOString()}>
+                                  {occurrence.at.toLocaleString(user.locale)}
+                                </time>
+                                {occurrence.detail && <span className="break-words">{occurrence.detail}</span>}
+                              </li>
+                            ) : null;
+                          })}
+                        </ol>
+                      )}
+                      {contextHref && (
+                        <Link href={contextHref} className="inline-block font-medium text-accent hover:underline">
+                          {event.type === "container" ? d.events.openContainers : d.events.openIntegrations} →
+                        </Link>
+                      )}
+                    </div>
                   </details>
                 )}
               </div>
@@ -109,7 +140,7 @@ export default async function EventsPage({
                 <span className="whitespace-nowrap text-xs text-faint">{ago(event.at, d)}</span>
               </div>
             </li>
-          ))}
+          );})}
         </ul>
       </Card>
       )}

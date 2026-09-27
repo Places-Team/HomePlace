@@ -23,6 +23,7 @@ export type FeedItem = {
   detail: string | null;
   at: number;
   count: number;
+  occurrences: { id: string; at: number; detail: string | null }[];
 };
 
 /** The most recent events, and how many the user has not seen yet. */
@@ -32,6 +33,7 @@ export async function notificationFeed(userId: string): Promise<{ items: FeedIte
     getSetting<number>(`${SEEN_PREFIX}${userId}`, 0),
   ]);
   const grouped = groupNotificationEvents(rows);
+  const byId = new Map(rows.map((row) => [row.id, row]));
   const items: FeedItem[] = grouped.slice(0, LIMIT).map((e) => ({
     id: e.id,
     type: e.type,
@@ -40,6 +42,10 @@ export async function notificationFeed(userId: string): Promise<{ items: FeedIte
     detail: e.detail,
     at: e.at.getTime(),
     count: e.count,
+    occurrences: e.eventIds.flatMap((id) => {
+      const row = byId.get(id);
+      return row ? [{ id, at: row.at.getTime(), detail: row.detail }] : [];
+    }),
   }));
   return { items, unread: grouped.filter((event) => event.at.getTime() > seen).length };
 }

@@ -30,6 +30,7 @@ export function NotifyPolicyForm({ d, policy: initial }: { d: Dictionary; policy
     system: d.settings.kindSystem,
     login: d.settings.kindLogin,
     "telegram-bot": d.settings.kindTelegramBot,
+    container: d.settings.kindContainer,
   };
 
   function setKind(type: string, rule: TypeRule) {

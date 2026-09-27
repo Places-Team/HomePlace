@@ -599,3 +599,39 @@ model LinkDeviceEvent {
 
   @@index([deviceId, deliveredAt, createdAt])
 }
+
+// An allowlisted remote action. The device reports a final outcome; delivery
+// of the event alone is never treated as successful execution.
+model LinkCommand {
+  id String @id @default(cuid())
+  userId String
+  deviceId String
+  action String
+  status String @default("pending")
+  message String?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  completedAt DateTime?
+
+  @@index([userId, createdAt])
+  @@index([deviceId, status, expiresAt])
+}
+
+// Encrypted upload chunks are retained temporarily until the sender commits
+// them to a normal, recipient-bound LinkFileTransfer.
+model LinkUploadSession {
+  id String @id @default(cuid())
+  sourceDeviceId String
+  targetDeviceId String
+  filename String
+  mimeType String
+  size BigInt
+  offset BigInt @default(0)
+  encryptedKey String
+  status String @default("uploading")
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([sourceDeviceId, expiresAt])
+  @@index([expiresAt])
+}

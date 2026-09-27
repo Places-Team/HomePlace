@@ -32,6 +32,8 @@ export const LINK_CAPABILITIES = new Set([
   "device.presence",
   "clipboard.send",
   "clipboard.receive",
+  "system.lock",
+  "system.sleep",
 ]);
 
 export const LINK_PERMISSIONS = new Set([

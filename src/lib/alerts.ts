@@ -15,6 +15,8 @@ import { notify } from "./notify";
  */
 
 type Watched = { id: string; title: string; ok: boolean; error: string | null };
+const ESCALATION_AFTER_MS = 30 * 60_000;
+const ESCALATION_INTERVAL_MS = 60 * 60_000;
 
 export async function processAlerts(current: Watched[]): Promise<void> {
   const cfg = await telegramConfig();
@@ -48,7 +50,24 @@ export async function processAlerts(current: Watched[]): Promise<void> {
       continue;
     }
 
-    if (item.ok || previous.notifiedAt) continue;
+    if (item.ok) continue;
+
+    // A persistent outage deserves a second, clearly identified alert. Keep
+    // the initial delay and hourly cap so transient reconnects stay silent.
+    if (previous.notifiedAt) {
+      const downForMs = now.getTime() - previous.since.getTime();
+      const sinceNoticeMs = now.getTime() - previous.notifiedAt.getTime();
+      if (downForMs >= ESCALATION_AFTER_MS && sinceNoticeMs >= ESCALATION_INTERVAL_MS) {
+        await deliver(
+          `🚨 <b>${escapeHtml(item.title)}</b> is still unavailable (${Math.floor(downForMs / 60_000)} min)\n${appUrl()}`,
+          quietHours,
+          item.id,
+          "down",
+          true,
+        );
+      }
+      continue;
+    }
 
     const downFor = (now.getTime() - previous.since.getTime()) / 1000;
     if (downFor < delaySeconds) continue;
@@ -75,14 +94,14 @@ export async function processAlerts(current: Watched[]): Promise<void> {
  * arriving at 08:00 about services that already recovered is precisely the
  * noise quiet hours exist to prevent; the event feed still has the full story.
  */
-async function deliver(text: string, quietHours: string, itemId: string, state: "up" | "down"): Promise<void> {
+async function deliver(text: string, quietHours: string, itemId: string, state: "up" | "down", escalation = false): Promise<void> {
   const quiet = inQuietHours(quietHours);
   if (!quiet) {
     // Every configured route at once. They fail differently — push needs a
     // browser, Telegram needs the outside world, ntfy needs only the LAN — and
     // an outage is the worst moment to depend on one of them.
     const delivered = await notify({
-      title: state === "down" ? "⚠ HomePlace" : "✅ HomePlace",
+      title: escalation ? "🚨 HomePlace: unresolved incident" : state === "down" ? "⚠ HomePlace" : "✅ HomePlace",
       body: stripHtml(text),
       severity: state === "down" ? "error" : "info",
       type: state,

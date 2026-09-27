@@ -169,6 +169,25 @@ export function linkDeviceHasCapability(device: { capabilities: string }, capabi
 
 export async function heartbeatLinkDevice(deviceId: string, acknowledgedEventIds: string[], capabilities?: LinkCapability[]) {
   await pruneExpiredFileTransfers();
+  await prisma.linkCommand.updateMany({
+    where: { deviceId, status: "pending", expiresAt: { lte: new Date() } },
+    data: { status: "expired", completedAt: new Date() },
+  });
+  const queuedCommands = await prisma.linkDeviceEvent.findMany({
+    where: { deviceId, kind: "command.execute", deliveredAt: null },
+    select: { id: true, payload: true }, take: 100,
+  });
+  if (queuedCommands.length) {
+    const liveCommands = await prisma.linkCommand.findMany({
+      where: { deviceId, status: "pending", expiresAt: { gt: new Date() } }, select: { id: true },
+    });
+    const liveIds = new Set(liveCommands.map((command) => command.id));
+    const staleIds = queuedCommands.flatMap((event) => {
+      try { return liveIds.has((JSON.parse(event.payload) as { commandId?: string }).commandId ?? "") ? [] : [event.id]; }
+      catch { return [event.id]; }
+    });
+    if (staleIds.length) await prisma.linkDeviceEvent.deleteMany({ where: { deviceId, id: { in: staleIds } } });
+  }
   await pruneDeliveredLinkNotifications().catch((error) => console.error("Link notification cleanup failed:", error));
   const now = new Date();
   const clipboardCutoff = new Date(now.getTime() - 5 * 60_000);
@@ -215,11 +234,22 @@ export async function heartbeatLinkDevice(deviceId: string, acknowledgedEventIds
       return [];
     }
   }));
+  const commandEvents = events.filter((event) => event.kind === "command.execute");
+  const validCommands = commandEvents.length ? await prisma.linkCommand.findMany({
+    where: { deviceId, status: "pending", expiresAt: { gt: new Date() } },
+    select: { id: true },
+  }) : [];
+  const validCommandIds = new Set(validCommands.map((command) => command.id));
+  const deliverable = events.filter((event) => {
+    if (event.kind !== "command.execute") return true;
+    try { return validCommandIds.has((JSON.parse(event.payload) as { commandId?: string }).commandId ?? ""); }
+    catch { return false; }
+  });
   return {
     protocol: LINK_PROTOCOL_MAX,
     serverId: await linkServerId(),
     serverTime: now.toISOString(),
-    events: events.map((event) => ({
+    events: deliverable.map((event) => ({
       protocol: LINK_PROTOCOL_MAX,
       id: event.id,
       type: event.kind,

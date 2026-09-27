@@ -57,6 +57,7 @@ model User {
 
   dashboards  Dashboard[]
   linkDevices LinkDevice[]
+  exchanges Exchange[]
   watchEntries WatchEntry[]
   ideaCategories IdeaCategory[]
   ideas Idea[]
@@ -509,6 +510,30 @@ model LinkFileTransfer {
   createdAt      DateTime @default(now())
 
   @@index([targetDeviceId, expiresAt])
+  @@index([expiresAt])
+}
+
+// Temporary text and file links. The public code is encrypted for its owner;
+// lookups use its hash so a database-only leak does not reveal live links.
+model Exchange {
+  id String @id @default(cuid())
+  ownerId String
+  owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  tokenHash String @unique
+  encryptedToken String
+  kind String
+  access String @default("link")
+  encryptedText String?
+  transferId String?
+  filename String?
+  mimeType String?
+  size Int?
+  deleteAfterOpen Boolean @default(false)
+  openedAt DateTime?
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([ownerId, createdAt])
   @@index([expiresAt])
 }
 

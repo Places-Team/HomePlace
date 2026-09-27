@@ -8,7 +8,7 @@ import { AppearanceMenu } from "./AppearanceMenu";
 import { CommandPalette } from "./CommandPalette";
 import { Help } from "./Help";
 import { NotificationBell } from "./NotificationBell";
-import { BoxIcon, BulbIcon, ChartIcon, DevicesIcon, EventsIcon, GearIcon, HomeIcon, MediaIcon, SectionsIcon } from "./NavIcons";
+import { BoxIcon, BulbIcon, ChartIcon, DevicesIcon, EventsIcon, GearIcon, HomeIcon, MediaIcon, SectionsIcon, TransferIcon } from "./NavIcons";
 import type { Dictionary } from "@/i18n";
 
 /**
@@ -33,6 +33,7 @@ export function AppNav({
     { href: "/home", label: d.nav.home, path: "/home", Icon: BulbIcon },
     { href: "/media", label: d.nav.media, path: "/media", Icon: MediaIcon },
     { href: "/events", label: d.nav.events, path: "/events", Icon: EventsIcon },
+    { href: "/exchange", label: d.nav.exchange, path: "/exchange", Icon: TransferIcon },
     ...(user.role !== "viewer" ? [{ href: "/devices", label: d.nav.devices, path: "/devices", Icon: DevicesIcon }] : []),
     { href: "/settings", label: d.nav.settings, path: "/settings", Icon: GearIcon },
     { href: "/sections", label: d.nav.allSections, path: "/sections", Icon: SectionsIcon },

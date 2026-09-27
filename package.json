@@ -13,7 +13,8 @@
     "admin:reset": "node scripts/admin-reset.mjs",
     "postinstall": "prisma generate",
     "security:audit": "npm audit --omit=dev --audit-level=high",
-    "test": "node --import tsx --test tests/*.test.ts"
+    "test": "node --import tsx --test tests/*.test.ts",
+    "test:exchange": "node scripts/test-exchange.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.18.0",

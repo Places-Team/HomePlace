@@ -15,6 +15,8 @@ import { checkContainerUpdatesDue } from "./imageUpdates";
 import { checkTelegramBotsDue } from "./telegramHealth";
 import { checkContainerHealthDue } from "./containerHealth";
 import { isDue } from "./cadence";
+import { pruneExpiredExchanges } from "./exchange";
+import { pruneExpiredFileTransfers } from "./linkFiles";
 
 /**
  * The availability prober.
@@ -101,6 +103,8 @@ async function tick(): Promise<void> {
       lastMaintenance = Date.now();
       await pruneOldChecks();
       await pruneMetrics();
+      await pruneExpiredExchanges();
+      await pruneExpiredFileTransfers();
     }
   } catch (e) {
     console.error("monitor tick failed:", e);

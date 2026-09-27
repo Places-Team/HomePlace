@@ -25,6 +25,7 @@ export default async function SectionsPage() {
       { href: "/calendar", title: d.nav.plan, Icon: CalendarIcon },
     ] },
     { title: d.nav.sharing, links: [
+      { href: "/exchange", title: d.nav.exchange, Icon: TransferIcon },
       ...(canManage ? [
         { href: "/transfers", title: d.nav.transfers, Icon: TransferIcon },
         { href: "/devices", title: d.nav.devices, Icon: DevicesIcon },

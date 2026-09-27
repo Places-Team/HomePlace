@@ -30,10 +30,14 @@ export async function createFileTransfer(input: {
   mimeType: string;
   size: number;
   stream: ReadableStream<Uint8Array>;
+  lifetimeMs?: number;
 }) {
   await pruneExpiredFileTransfers();
   if (!Number.isSafeInteger(input.size) || input.size < 1 || input.size > MAX_SHARE_FILE_BYTES) {
     throw new Error("invalid file size");
+  }
+  if (input.lifetimeMs !== undefined && (!Number.isSafeInteger(input.lifetimeMs) || input.lifetimeMs < 1 || input.lifetimeMs > 86_400_000)) {
+    throw new Error("invalid transfer lifetime");
   }
 
   const key = randomBytes(32);
@@ -93,10 +97,10 @@ export async function createFileTransfer(input: {
         mimeType: input.mimeType.slice(0, 120),
         size: received,
         sha256: hash.digest("hex"),
-        expiresAt: new Date(Date.now() + SHARE_LIFETIME_MS),
+        expiresAt: new Date(Date.now() + (input.lifetimeMs ?? SHARE_LIFETIME_MS)),
       },
     });
-    setTimeout(() => void discardFileTransfer(transfer.id, transfer.targetDeviceId), SHARE_LIFETIME_MS + 1_000).unref();
+    setTimeout(() => void discardFileTransfer(transfer.id, transfer.targetDeviceId), (input.lifetimeMs ?? SHARE_LIFETIME_MS) + 1_000).unref();
     return transfer;
   } catch (error) {
     await unlink(storagePath).catch(() => undefined);

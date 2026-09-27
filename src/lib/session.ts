@@ -1,5 +1,5 @@
 import "server-only";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { SignJWT, jwtVerify } from "jose";
 import { randomBytes } from "node:crypto";
 import { prisma } from "./db";
@@ -75,7 +75,7 @@ export async function createSession(userId: string): Promise<void> {
   (await cookies()).set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
-    secure: settings.secureCookies(),
+    secure: settings.secureCookies(await headers()),
     path: "/",
     maxAge: days * 24 * 60 * 60,
   });

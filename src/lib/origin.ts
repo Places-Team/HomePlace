@@ -11,8 +11,8 @@ import { safeRequestOrigin } from "./security";
  * at its default, and a wrong one is invisible until an OAuth round-trip sends
  * somebody to `localhost:3200` from their laptop.
  *
- * Request headers are accepted only when they match APP_URL, or while the
- * untouched localhost default is used with a private LAN address. Forwarding
+ * Request headers are accepted only when they match APP_URL or point to a
+ * private LAN address. Forwarding
  * headers require an explicit trusted-proxy setting.
  */
 export async function requestOrigin(): Promise<string | null> {

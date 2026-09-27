@@ -25,7 +25,7 @@ export function clientAddress(headers: HeaderReader, trustProxy: boolean): strin
   return isIP(candidate) ? candidate : "unknown";
 }
 
-/** Local origins are safe fallbacks while APP_URL still has its default value. */
+/** Private LAN and loopback hosts allowed for direct self-hosted access. */
 export function isLocalHostname(hostname: string): boolean {
   const host = hostname.toLowerCase().replace(/^\[|\]$/g, "");
   if (host === "localhost" || host.endsWith(".localhost") || host.endsWith(".local")) return true;
@@ -35,6 +35,40 @@ export function isLocalHostname(hostname: string): boolean {
   }
   if (isIP(host) === 6) return host === "::1" || /^f[cd]/.test(host) || /^fe[89ab]/.test(host);
   return false;
+}
+
+/** Select the cookie transport from the browser-facing request, not APP_URL alone.
+ * A self-hosted instance may serve HTTPS publicly and plain HTTP on a private IP.
+ */
+export function secureCookieForRequest(headers: HeaderReader, configuredUrl: string, trustProxy: boolean): boolean {
+  const configured = new URL(configuredUrl);
+  const forwardedHost = trustProxy ? headers.get("x-forwarded-host")?.split(",")[0]?.trim() : null;
+  const host = forwardedHost || headers.get("host")?.trim();
+  if (!host) return configured.protocol === "https:";
+
+  try {
+    const requestUrl = new URL(`http://${host}`);
+    const requestHost = requestUrl.host;
+    const origin = headers.get("origin");
+    if (origin) {
+      const browserOrigin = new URL(origin);
+      if (browserOrigin.origin === configured.origin ||
+          (isLocalHostname(requestUrl.hostname) && browserOrigin.host === requestHost)) {
+        return browserOrigin.protocol === "https:";
+      }
+    }
+
+    if (trustProxy) {
+      const protocol = headers.get("x-forwarded-proto")?.split(",")[0]?.trim();
+      if (protocol === "https") return true;
+      if (protocol === "http") return false;
+    }
+    if (requestHost === configured.host) return configured.protocol === "https:";
+    if (isLocalHostname(requestUrl.hostname)) return false;
+  } catch {
+    // Malformed request metadata must not disable Secure cookies.
+  }
+  return true;
 }
 
 /** Resolves a browser-facing origin without permitting Host-header redirects. */
@@ -53,9 +87,9 @@ export function safeRequestOrigin(headers: HeaderReader, configuredUrl: string, 
     const configured = new URL(configuredUrl).origin;
     if (candidate === configured) return candidate;
 
-    // Keep zero-config LAN access useful, but never accept an arbitrary public
-    // Host header as the target of an OAuth redirect.
-    if (configured === "http://localhost:3200" && isLocalHostname(new URL(candidate).hostname)) return candidate;
+    // The same installation may also be reached through its private LAN IP.
+    // Never turn an arbitrary public Host header into a redirect target.
+    if (isLocalHostname(new URL(candidate).hostname)) return candidate;
     return null;
   } catch {
     return null;

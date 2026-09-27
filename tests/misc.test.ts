@@ -10,7 +10,7 @@ import { createLinkInfo, isLinkServerId, LINK_PROTOCOL_MAX, LINK_PROTOCOL_MIN, p
 import { parseShareMessage, safeFilename, safeSharedUrl, SHARE_LIFETIME_MS } from "../src/lib/linkShare";
 import { mobileContainerSummary } from "../src/lib/linkMonitoring";
 import { checkDeviceActionRateLimit } from "../src/lib/linkRateLimit";
-import { clientAddress, hasMinimumSecretLength, isLocalHostname, isSameOriginRequest, safeRequestOrigin, secretsEqual } from "../src/lib/security";
+import { clientAddress, hasMinimumSecretLength, isLocalHostname, isSameOriginRequest, safeRequestOrigin, secureCookieForRequest, secretsEqual } from "../src/lib/security";
 import { compareVersions, releaseUpdateFrom } from "../src/lib/updates";
 import { NOTIFY_EVENT_TYPES, shouldNotify } from "../src/lib/notifyPolicy";
 import { isDue } from "../src/lib/cadence";
@@ -402,7 +402,20 @@ test("request origins reject spoofed hosts and trust forwarding only when enable
   const proxied = new Headers({ host: "127.0.0.1:3200", "x-forwarded-host": "home.example", "x-forwarded-proto": "https" });
   assert.equal(safeRequestOrigin(proxied, "https://home.example", true), "https://home.example");
   assert.equal(safeRequestOrigin(new Headers({ host: "192.168.1.20:3200" }), "http://localhost:3200", false), "http://192.168.1.20:3200");
+  assert.equal(safeRequestOrigin(new Headers({ host: "192.168.1.20:3200" }), "https://home.example", false), "http://192.168.1.20:3200");
+  assert.equal(isSameOriginRequest(new Headers({ host: "192.168.1.20:3200", origin: "http://192.168.1.20:3200" }), "https://home.example", false), true);
+  assert.equal(isSameOriginRequest(new Headers({ host: "192.168.1.20:3200", origin: "https://attacker.example" }), "https://home.example", false), false);
   assert.equal(safeRequestOrigin(new Headers({ host: "attacker.example" }), "http://localhost:3200", false), null);
+});
+
+test("session cookies stay secure on public HTTPS and work on the private HTTP address", () => {
+  const configured = "https://home.example";
+  assert.equal(secureCookieForRequest(new Headers({ host: "home.example", origin: configured }), configured, false), true);
+  assert.equal(secureCookieForRequest(new Headers({ host: "192.168.0.68:3200", origin: "http://192.168.0.68:3200" }), configured, false), false);
+  assert.equal(secureCookieForRequest(new Headers({ host: "192.168.0.68:3200" }), configured, false), false);
+  assert.equal(secureCookieForRequest(new Headers({ host: "home.example", "x-forwarded-proto": "http" }), configured, false), true);
+  assert.equal(secureCookieForRequest(new Headers({ host: "attacker.example" }), configured, false), true);
+  assert.equal(secureCookieForRequest(new Headers({ host: "127.0.0.1:3200", "x-forwarded-host": "home.example", "x-forwarded-proto": "https" }), configured, true), true);
 });
 
 // ──────────────────────────────── Updates ───────────────────────────────

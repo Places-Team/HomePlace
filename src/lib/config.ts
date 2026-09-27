@@ -8,6 +8,8 @@
  * showing broken panels.
  */
 
+import { secureCookieForRequest } from "./security";
+
 function env(name: string): string | undefined {
   const v = process.env[name];
   return v && v.trim() !== "" ? v.trim() : undefined;
@@ -111,8 +113,11 @@ export const settings = {
   /** Background prober; turn off if you only want the dashboard. */
   monitorEnabled: () => bool("MONITOR_ENABLED", true),
   defaultLocale: () => (env("DEFAULT_LOCALE") === "ru" ? "ru" : "en"),
-  /** Cookies over plain HTTP need the Secure flag off — LAN installs are http. */
-  secureCookies: () => bool("SECURE_COOKIES", appUrl().startsWith("https://")),
+  /** Explicit override wins; otherwise use the browser-facing request. */
+  secureCookies: (requestHeaders?: { get(name: string): string | null }) =>
+    bool("SECURE_COOKIES", requestHeaders
+      ? secureCookieForRequest(requestHeaders, appUrl(), bool("TRUST_PROXY_HEADERS", false))
+      : appUrl().startsWith("https://")),
   sessionDays: () => int("SESSION_DAYS", 30),
   /** Trust forwarding headers only behind a proxy that overwrites them. */
   trustProxyHeaders: () => bool("TRUST_PROXY_HEADERS", false),

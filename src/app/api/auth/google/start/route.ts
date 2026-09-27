@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
 import { randomBytes } from "node:crypto";
 import { currentUser } from "@/lib/session";
 import { canEdit } from "@/lib/auth";
@@ -23,7 +23,7 @@ export async function GET() {
   (await cookies()).set(STATE_COOKIE, `${state}:${user!.id}`, {
     httpOnly: true,
     sameSite: "lax",
-    secure: settings.secureCookies(),
+    secure: settings.secureCookies(await headers()),
     path: "/",
     maxAge: 600,
   });

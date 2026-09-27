@@ -66,16 +66,17 @@ export async function ntfyConfig(): Promise<NtfySettings | null> {
   return { ...NTFY_DEFAULTS, ...stored, token: stored.token ? await decrypt(stored.token) : "" };
 }
 
-export async function saveNtfy(input: Partial<NtfySettings>): Promise<void> {
+export async function saveNtfy(input: Partial<NtfySettings> & { clearToken?: boolean }): Promise<void> {
   const existing = await getSetting<NtfySettings | null>(KEY.ntfy, null);
+  const { clearToken, ...settings } = input;
   await setSetting(KEY.ntfy, {
     ...NTFY_DEFAULTS,
     ...existing,
-    ...input,
+    ...settings,
     url: (input.url ?? existing?.url ?? "").trim().replace(/\/+$/, ""),
     topic: (input.topic ?? existing?.topic ?? "").trim(),
-    // An empty field means "keep the stored token", as everywhere else.
-    token: input.token ? await encrypt(input.token) : existing?.token ?? "",
+    // Empty keeps the stored token unless removal was explicitly requested.
+    token: clearToken ? "" : input.token ? await encrypt(input.token) : existing?.token ?? "",
   });
 }
 

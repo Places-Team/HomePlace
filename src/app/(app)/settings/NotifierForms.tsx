@@ -148,7 +148,7 @@ function Result({ result, d }: { result: TestResult | null; d: Dictionary }) {
 }
 
 function NtfyCard({ d, value }: { d: Dictionary; value: { enabled: boolean; url: string; topic: string; hasToken: boolean } }) {
-  const [form, setForm] = useState({ ...value, token: "" });
+  const [form, setForm] = useState({ ...value, token: "", clearToken: false });
   const [result, setResult] = useState<TestResult | null>(null);
   const [pending, startTransition] = useTransition();
 
@@ -186,10 +186,21 @@ function NtfyCard({ d, value }: { d: Dictionary; value: { enabled: boolean; url:
           <Input
             type="password"
             value={form.token}
+            disabled={form.clearToken}
             onChange={(e) => setForm({ ...form, token: e.target.value })}
             placeholder={value.hasToken ? "••••••••" : ""}
           />
         </Field>
+        {value.hasToken && (
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={form.clearToken}
+              onChange={(e) => setForm({ ...form, token: "", clearToken: e.target.checked })}
+            />
+            {d.settings.ntfyClearToken}
+          </label>
+        )}
 
         <div className="flex flex-wrap items-center gap-3">
           <Button

@@ -184,6 +184,7 @@ export async function saveNtfySettings(input: {
   url: string;
   topic: string;
   token: string;
+  clearToken?: boolean;
 }): Promise<TestResult> {
   await requireRole("admin");
   const invalid = ntfyAddressError(input.url, input.topic);

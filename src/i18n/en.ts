@@ -946,6 +946,7 @@ export const en = {
     ntfyHint:
       "A notifier you can host yourself. On the same network as this panel it keeps working when the connection to the outside world is what broke — which is when a server alert matters most.",
     ntfyTopic: "Topic",
+    ntfyClearToken: "Remove saved token",
     webhook: "Webhook",
     webhookHint:
       "A POST with the whole event as JSON, for whatever else you run — Node-RED, a script, another bot.",

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { HomeIcon, ChartIcon, BoxIcon, BellIcon, SearchIcon, MediaIcon } from "./NavIcons";
+import { HomeIcon, ChartIcon, CalendarIcon, TransferIcon, MediaIcon, SectionsIcon } from "./NavIcons";
 import type { Dictionary } from "@/i18n";
 
 /**
@@ -16,32 +16,34 @@ import type { Dictionary } from "@/i18n";
  * The bottom padding uses the safe-area inset so the pill clears the home
  * indicator on an iPhone instead of sitting under it.
  */
-export function MobileNav({ d }: { d: Dictionary }) {
+export function MobileNav({ d, canShare }: { d: Dictionary; canShare: boolean }) {
   const pathname = usePathname();
 
   const items = [
     { href: "/", label: d.nav.dashboard, Icon: HomeIcon },
+    { href: "/calendar", label: d.nav.plan, Icon: CalendarIcon },
+    { href: "/media?tab=requests", label: d.nav.requests, Icon: MediaIcon },
+    ...(canShare ? [{ href: "/transfers", label: d.nav.transfers, Icon: TransferIcon }] : []),
     { href: "/monitoring", label: d.nav.monitoring, Icon: ChartIcon },
-    { href: "/containers", label: d.nav.containers, Icon: BoxIcon },
-    { href: "/media", label: d.nav.media, Icon: MediaIcon },
-    { href: "/events", label: d.nav.events, Icon: BellIcon },
+    { href: "/sections", label: d.nav.allSections, Icon: SectionsIcon },
   ];
 
   return (
     <nav
-      className="mobile-nav fixed inset-x-0 bottom-0 z-40 flex justify-center px-4 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:hidden"
-      aria-label={d.nav.dashboard}
+      className="mobile-nav fixed inset-x-0 bottom-0 z-40 flex justify-center px-2 pb-[max(0.75rem,env(safe-area-inset-bottom))] lg:hidden"
+      aria-label={d.nav.allSections}
     >
-      <div className="flex items-center gap-1 rounded-full border border-line bg-surface/90 p-1.5 shadow-pop backdrop-blur-xl">
+      <div className="flex max-w-full items-center gap-0.5 rounded-full border border-line bg-surface/95 p-1.5 shadow-pop backdrop-blur-xl">
         {items.map(({ href, label, Icon }) => {
-          const active = href === "/" ? pathname === "/" : pathname.startsWith(href);
+          const path = href.split("?")[0];
+          const active = path === "/" ? pathname === "/" : pathname.startsWith(path);
           return (
             <Link
               key={href}
               href={href}
               aria-label={label}
               aria-current={active ? "page" : undefined}
-              className={`flex h-11 w-11 items-center justify-center rounded-full transition-colors ${
+              className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition-colors ${
                 active ? "bg-accent text-accent-fg" : "text-muted active:bg-raised"
               }`}
             >
@@ -50,16 +52,6 @@ export function MobileNav({ d }: { d: Dictionary }) {
           );
         })}
 
-        <span className="mx-0.5 h-6 w-px bg-line" aria-hidden />
-
-        <button
-          type="button"
-          onClick={() => window.dispatchEvent(new Event("homeplace:palette"))}
-          aria-label={d.common.search}
-          className="flex h-11 w-11 items-center justify-center rounded-full text-muted transition-colors active:bg-raised"
-        >
-          <SearchIcon />
-        </button>
       </div>
     </nav>
   );

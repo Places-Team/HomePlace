@@ -36,6 +36,36 @@ export async function addReminder(input: { title: string; at: string; repeat: st
     },
   });
   revalidatePath("/");
+  revalidatePath("/calendar");
+}
+
+export async function updateReminder(id: string, input: { title: string; at: string; repeat: string }): Promise<void> {
+  const user = await requireUser();
+  const at = new Date(input.at);
+  if (!input.title.trim() || Number.isNaN(at.getTime())) return;
+  await prisma.reminder.updateMany({
+    where: { id, userId: user.id },
+    data: {
+      title: input.title.trim().slice(0, 200),
+      at,
+      repeat: isRepeat(input.repeat) ? input.repeat : "none",
+      done: false,
+      completedAt: null,
+      notifiedAt: null,
+    },
+  });
+  revalidatePath("/");
+  revalidatePath("/calendar");
+}
+
+export async function restoreReminder(id: string): Promise<void> {
+  const user = await requireUser();
+  await prisma.reminder.updateMany({
+    where: { id, userId: user.id, done: true },
+    data: { done: false, completedAt: null, notifiedAt: null },
+  });
+  revalidatePath("/");
+  revalidatePath("/calendar");
 }
 
 /**
@@ -58,10 +88,12 @@ export async function completeReminder(id: string): Promise<void> {
     });
   }
   revalidatePath("/");
+  revalidatePath("/calendar");
 }
 
 export async function deleteReminder(id: string): Promise<void> {
   const user = await requireUser();
   await prisma.reminder.deleteMany({ where: { id, userId: user.id } });
   revalidatePath("/");
+  revalidatePath("/calendar");
 }

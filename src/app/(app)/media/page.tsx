@@ -28,9 +28,11 @@ function within<T>(
   ]);
 }
 
-export default async function MediaPage() {
+export default async function MediaPage({ searchParams }: { searchParams: Promise<{ tab?: string }> }) {
   const user = await pageUser();
   const d = dict(user.locale);
+  const requestedTab = (await searchParams).tab;
+  const initialTab = requestedTab === "requests" || requestedTab === "downloads" || requestedTab === "history" || requestedTab === "library" || requestedTab === "health" ? requestedTab : "discover";
   const services = await servicesForDisplay();
   const [
     discover,
@@ -65,7 +67,9 @@ export default async function MediaPage() {
 
   return (
     <MediaLibrary
+      key={initialTab}
       d={d}
+      initialTab={initialTab}
       initialDiscover={discover}
       library={library}
       requests={requests}

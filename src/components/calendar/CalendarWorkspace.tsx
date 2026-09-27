@@ -43,7 +43,7 @@ export function CalendarWorkspace({ events, d, locale }: { events: CalendarEvent
               <button
                 key={kind}
                 onClick={() => setView(kind)}
-                className={`rounded-[5px] px-3 py-1.5 text-xs font-medium ${view === kind ? "bg-accent text-accent-fg" : "text-muted hover:bg-raised"}`}
+                className={`rounded-[5px] px-3 py-2 text-sm font-medium ${view === kind ? "bg-accent text-accent-fg" : "text-muted hover:bg-raised"}`}
               >
                 {d.calendarPage[kind]}
               </button>
@@ -70,7 +70,7 @@ function MonthView({ events, anchor, locale, selectedId, onSelect }: { events: C
     <div className="overflow-x-auto">
       <div className="min-w-[700px]">
         <div className="grid grid-cols-7 border-b border-line bg-raised/50">
-          {weekdays.map((name) => <div key={name} className="px-2 py-2 text-center text-[11px] font-medium uppercase text-faint">{name}</div>)}
+          {weekdays.map((name) => <div key={name} className="px-2 py-2 text-center text-xs font-medium uppercase text-muted">{name}</div>)}
         </div>
         <div className="grid grid-cols-7">
           {cells.map((date) => {
@@ -79,15 +79,15 @@ function MonthView({ events, anchor, locale, selectedId, onSelect }: { events: C
             const outside = date.getMonth() !== anchor.getMonth();
             const today = key === dayKey(new Date());
             return (
-              <div key={key} className={`min-h-28 border-b border-r border-line p-1.5 ${outside ? "bg-raised/30 text-faint" : ""}`}>
-                <div className={`mb-1 flex h-6 w-6 items-center justify-center rounded-full text-xs ${today ? "bg-accent text-accent-fg" : ""}`}>{date.getDate()}</div>
+              <div key={key} className={`min-h-32 border-b border-r border-line p-2 ${outside ? "bg-raised/30 text-faint" : ""}`}>
+                <div className={`mb-1 flex h-7 w-7 items-center justify-center rounded-full text-sm ${today ? "bg-accent text-accent-fg" : ""}`}>{date.getDate()}</div>
                 <div className="space-y-1">
                   {dayEvents.slice(0, 3).map((event) => (
-                    <button key={event.id} onClick={() => onSelect(event.id)} className={`block w-full truncate rounded px-1.5 py-1 text-left text-[11px] ${selectedId === event.id ? "bg-accent text-accent-fg" : "bg-accent/10 text-text hover:bg-accent/20"}`}>
+                    <button key={event.id} onClick={() => onSelect(event.id)} className={`block min-h-7 w-full truncate rounded px-1.5 py-1 text-left text-xs ${selectedId === event.id ? "bg-accent text-accent-fg" : "bg-accent/10 text-text hover:bg-accent/20"}`}>
                       {!event.allDay && <span className="mr-1 font-mono text-faint">{time(event.start, locale)}</span>}{event.summary || "—"}
                     </button>
                   ))}
-                  {dayEvents.length > 3 && <p className="px-1 text-[10px] text-faint">+{dayEvents.length - 3}</p>}
+                  {dayEvents.length > 3 && <p className="px-1 text-xs text-muted">+{dayEvents.length - 3}</p>}
                 </div>
               </div>
             );

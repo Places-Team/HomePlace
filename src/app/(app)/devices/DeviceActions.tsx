@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   approvePairing,
   rejectPairing,
@@ -38,6 +39,7 @@ export function DeviceActions({
   canReceiveFile,
   allowHouseholdShares,
   quickSharingEnabled,
+  compact = false,
   d,
 }: {
   id: string;
@@ -47,8 +49,10 @@ export function DeviceActions({
   canReceiveFile: boolean;
   allowHouseholdShares: boolean;
   quickSharingEnabled: boolean;
+  compact?: boolean;
   d: Dictionary;
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [shareOpen, setShareOpen] = useState(false);
   const [shareType, setShareType] = useState<"url" | "text" | "file">(
@@ -72,7 +76,10 @@ export function DeviceActions({
     startTransition(async () => {
       const response = await sendDeviceShare(id, shareType, value);
       setResult(response);
-      if (response.ok) setValue("");
+      if (response.ok) {
+        setValue("");
+        router.refresh();
+      }
     });
   }
 
@@ -103,7 +110,10 @@ export function DeviceActions({
       setResult(request.status >= 200 && request.status < 300 && response.ok
         ? { ok: true }
         : { ok: false, error });
-      if (request.status >= 200 && request.status < 300) setFile(null);
+      if (request.status >= 200 && request.status < 300) {
+        setFile(null);
+        router.refresh();
+      }
       setProgress(request.status >= 200 && request.status < 300 ? 100 : 0);
       setUploading(false);
       upload.current = null;
@@ -149,24 +159,24 @@ export function DeviceActions({
           {d.devices.sendContent}
         </Button>
       )}
-      {canNotify && (
+      {!compact && canNotify && (
         <Button disabled={pending} onClick={() => startTransition(() => sendDeviceTestNotification(id))}>
           {d.devices.testNotification}
         </Button>
       )}
-      <Button
+      {!compact && <Button
         disabled={pending}
         onClick={() => startTransition(() => updateDeviceQuickSharing(id, !quickSharingEnabled))}
       >
         {quickSharingEnabled ? d.devices.disableQuickSharing : d.devices.enableQuickSharing}
-      </Button>
-      <Button
+      </Button>}
+      {!compact && <Button
         disabled={pending}
         onClick={() => startTransition(() => updateDeviceHouseholdSharing(id, !allowHouseholdShares))}
       >
         {allowHouseholdShares ? d.devices.disableHouseholdSharing : d.devices.enableHouseholdSharing}
-      </Button>
-      <Button
+      </Button>}
+      {!compact && <Button
         variant="danger"
         disabled={pending}
         onClick={() => {
@@ -174,7 +184,7 @@ export function DeviceActions({
         }}
       >
         {d.devices.revoke}
-      </Button>
+      </Button>}
 
       <Dialog open={shareOpen} onClose={closeShare} title={d.devices.sendContent}>
         <div className="space-y-4">

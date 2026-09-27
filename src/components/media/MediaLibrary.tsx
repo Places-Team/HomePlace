@@ -98,6 +98,7 @@ const matchingDownload = (title: string, items: DownloadItem[]) => {
 
 export function MediaLibrary({
   d: dictionary,
+  initialTab,
   initialDiscover,
   library,
   requests: initialRequests,
@@ -111,6 +112,7 @@ export function MediaLibrary({
   canManage,
 }: {
   d: Dictionary;
+  initialTab: Tab;
   initialDiscover: DiscoverResult;
   library: { configured: boolean; items: JellyfinLibraryItem[] };
   requests: MediaRequest[];
@@ -126,7 +128,7 @@ export function MediaLibrary({
   // The existing `media` dictionary belongs to the Home Assistant player
   // widget. Keep that API stable while this workspace uses its own vocabulary.
   const d = { ...dictionary, media: dictionary.mediaCenter } as MediaDictionary;
-  const [tab, setTab] = useState<Tab>("discover");
+  const [tab, setTab] = useState<Tab>(initialTab);
   const [result, setResult] = useState(initialDiscover);
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<"all" | "movie" | "tv">("all");
@@ -449,12 +451,15 @@ export function MediaLibrary({
         {tabs.map((item) => (
           <button
             key={item.key}
-            onClick={() => setTab(item.key)}
+            onClick={() => {
+              setTab(item.key);
+              window.history.replaceState(null, "", item.key === "discover" ? "/media" : `/media?tab=${item.key}`);
+            }}
             className={`border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${tab === item.key ? "border-accent text-text" : "border-transparent text-muted hover:text-text"}`}
           >
             {item.label}
             {item.count !== undefined && (
-              <span className="ml-2 rounded-full bg-raised px-1.5 py-0.5 text-[10px]">
+              <span className="ml-2 rounded-full bg-raised px-1.5 py-0.5 text-xs tabular-nums">
                 {item.count}
               </span>
             )}
@@ -608,7 +613,7 @@ export function MediaLibrary({
                     <button
                       key={value}
                       onClick={() => setAvailability(value)}
-                      className={`rounded-full border px-3 py-1 text-xs ${availability === value ? "border-accent bg-accent/10 text-accent" : "border-line text-muted"}`}
+                      className={`min-h-9 rounded-full border px-3 py-1.5 text-sm ${availability === value ? "border-accent bg-accent/10 text-accent" : "border-line text-muted hover:bg-raised"}`}
                     >
                       {value === "all"
                         ? d.media.all

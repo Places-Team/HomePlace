@@ -11,8 +11,7 @@ import { NotificationBell } from "./NotificationBell";
 import type { Dictionary } from "@/i18n";
 
 /**
- * The top bar. It is the only navigation in the panel: four destinations do not
- * justify a sidebar eating a fifth of the width on a laptop.
+ * Task-first navigation. Less frequent tools live in the section directory.
  */
 export function AppNav({
   d,
@@ -27,37 +26,36 @@ export function AppNav({
   const [menuOpen, setMenuOpen] = useState(false);
 
   const links = [
-    { href: "/", label: d.nav.dashboard },
-    { href: "/monitoring", label: d.nav.monitoring },
-    { href: "/containers", label: d.nav.containers },
-    { href: "/home", label: d.nav.home },
-    { href: "/media", label: d.nav.media },
-    ...(user.role === "viewer" ? [] : [{ href: "/devices", label: d.nav.devices }]),
-    { href: "/events", label: d.nav.events },
+    { href: "/", label: d.nav.dashboard, path: "/" },
+    { href: "/calendar", label: d.nav.plan, path: "/calendar" },
+    { href: "/media?tab=requests", label: d.nav.requests, path: "/media" },
+    ...(user.role === "viewer" ? [] : [{ href: "/transfers", label: d.nav.transfers, path: "/transfers" }]),
+    { href: "/monitoring", label: d.nav.monitoring, path: "/monitoring" },
+    { href: "/sections", label: d.nav.allSections, path: "/sections" },
   ];
 
   return (
     <header className="app-nav sticky top-0 z-30 border-b border-line bg-bg/85 backdrop-blur">
-      <div className="mx-auto flex h-14 w-full max-w-[1400px] items-center gap-1 px-4 sm:px-6">
-        <Link href="/" className="mr-3 flex items-center gap-2 font-semibold tracking-tight">
-          <span className="flex h-7 w-7 items-center justify-center rounded-control bg-accent text-accent-fg text-sm">
-            H
-          </span>
+      <div className="mx-auto flex h-16 w-full max-w-[1400px] items-center gap-1 px-4 sm:px-6">
+        <Link href="/" className="mr-3 flex items-center gap-2 font-semibold tracking-tight" aria-label="HomePlace">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/icon-192.png" alt="" className="h-8 w-8 rounded-[10px]" />
           <span className="hidden sm:inline">HomePlace</span>
         </Link>
 
         {/* Hidden on a phone: those destinations live in the bottom pill. */}
-        <nav className="hidden items-center gap-0.5 overflow-x-auto sm:flex">
+        <nav className="hidden min-w-0 items-center gap-0.5 overflow-x-auto lg:flex" aria-label={d.nav.allSections}>
           {links.map((link) => {
             // Exact match for the dashboard, prefix for the rest, so a detail
             // page still highlights its section.
-            const active = link.href === "/" ? pathname === "/" : pathname.startsWith(link.href);
+            const active = link.path === "/" ? pathname === "/" : pathname.startsWith(link.path);
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`whitespace-nowrap rounded-control px-3 py-1.5 text-sm font-medium transition-colors ${
-                  active ? "bg-raised text-text" : "text-muted hover:bg-raised hover:text-text"
+                aria-current={active ? "page" : undefined}
+                className={`whitespace-nowrap rounded-control px-3 py-2 text-sm font-medium transition-colors ${
+                  active ? "bg-accent/10 text-accent" : "text-muted hover:bg-raised hover:text-text"
                 }`}
               >
                 {link.label}
@@ -72,7 +70,7 @@ export function AppNav({
             onClick={() => window.dispatchEvent(new Event("homeplace:palette"))}
             title={`${d.common.search} · ${d.palette.hint}`}
             aria-label={d.common.search}
-            className="hidden items-center gap-1.5 rounded-control px-2.5 py-1.5 text-sm text-muted transition-colors hover:bg-raised hover:text-text sm:flex"
+            className="flex h-9 w-9 items-center justify-center rounded-control text-sm text-muted transition-colors hover:bg-raised hover:text-text lg:h-auto lg:w-auto lg:gap-1.5 lg:px-2.5 lg:py-1.5"
           >
             <svg width="15" height="15" viewBox="0 0 16 16" aria-hidden>
               <circle cx="7" cy="7" r="4.5" fill="none" stroke="currentColor" strokeWidth="1.5" />
@@ -117,11 +115,11 @@ export function AppNav({
                 <div className="absolute right-0 z-20 mt-1 w-48 overflow-hidden rounded-card border border-line bg-surface py-1 shadow-pop">
                   {user.role !== "viewer" && (
                     <Link
-                      href="/devices"
+                      href="/transfers"
                       onClick={() => setMenuOpen(false)}
-                      className="block px-3 py-2 text-sm text-muted transition-colors hover:bg-raised hover:text-text sm:hidden"
+                      className="block px-3 py-2 text-sm text-muted transition-colors hover:bg-raised hover:text-text lg:hidden"
                     >
-                      {d.nav.devices}
+                      {d.nav.transfers}
                     </Link>
                   )}
                   <Link

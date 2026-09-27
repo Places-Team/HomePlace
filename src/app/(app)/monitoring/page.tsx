@@ -58,8 +58,9 @@ export default async function MonitoringPage({
   const queryParams = await searchParams;
   const range = resolveRange(queryParams.range);
 
-  const hasProm = (await prometheusConfig()) !== null;
-  const hasPve = (await proxmoxConfig()) !== null;
+  const [promConfig, pveConfig] = await Promise.all([prometheusConfig(), proxmoxConfig()]);
+  const hasProm = promConfig !== null;
+  const hasPve = pveConfig !== null;
 
   if (!hasProm && !hasPve) {
     return (
@@ -163,9 +164,13 @@ async function Overview({
       {instances.length > 0 && (
         <section>
           <SectionTitle>{d.monitoring.host}</SectionTitle>
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
+          <div
+            className={
+              instances.length === 1 ? "grid grid-cols-1 gap-3" : "grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3"
+            }
+          >
             {instances.map((instance) => (
-              <HostSummary key={instance} d={d} instance={instance} range={range} />
+              <HostSummary key={instance} d={d} instance={instance} range={range} expanded={instances.length === 1} />
             ))}
           </div>
         </section>
@@ -181,7 +186,17 @@ async function Overview({
   );
 }
 
-async function HostSummary({ d, instance, range }: { d: ReturnType<typeof dict>; instance: string; range: Range }) {
+async function HostSummary({
+  d,
+  instance,
+  range,
+  expanded,
+}: {
+  d: ReturnType<typeof dict>;
+  instance: string;
+  range: Range;
+  expanded: boolean;
+}) {
   const [cpu, mem, memUsed, memTotal, up, history] = await Promise.all([
     queryOne(Q.cpuPercent(instance)),
     queryOne(Q.memoryPercent(instance)),
@@ -195,23 +210,41 @@ async function HostSummary({ d, instance, range }: { d: ReturnType<typeof dict>;
     <Card>
       <CardHeader
         title={
-          <Link href={withHostLink(instance, range)} className="font-mono text-xs hover:text-accent">
+          <Link href={withHostLink(instance, range)} className="font-mono text-sm hover:text-accent">
             {instance}
           </Link>
         }
         action={up ? <span className="font-mono text-[11px] text-faint">{duration(up)}</span> : null}
       />
-      <div className="space-y-3 p-4">
-        <Row label={d.monitoring.cpu} value={percent(cpu)} meter={cpu ?? 0} />
-        <Row
-          label={d.monitoring.memory}
-          value={memUsed !== null && memTotal !== null ? `${bytes(memUsed)} / ${bytes(memTotal)}` : percent(mem)}
-          meter={mem ?? 0}
-        />
-        {history[0] && <Sparkline points={history[0].points} min={0} max={100} />}
-        <Link href={withHostLink(instance, range)} className="inline-block text-xs text-accent hover:underline">
-          {d.common.next} →
-        </Link>
+      <div
+        className={
+          expanded ? "grid gap-5 p-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] lg:items-end" : "space-y-3 p-4"
+        }
+      >
+        <div className="space-y-4">
+          <Row label={d.monitoring.cpu} value={percent(cpu)} meter={cpu ?? 0} />
+          <Row
+            label={d.monitoring.memory}
+            value={memUsed !== null && memTotal !== null ? `${bytes(memUsed)} / ${bytes(memTotal)}` : percent(mem)}
+            meter={mem ?? 0}
+          />
+        </div>
+        <div className="space-y-2">
+          {history[0] ? (
+            <Sparkline
+              points={history[0].points}
+              min={0}
+              max={100}
+              height={expanded ? 96 : 48}
+              className={expanded ? "h-24 w-full" : undefined}
+            />
+          ) : expanded ? (
+            <NoData d={d} />
+          ) : null}
+          <Link href={withHostLink(instance, range)} className="inline-block text-sm text-accent hover:underline">
+            {d.common.next} →
+          </Link>
+        </div>
       </div>
     </Card>
   );
@@ -620,7 +653,7 @@ function Row({ label, value, meter }: { label: string; value: string; meter: num
   return (
     <div>
       <div className="mb-1 flex items-baseline justify-between">
-        <span className="text-xs text-muted">{label}</span>
+        <span className="text-sm text-muted">{label}</span>
         <span className="font-mono text-sm tabular-nums">{value}</span>
       </div>
       <Meter value={meter} />

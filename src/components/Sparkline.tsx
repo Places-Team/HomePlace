@@ -12,6 +12,7 @@ export function Sparkline({
   min,
   max,
   tone = "accent",
+  className = "h-12 w-full",
 }: {
   /** [timestamp, value] pairs, oldest first. */
   points: [number, number][];
@@ -21,10 +22,11 @@ export function Sparkline({
   min?: number;
   max?: number;
   tone?: "accent" | "ok" | "warn" | "danger";
+  className?: string;
 }) {
   const clean = points.filter(([, v]) => Number.isFinite(v));
   if (clean.length < 2) {
-    return <div className="h-12 w-full rounded bg-raised" aria-hidden />;
+    return <div className={`${className} rounded bg-raised`} aria-hidden />;
   }
 
   const width = 100; // viewBox units; the SVG scales to its container
@@ -49,7 +51,7 @@ export function Sparkline({
     <svg
       viewBox={`0 0 ${width} ${height}`}
       preserveAspectRatio="none"
-      className="h-12 w-full"
+      className={className}
       role="img"
       aria-hidden
     >

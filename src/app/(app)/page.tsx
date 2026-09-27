@@ -106,9 +106,16 @@ export default async function DashboardPage({
     )
   );
 
+  // Reuse this request's container list for both the picker and live tiles.
+  // Keep it local to the render: hosts and visibility can change between users.
+  let containerList: Awaited<ReturnType<typeof listContainers>> | undefined;
+  if (editable && (await resolvedDockerHosts()).length > 0) {
+    containerList = await listContainers();
+  }
+
   const containers: ContainerOption[] =
-    editable && (await resolvedDockerHosts()).length > 0
-      ? (await listContainers()).map((c) => ({
+    containerList
+      ? containerList.map((c) => ({
           name: c.name,
           hostKey: c.hostKey,
           hostLabel: c.hostLabel,
@@ -138,12 +145,13 @@ export default async function DashboardPage({
 
   const live = new Map<string, TileLive>();
   if (wants.size > 0) {
+    containerList ??= await listContainers();
     const needStats: { id: string; name: string; hostKey: string }[] = [];
     // Statistics come back keyed by name only, so the way back to the tile's
     // host/name key is remembered here rather than guessed there.
     const statKey = new Map<string, string>();
 
-    for (const c of await listContainers()) {
+    for (const c of containerList) {
       const key = `${c.hostKey}/${c.name}`;
       const extras = wants.get(key);
       if (!extras) continue;

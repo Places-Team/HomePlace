@@ -1,6 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 
-export const EXCHANGE_FILE_LIMIT = 500 * 1024 * 1024;
+export const EXCHANGE_FILE_LIMIT = 10 * 1024 ** 3;
 export const EXCHANGE_TEXT_LIMIT = 16 * 1024;
 export const EXCHANGE_LIFETIMES = [600, 3600, 86400] as const;
 export type ExchangeAccess = "account" | "link";

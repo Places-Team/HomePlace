@@ -2,6 +2,7 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { prisma } from "./db";
 import { createLinkInfo, isLinkServerId } from "./linkProtocol";
+import { availableFileLimit } from "./fileUploadPolicy";
 
 const SERVER_ID_SETTING = "link.serverId";
 
@@ -61,5 +62,6 @@ export async function linkInfo() {
   return createLinkInfo({
     serverId: await linkServerId(),
     serverName: serverName(),
+    maxFileBytes: await availableFileLimit(),
   });
 }

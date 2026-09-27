@@ -18,6 +18,7 @@ export type LinkInfo = {
     pairing: boolean;
     realtime: boolean;
   };
+  limits: { maxFileBytes: number };
 };
 
 export const LINK_CAPABILITIES = new Set([
@@ -84,6 +85,7 @@ export type LinkPairRequestResult =
 type LinkInfoInput = {
   serverId: string;
   serverName: string;
+  maxFileBytes: number;
   now?: Date;
 };
 
@@ -105,6 +107,7 @@ export function createLinkInfo(input: LinkInfoInput): LinkInfo {
       pairing: true,
       realtime: false,
     },
+    limits: { maxFileBytes: input.maxFileBytes },
   };
 }
 

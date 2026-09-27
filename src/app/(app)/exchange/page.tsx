@@ -2,6 +2,7 @@ import { pageUser } from "@/lib/pageUser";
 import { dict } from "@/i18n";
 import { ExchangeBoard } from "./ExchangeBoard";
 import { appUrl } from "@/lib/config";
+import { availableFileLimit } from "@/lib/fileUploadPolicy";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,7 @@ export default async function ExchangePage() {
         <h1 className="text-2xl font-semibold tracking-tight sm:text-3xl">{d.exchange.title}</h1>
         <p className="mt-2 max-w-2xl text-sm leading-6 text-muted">{d.exchange.hint}</p>
       </header>
-      <ExchangeBoard d={d.exchange} serverOrigin={serverOrigin} />
+      <ExchangeBoard d={d.exchange} serverOrigin={serverOrigin} maxFileBytes={await availableFileLimit()} />
     </div>
   );
 }

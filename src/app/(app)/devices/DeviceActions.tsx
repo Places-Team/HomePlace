@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   approvePairing,
@@ -16,7 +16,9 @@ import { Dialog } from "@/components/Dialog";
 import { Button, Field, Input, Select, Textarea } from "@/components/form";
 import type { Dictionary } from "@/i18n";
 
-const MAX_FILE_BYTES = 500 * 1024 * 1024;
+function formatBytes(bytes: number): string {
+  return `${(bytes / 1024 ** 3).toFixed(1)} GiB`;
+}
 
 export function PairingActions({ id, d }: { id: string; d: Dictionary }) {
   const [pending, startTransition] = useTransition();
@@ -65,12 +67,25 @@ export function DeviceActions({
   );
   const [value, setValue] = useState("");
   const [file, setFile] = useState<File | null>(null);
+  const [maxFileBytes, setMaxFileBytes] = useState<number | null>(null);
   const [uploading, setUploading] = useState(false);
   const [progress, setProgress] = useState(0);
   const upload = useRef<XMLHttpRequest | null>(null);
   const [result, setResult] = useState<{ ok: boolean; error?: string } | null>(null);
   const [ideasAccessError, setIdeasAccessError] = useState(false);
   const busy = pending || uploading;
+
+  useEffect(() => {
+    if (!shareOpen || !canReceiveFile) return;
+    let active = true;
+    fetch("/api/link/info", { cache: "no-store" })
+      .then((response) => response.ok ? response.json() : Promise.reject())
+      .then((info: { limits?: { maxFileBytes?: number } }) => {
+        if (active && Number.isSafeInteger(info.limits?.maxFileBytes)) setMaxFileBytes(info.limits!.maxFileBytes!);
+      })
+      .catch(() => { if (active) setMaxFileBytes(null); });
+    return () => { active = false; };
+  }, [shareOpen, canReceiveFile]);
 
   function submit() {
     if (busy) return;
@@ -90,6 +105,10 @@ export function DeviceActions({
   }
 
   function sendFile(selected: File) {
+    if (maxFileBytes === null || selected.size > maxFileBytes) {
+      setResult({ ok: false, error: "too-large" });
+      return;
+    }
     const request = new XMLHttpRequest();
     upload.current = request;
     setUploading(true);
@@ -153,7 +172,7 @@ export function DeviceActions({
       : result?.error === "full"
         ? d.devices.shareQueueFull
         : result?.error === "too-large"
-          ? d.devices.fileTooLarge
+          ? d.devices.fileTooLarge.replace("{size}", maxFileBytes === null ? "?" : formatBytes(maxFileBytes))
           : result?.error === "cancelled"
             ? d.devices.uploadCancelled
         : d.devices.shareUnavailable;
@@ -248,23 +267,26 @@ export function DeviceActions({
                 autoFocus
               />
             ) : (
-              <Input
-                type="file"
-                disabled={busy}
-                onChange={(event) => {
-                  const selected = event.target.files?.[0] ?? null;
-                  if (selected && selected.size > MAX_FILE_BYTES) {
-                    setFile(null);
-                    setResult({ ok: false, error: "too-large" });
-                    event.target.value = "";
-                    return;
-                  }
-                  setFile(selected);
-                  setProgress(0);
-                  setResult(null);
-                }}
-                autoFocus
-              />
+              <div className="space-y-2">
+                <Input
+                  type="file"
+                  disabled={busy || maxFileBytes === null}
+                  onChange={(event) => {
+                    const selected = event.target.files?.[0] ?? null;
+                    if (selected && maxFileBytes !== null && selected.size > maxFileBytes) {
+                      setFile(null);
+                      setResult({ ok: false, error: "too-large" });
+                      event.target.value = "";
+                      return;
+                    }
+                    setFile(selected);
+                    setProgress(0);
+                    setResult(null);
+                  }}
+                  autoFocus
+                />
+                <p className="text-xs text-muted">{maxFileBytes === null ? d.devices.loadingFileLimit : d.devices.serverFileLimit.replace("{size}", formatBytes(maxFileBytes))}</p>
+              </div>
             )}
           </Field>
           {uploading && (

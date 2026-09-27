@@ -37,7 +37,11 @@ function encodedFilename(value: string): string {
   return btoa(Array.from(bytes, (byte) => String.fromCharCode(byte)).join(""));
 }
 
-export function ExchangeBoard({ d, serverOrigin }: { d: Labels; serverOrigin: string | null }) {
+function formatBytes(bytes: number): string {
+  return `${(bytes / 1024 ** 3).toFixed(1)} GiB`;
+}
+
+export function ExchangeBoard({ d, serverOrigin, maxFileBytes }: { d: Labels; serverOrigin: string | null; maxFileBytes: number }) {
   const [kind, setKind] = useState<"text" | "file">("text");
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -66,6 +70,10 @@ export function ExchangeBoard({ d, serverOrigin }: { d: Labels; serverOrigin: st
 
   async function create() {
     if (busy || (kind === "text" ? !text.trim() : !file)) return;
+    if (kind === "file" && file && file.size > maxFileBytes) {
+      setNotice(d.fileTooLarge.replace("{size}", formatBytes(maxFileBytes)));
+      return;
+    }
     setBusy(true);
     setNotice("");
     try {
@@ -138,7 +146,7 @@ export function ExchangeBoard({ d, serverOrigin }: { d: Labels; serverOrigin: st
               <input type="file" onChange={(event) => setFile(event.target.files?.[0] ?? null)} className="mt-3 block w-full text-sm" />
             </label>
             {file && <p className="mt-2 break-all text-sm text-muted">{file.name} · {(file.size / 1024 / 1024).toFixed(1)} MB</p>}
-            <p className="mt-2 text-xs text-muted">{d.fileLimit}</p>
+            <p className="mt-2 text-xs text-muted">{d.fileLimit.replace("{size}", formatBytes(maxFileBytes))}</p>
           </div>
         )}
         <div className="mt-5 flex flex-wrap gap-4">
@@ -161,7 +169,7 @@ export function ExchangeBoard({ d, serverOrigin }: { d: Labels; serverOrigin: st
         </label>
         <p className="mt-2 text-xs leading-5 text-muted">{access === "link" ? d.publicWarning : d.private}</p>
         {deleteAfterOpen && <p className="mt-1 text-xs leading-5 text-muted">{d.onceWarning}</p>}
-        <button type="button" disabled={busy || (kind === "text" ? !text.trim() : !file)} onClick={create}
+        <button type="button" disabled={busy || (kind === "text" ? !text.trim() : !file || file.size > maxFileBytes)} onClick={create}
           className="mt-5 rounded-control bg-accent px-5 py-2.5 text-sm font-semibold text-accent-fg disabled:opacity-50">
           {d.create}
         </button>

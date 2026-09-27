@@ -6,7 +6,8 @@ import { Readable, Transform } from "node:stream";
 import path from "node:path";
 import { prisma } from "./db";
 import { decrypt, encrypt } from "./secretBox";
-import { MAX_SHARE_FILE_BYTES, SHARE_LIFETIME_MS, safeFilename } from "./linkShare";
+import { SHARE_LIFETIME_MS, safeFilename } from "./linkShare";
+import { configuredFileLimit, reserveFileUpload } from "./fileUploadPolicy";
 
 const HEADER_BYTES = 28;
 
@@ -33,13 +34,15 @@ export async function createFileTransfer(input: {
   lifetimeMs?: number;
 }) {
   await pruneExpiredFileTransfers();
-  if (!Number.isSafeInteger(input.size) || input.size < 1 || input.size > MAX_SHARE_FILE_BYTES) {
+  if (!Number.isSafeInteger(input.size) || input.size < 1 || input.size > configuredFileLimit()) {
     throw new Error("invalid file size");
   }
   if (input.lifetimeMs !== undefined && (!Number.isSafeInteger(input.lifetimeMs) || input.lifetimeMs < 1 || input.lifetimeMs > 86_400_000)) {
     throw new Error("invalid transfer lifetime");
   }
 
+  const releaseReservation = await reserveFileUpload(input.size);
+  try {
   const key = randomBytes(32);
   const iv = randomBytes(12);
   const cipher = createCipheriv("aes-256-gcm", key, iv);
@@ -59,7 +62,7 @@ export async function createFileTransfer(input: {
       if (part.done) break;
       const chunk = Buffer.from(part.value);
       received += chunk.length;
-      if (received > input.size || received > MAX_SHARE_FILE_BYTES) {
+      if (received > input.size || received > configuredFileLimit()) {
         await reader.cancel("file is too large").catch(() => undefined);
         throw new Error("file is too large");
       }
@@ -95,7 +98,7 @@ export async function createFileTransfer(input: {
         storageName,
         filename: safeFilename(input.filename),
         mimeType: input.mimeType.slice(0, 120),
-        size: received,
+        size: BigInt(received),
         sha256: hash.digest("hex"),
         expiresAt: new Date(Date.now() + (input.lifetimeMs ?? SHARE_LIFETIME_MS)),
       },
@@ -105,6 +108,9 @@ export async function createFileTransfer(input: {
   } catch (error) {
     await unlink(storagePath).catch(() => undefined);
     throw error;
+  }
+  } finally {
+    releaseReservation();
   }
 }
 
@@ -141,14 +147,14 @@ export async function openFileTransfer(id: string, targetDeviceId: string) {
       callback(null, chunk);
     },
     flush(callback) {
-      const valid = size === transfer.size && hash.digest("hex") === transfer.sha256;
+      const valid = BigInt(size) === transfer.size && hash.digest("hex") === transfer.sha256;
       callback(valid ? undefined : new Error("file integrity check failed"));
     },
   });
   const stream = createReadStream(storagePath, { start: HEADER_BYTES }).pipe(decipher).pipe(verify);
   return {
     stream: Readable.toWeb(stream) as ReadableStream<Uint8Array>,
-    size: transfer.size,
+    size: Number(transfer.size),
     filename: transfer.filename,
     mimeType: transfer.mimeType,
     sha256: transfer.sha256,

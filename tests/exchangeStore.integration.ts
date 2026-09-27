@@ -76,6 +76,29 @@ test("one-time text and encrypted file exchanges are consumed and removed", asyn
     const reusable = await createTextExchange(user.id, "delete me", { ...once, deleteAfterOpen: false });
     assert.equal(await deleteExchange(user.id, reusable.token), true);
     assert.equal(await getExchange(reusable.token), null);
+
+    const largeSize = 5n * 1024n ** 3n;
+    const metadata = await createTextExchange(user.id, "large metadata", { ...once, deleteAfterOpen: false });
+    await prisma.exchange.update({ where: { tokenHash: (await getExchange(metadata.token))!.tokenHash }, data: { size: largeSize } });
+    assert.equal((await getExchange(metadata.token))!.size, largeSize);
+    assert.equal((await listExchanges(user.id)).find((item) => item.token === metadata.token)?.size, Number(largeSize));
+    assert.equal(await deleteExchange(user.id, metadata.token), true);
+
+    const transferMetadata = await prisma.linkFileTransfer.create({
+      data: {
+        sourceDeviceId: "test-source",
+        targetDeviceId: "test-target",
+        encryptedKey: "test-only",
+        storageName: "test-large-metadata",
+        filename: "large.bin",
+        mimeType: "application/octet-stream",
+        size: largeSize,
+        sha256: "0".repeat(64),
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+    });
+    assert.equal(transferMetadata.size, largeSize);
+    await prisma.linkFileTransfer.delete({ where: { id: transferMetadata.id } });
   } finally {
     await prisma.user.delete({ where: { id: user.id } });
     await prisma.$disconnect();

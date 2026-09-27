@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { exchangeActor } from "@/lib/exchangeAuth";
 import { createFileExchange } from "@/lib/exchange";
 import { EXCHANGE_FILE_LIMIT, parseExchangeOptions } from "@/lib/exchangePolicy";
+import { availableFileLimit } from "@/lib/fileUploadPolicy";
 import { checkDeviceActionRateLimit } from "@/lib/linkRequest";
 import { safeFilename } from "@/lib/linkShare";
 
@@ -15,7 +16,7 @@ export async function POST(request: Request) {
   if (!rate.allowed) return NextResponse.json({ error: "too many file exchanges" }, { status: 429, headers });
   const size = Number(request.headers.get("x-homeplace-size"));
   const announced = request.headers.get("content-length");
-  if (!Number.isSafeInteger(size) || size < 1 || size > EXCHANGE_FILE_LIMIT || (announced && Number(announced) !== size)) {
+  if (!Number.isSafeInteger(size) || size < 1 || size > EXCHANGE_FILE_LIMIT || size > await availableFileLimit() || (announced && Number(announced) !== size)) {
     return NextResponse.json({ error: "invalid file size" }, { status: 413, headers });
   }
   const options = parseExchangeOptions({
@@ -40,6 +41,9 @@ export async function POST(request: Request) {
   } catch (error) {
     if (error instanceof Error && (error.message === "too many active exchanges" || error.message === "exchange storage quota reached")) {
       return NextResponse.json({ error: error.message }, { status: 429, headers });
+    }
+    if (error instanceof Error && /upload limit|storage/.test(error.message)) {
+      return NextResponse.json({ error: "file exceeds server upload limit or available storage" }, { status: 413, headers });
     }
     if (error instanceof Error && /file size|encrypted file size/.test(error.message)) {
       return NextResponse.json({ error: "file size does not match upload" }, { status: 400, headers });

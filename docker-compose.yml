@@ -36,6 +36,8 @@ services:
       # Uploaded pictures. Inside DATA_DIR by default, so the one volume below
       # still holds everything the panel owns.
       UPLOADS_DIR: "${UPLOADS_DIR:-}"
+      # Effective limit also shrinks when the data volume is nearly full.
+      MAX_FILE_UPLOAD_GIB: "${MAX_FILE_UPLOAD_GIB:-10}"
 
       # ── Identity ──────────────────────────────────────────────────────
       APP_URL: "${APP_URL:-http://localhost:3200}"

@@ -7,8 +7,8 @@ import { safeFilename } from "./linkShare";
 import { exchangeTokenHash, newExchangeToken, type ExchangeOptions, validExchangeToken } from "./exchangePolicy";
 
 const MAX_ACTIVE = 100;
-const MAX_OWNER_FILE_BYTES = 1024 * 1024 * 1024;
-const MAX_TOTAL_FILE_BYTES = 4 * 1024 * 1024 * 1024;
+const MAX_OWNER_FILE_BYTES = 20n * 1024n ** 3n;
+const MAX_TOTAL_FILE_BYTES = 40n * 1024n ** 3n;
 
 async function ensureRoom(ownerId: string, incomingBytes = 0): Promise<void> {
   await pruneExpiredExchanges();
@@ -19,8 +19,8 @@ async function ensureRoom(ownerId: string, incomingBytes = 0): Promise<void> {
     incomingBytes ? prisma.exchange.aggregate({ where: { kind: "file", ...active }, _sum: { size: true } }) : null,
   ]);
   if (count >= MAX_ACTIVE) throw new Error("too many active exchanges");
-  if (incomingBytes && ((ownerBytes?._sum.size ?? 0) + incomingBytes > MAX_OWNER_FILE_BYTES ||
-    (totalBytes?._sum.size ?? 0) + incomingBytes > MAX_TOTAL_FILE_BYTES)) throw new Error("exchange storage quota reached");
+  if (incomingBytes && ((ownerBytes?._sum.size ?? 0n) + BigInt(incomingBytes) > MAX_OWNER_FILE_BYTES ||
+    (totalBytes?._sum.size ?? 0n) + BigInt(incomingBytes) > MAX_TOTAL_FILE_BYTES)) throw new Error("exchange storage quota reached");
 }
 
 function expiresAt(options: ExchangeOptions): Date {
@@ -75,7 +75,7 @@ export async function createFileExchange(ownerId: string, input: {
         transferId: transfer.id,
         filename: transfer.filename,
         mimeType: transfer.mimeType,
-        size: transfer.size,
+        size: BigInt(transfer.size),
         deleteAfterOpen: options.deleteAfterOpen,
         expiresAt: expiresAt(options),
       },
@@ -94,7 +94,7 @@ function ownerView(record: Exchange, token: string) {
     access: record.access,
     filename: record.filename,
     mimeType: record.mimeType,
-    size: record.size,
+    size: record.size === null ? null : Number(record.size),
     deleteAfterOpen: record.deleteAfterOpen,
     createdAt: record.createdAt.toISOString(),
     expiresAt: record.expiresAt.toISOString(),
@@ -124,7 +124,7 @@ export function recipientView(record: Exchange) {
     access: record.access,
     filename: record.filename,
     mimeType: record.mimeType,
-    size: record.size,
+    size: record.size === null ? null : Number(record.size),
     deleteAfterOpen: record.deleteAfterOpen,
     expiresAt: record.expiresAt.toISOString(),
   };

@@ -504,7 +504,7 @@ model LinkFileTransfer {
   storageName    String   @unique
   filename       String
   mimeType       String
-  size           Int
+  size           BigInt
   sha256         String
   expiresAt      DateTime
   createdAt      DateTime @default(now())
@@ -527,7 +527,7 @@ model Exchange {
   transferId String?
   filename String?
   mimeType String?
-  size Int?
+  size BigInt?
   deleteAfterOpen Boolean @default(false)
   openedAt DateTime?
   expiresAt DateTime

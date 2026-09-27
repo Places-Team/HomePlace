@@ -234,8 +234,9 @@ latest-state record. Only meaningful transitions become history events.
 - `POST /api/link/mobile/share`: offer bounded text or a safe HTTP(S) URL to
   one explicitly selected, capable device approved for the same user.
 - `POST /api/link/mobile/share/file` and `GET /api/link/mobile/share/file/:id`:
-  create and consume a 30-minute encrypted, streamed file offer of at most
-  500 MB.
+  create and consume a 30-minute encrypted, streamed file offer. The current
+  `limits.maxFileBytes` is published by `GET /api/link/info`; the configured
+  ceiling is 10 GiB.
 
 Administrator approval, rejection, test notification and revocation are server
 actions protected by the existing HomePlace administrator session.

@@ -2,7 +2,7 @@ export const MAX_SHARE_TEXT = 8_000;
 export const MAX_SHARE_URL = 4_096;
 // Large APKs and media are streamed through encrypted temporary storage, so
 // the limit does not require an equally large in-memory buffer.
-export const MAX_SHARE_FILE_BYTES = 500 * 1024 * 1024;
+export const MAX_SHARE_FILE_BYTES = 10 * 1024 ** 3;
 // A background Android check may run only every 15 minutes. Keep addressed
 // offers short-lived, but long enough to survive one delayed check and let the
 // receiver explicitly accept a large streamed file.

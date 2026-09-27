@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { authorizeMobile } from "@/lib/linkMobile";
 import { createFileTransfer, discardFileTransfer } from "@/lib/linkFiles";
 import { MAX_SHARE_FILE_BYTES, safeFilename, validDeviceId } from "@/lib/linkShare";
+import { availableFileLimit } from "@/lib/fileUploadPolicy";
 import { queueShareOffer, resolveShareTarget } from "@/lib/linkDevices";
 import { checkDeviceActionRateLimit } from "@/lib/linkRequest";
 
@@ -16,27 +17,35 @@ export async function POST(request: Request) {
   const targetDeviceId = validDeviceId(request.headers.get("x-homeplace-target"));
   const filename = safeFilename(decodeFilename(request.headers));
   const announced = Number(request.headers.get("content-length") ?? 0);
-  if (!targetDeviceId || !Number.isSafeInteger(announced) || announced < 1 || announced > MAX_SHARE_FILE_BYTES) {
+  if (!targetDeviceId || !Number.isSafeInteger(announced) || announced < 1 || announced > MAX_SHARE_FILE_BYTES || announced > await availableFileLimit()) {
     return NextResponse.json({ error: "invalid file offer" }, { status: 400 });
   }
   const target = await resolveShareTarget(auth.device, targetDeviceId, "file");
   if (!target) return NextResponse.json({ error: "target device is unavailable" }, { status: 404 });
   if (!request.body) return NextResponse.json({ error: "invalid file offer" }, { status: 400 });
   const mimeType = (request.headers.get("content-type") || "application/octet-stream").slice(0, 120);
-  const transfer = await createFileTransfer({
-    sourceDeviceId: auth.device.id,
-    targetDeviceId,
-    filename,
-    mimeType,
-    size: announced,
-    stream: request.body,
-  });
+  let transfer: Awaited<ReturnType<typeof createFileTransfer>>;
+  try {
+    transfer = await createFileTransfer({
+      sourceDeviceId: auth.device.id,
+      targetDeviceId,
+      filename,
+      mimeType,
+      size: announced,
+      stream: request.body,
+    });
+  } catch (error) {
+    if (error instanceof Error && /file size|file is too large|upload limit|storage/.test(error.message)) {
+      return NextResponse.json({ error: "file exceeds server upload limit or available storage" }, { status: 413 });
+    }
+    throw error;
+  }
   const queued = await queueShareOffer(target.id, {
     type: "file",
     transferId: transfer.id,
     filename: transfer.filename,
     mimeType: transfer.mimeType,
-    size: transfer.size,
+    size: Number(transfer.size),
     sha256: transfer.sha256,
     sourceName: auth.device.name,
     sameAccount: target.userId === auth.device.userId,

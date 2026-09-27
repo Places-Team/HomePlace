@@ -224,7 +224,8 @@ latest-state record. Only meaningful transitions become history events.
   pairing.
 - `GET /api/link/mobile/requests/search` and `POST /api/link/mobile/requests`:
   search and add titles through configured Sonarr/Radarr instances.
-- `POST /api/link/mobile/telegram`: send an explicit connection test.
+- `GET /api/link/mobile/telegram`: read the current bot configuration and whether this device may send a test.
+- `POST /api/link/mobile/telegram`: send an explicit connection test from an approved device.
 - `POST /api/link/mobile/clipboard`: relay bounded text only to capable devices
   approved for the same user.
 - `POST /api/link/mobile/share`: offer bounded text or a safe HTTP(S) URL to

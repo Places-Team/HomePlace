@@ -44,12 +44,20 @@ export default async function MediaPage({ searchParams }: { searchParams: Promis
     serviceIssues,
     automationTasks,
   ] = await Promise.all([
-    within(discoverMedia(), {
-      configured: !!services.overseerr.url,
-      page: 1,
-      pages: 1,
-      items: [],
-    }),
+    initialTab === "discover"
+      ? within(discoverMedia(), {
+        configured: !!services.overseerr.url,
+        unavailable: true,
+        page: 1,
+        pages: 1,
+        items: [],
+      })
+      : Promise.resolve({
+        configured: !!services.overseerr.url,
+        page: 1,
+        pages: 1,
+        items: [],
+      }),
     within(jellyfinLibrary(user.jellyfinUserId ?? undefined), {
       configured: !!(services.jellyfin.url || services.jellyfin.localUrl),
       items: [],

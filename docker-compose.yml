@@ -19,6 +19,9 @@ services:
     restart: unless-stopped
     ports:
       - "${APP_PORT:-3200}:3200"
+    dns:
+      - 9.9.9.9
+      - 1.1.1.1
     environment:
       # Timezone the panel reasons in — reminders, schedules, "tomorrow 18:00".
       # Needs tzdata in the image (it is). Set TZ in .env, e.g. Europe/Moscow.

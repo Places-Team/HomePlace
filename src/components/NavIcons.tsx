@@ -112,3 +112,65 @@ export function SectionsIcon({ className }: IconProps) {
     </Svg>
   );
 }
+
+export function EventsIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M3 12h4l2.5-5 4.2 10 2.4-5H21" />
+      <path d="M3 4h18M3 20h18" />
+    </Svg>
+  );
+}
+
+export function DevicesIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <rect x="2.5" y="4" width="14" height="11" rx="1.5" />
+      <path d="M7 19h8M11 15v4" />
+      <rect x="18" y="8" width="3.5" height="10" rx="1" />
+    </Svg>
+  );
+}
+
+export function CalendarIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M7 3v4M17 3v4M3 10h18M8 15h3M14 15h2" />
+    </Svg>
+  );
+}
+
+export function TransferIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M4 7h15m-4-4 4 4-4 4M20 17H5m4-4-4 4 4 4" />
+    </Svg>
+  );
+}
+
+export function RequestsIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <path d="M7 3h8l4 4v14H5V3h2zM15 3v5h4M9 12h6M9 16h4" />
+    </Svg>
+  );
+}
+
+export function FilmIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <rect x="3" y="4" width="18" height="16" rx="2" />
+      <path d="M7 4v16M17 4v16M3 9h4m-4 6h4m10-6h4m-4 6h4" />
+    </Svg>
+  );
+}
+
+export function SeriesIcon({ className }: IconProps) {
+  return (
+    <Svg className={className}>
+      <rect x="5" y="6" width="16" height="14" rx="2" />
+      <path d="M3 17V4h15M11 10l5 3-5 3z" />
+    </Svg>
+  );
+}

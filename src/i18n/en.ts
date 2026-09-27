@@ -165,6 +165,7 @@ export const en = {
     all: "All",
     popular: "Popular now",
     noResults: "Nothing found",
+    discoveryUnavailable: "Seerr could not load titles. Check its connection to TMDB; your Jellyfin library is still available.",
     configureOverseerr:
       "Add Overseerr in Settings to enable discovery and requests.",
     configureJellyfin: "Add Jellyfin in Settings to browse your library.",
@@ -172,6 +173,7 @@ export const en = {
     request: "Request",
     requested: "Requested",
     approved: "Approved",
+    declined: "Declined",
     downloading: "Downloading",
     downloadSetup: "Request options",
     downloadSetupHint:

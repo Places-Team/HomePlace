@@ -639,6 +639,7 @@ export async function discoverMedia(
   } = {},
 ): Promise<{
   configured: boolean;
+  unavailable?: boolean;
   page: number;
   pages: number;
   items: MediaCard[];
@@ -656,6 +657,7 @@ export async function discoverMedia(
         ? `/discover/tv?page=${page}`
         : `/discover/trending?page=${page}`;
   const payload = await overseerrGet(path);
+  if (!payload) return { configured: true, unavailable: true, page, pages: page, items: [] };
   const items = (Array.isArray(payload?.results) ? payload.results : [])
     .map(normalizeMedia)
     .filter((item): item is MediaCard => !!item)
@@ -726,24 +728,75 @@ export async function discoverMediaDetails(
 
 export async function listMediaRequests(): Promise<MediaRequest[]> {
   const payload = await overseerrGet("/request?take=50&skip=0&sort=added");
-  const results = Array.isArray(payload?.results) ? payload.results : [];
-  return results.map((raw: Record<string, any>) => {
+  const results: Record<string, any>[] = Array.isArray(payload?.results) ? payload.results : [];
+  if (!results.length) return [];
+
+  const needed = ["sonarr", "radarr"] as const;
+  const servers = await Promise.all(needed.map(async (service) => {
+    const value = await overseerrGetValue(`/settings/${service}`);
+    return Array.isArray(value) ? value : Array.isArray(value?.results) ? value.results : [];
+  }));
+  const serverByKind = { tv: servers[0], movie: servers[1] };
+
+  return Promise.all(results.map(async (raw) => {
     const media = raw.media ?? {};
+    const kind: MediaKind = media.mediaType === "tv" ? "tv" : "movie";
+    let title = String(media.title ?? media.name ?? raw.title ?? "").trim();
+    let poster = tmdbImage(media.posterPath, "w500");
+    if (!poster && media.jellyfinMediaId) {
+      poster = `/api/media/jellyfin-image/${encodeURIComponent(String(media.jellyfinMediaId))}`;
+    }
+
+    // Seerr omits TMDB metadata from the request list. Its detail endpoint
+    // supplies both the title and poster when TMDB is reachable.
+    const tmdbId = Number(media.tmdbId);
+    if ((!title || !poster) && Number.isInteger(tmdbId) && tmdbId > 0) {
+      const details = await overseerrGet(`/${kind === "tv" ? "tv" : "movie"}/${tmdbId}`);
+      title ||= String(details?.title ?? details?.name ?? "").trim();
+      poster ||= tmdbImage(details?.posterPath, "w500");
+    }
+
+    // Sonarr and Radarr also know tracked titles locally when TMDB is offline.
+    const externalId = Number(media.externalServiceId);
+    if (!title && Number.isInteger(externalId) && externalId > 0) {
+      const choices: Record<string, any>[] = serverByKind[kind];
+      const preferredId = Number(media.serviceId ?? raw.serverId);
+      const server = choices.find((item) => Number(item.id) === preferredId) ??
+        choices.find((item) => item.isDefault) ?? choices[0];
+      const base = server && servarrBase(server);
+      const apiKey = String(server?.apiKey ?? "").trim();
+      if (base && apiKey) {
+        try {
+          const endpoint = kind === "tv" ? "series" : "movie";
+          const response = await fetch(`${base}/api/v3/${endpoint}/${externalId}`, {
+            headers: { "X-Api-Key": apiKey },
+            cache: "no-store",
+            signal: AbortSignal.timeout(2500),
+          });
+          if (response.ok) {
+            const details = await limitedJson<Record<string, any>>(response);
+            title = String(details.title ?? "").trim();
+          }
+        } catch {
+          // Keep the request visible even when a local Arr service is offline.
+        }
+      }
+    }
     return {
       id: Number(raw.id),
-      title: String(media.title ?? media.name ?? raw.title ?? "Untitled"),
-      kind: media.mediaType === "tv" ? "tv" : "movie",
+      title: title || `TMDB #${Number(media.tmdbId) || Number(raw.id)}`,
+      kind,
       status:
-        ["pending", "approved", "declined"][
+        ["pending", "approved", "declined", "failed", "completed"][
           Math.max(0, Number(raw.status ?? 1) - 1)
         ] ?? "unknown",
       requestedBy: String(
         raw.requestedBy?.displayName ?? raw.requestedBy?.email ?? "HomePlace",
       ),
       createdAt: String(raw.createdAt ?? ""),
-      poster: tmdbImage(media.posterPath, "w500"),
+      poster,
     };
-  });
+  }));
 }
 
 export async function createMediaRequest(input: {

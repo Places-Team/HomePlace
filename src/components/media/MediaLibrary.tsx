@@ -40,6 +40,7 @@ import {
 } from "@/lib/jellyfinLinks";
 import type { WatchEntryView } from "@/lib/watchHistory";
 import { WatchJournal } from "./WatchJournal";
+import { FilmIcon, SectionsIcon, SeriesIcon } from "@/components/NavIcons";
 
 type Tab =
   | "discover"
@@ -50,6 +51,7 @@ type Tab =
   | "health";
 type DiscoverResult = {
   configured: boolean;
+  unavailable?: boolean;
   page: number;
   pages: number;
   items: MediaCard[];
@@ -130,6 +132,7 @@ export function MediaLibrary({
   const d = { ...dictionary, media: dictionary.mediaCenter } as MediaDictionary;
   const [tab, setTab] = useState<Tab>(initialTab);
   const [result, setResult] = useState(initialDiscover);
+  const [discoverLoaded, setDiscoverLoaded] = useState(initialTab === "discover");
   const [query, setQuery] = useState("");
   const [kind, setKind] = useState<"all" | "movie" | "tv">("all");
   const [year, setYear] = useState("");
@@ -268,6 +271,7 @@ export function MediaLibrary({
       setResult(
         append ? { ...next, items: [...result.items, ...next.items] } : next,
       );
+      setDiscoverLoaded(true);
     });
   }
 
@@ -275,9 +279,10 @@ export function MediaLibrary({
     setKind(nextKind);
     if (tab !== "discover") return;
     setMessage("");
-    startTransition(async () =>
-      setResult(await searchMedia({ query, kind: nextKind })),
-    );
+    startTransition(async () => {
+      setResult(await searchMedia({ query, kind: nextKind }));
+      setDiscoverLoaded(true);
+    });
   }
 
   function sendRequest(
@@ -454,6 +459,12 @@ export function MediaLibrary({
             onClick={() => {
               setTab(item.key);
               window.history.replaceState(null, "", item.key === "discover" ? "/media" : `/media?tab=${item.key}`);
+              if (item.key === "discover" && !discoverLoaded) {
+                startTransition(async () => {
+                  setResult(await searchMedia({ query, kind }));
+                  setDiscoverLoaded(true);
+                });
+              }
             }}
             className={`border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${tab === item.key ? "border-accent text-text" : "border-transparent text-muted hover:text-text"}`}
           >
@@ -499,7 +510,7 @@ export function MediaLibrary({
               className={`flex min-w-0 items-center justify-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition ${kind === item.key ? "border-accent bg-accent/10 text-accent shadow-sm" : "border-line bg-surface text-muted hover:border-accent/50 hover:text-text"}`}
             >
               <span aria-hidden>
-                {item.key === "all" ? "◈" : item.key === "movie" ? "▶" : "▣"}
+                {item.key === "all" ? <SectionsIcon className="h-4 w-4" /> : item.key === "movie" ? <FilmIcon className="h-4 w-4" /> : <SeriesIcon className="h-4 w-4" />}
               </span>
               <span className="truncate">{item.label}</span>
               {tab === "library" && (
@@ -642,7 +653,7 @@ export function MediaLibrary({
                   ))}
                 </div>
               ) : (
-                <EmptyState title={d.media.noResults} />
+                <EmptyState title={!discoverLoaded ? d.common.loading : result.unavailable ? d.media.discoveryUnavailable : d.media.noResults} />
               )}
               {result.page < result.pages && (
                 <div className="text-center">
@@ -738,7 +749,12 @@ export function MediaLibrary({
                         : "neutral"
                   }
                 >
-                  {item.status}
+                  {item.status === "pending" ? d.media.pending
+                    : item.status === "approved" ? d.media.approved
+                    : item.status === "declined" ? d.media.declined
+                    : item.status === "failed" ? d.media.activityFailed
+                    : item.status === "completed" ? d.media.activityCompleted
+                    : d.common.unknown}
                 </Badge>
                 {canManage && (
                   <Button
@@ -1590,7 +1606,7 @@ function RequestProgress({
     ? Math.max(0, Math.min(100, download.progress * 100))
     : 0;
   const complete = !!download && percent >= 99.95;
-  const current = complete ? 3 : download ? 2 : status === "approved" ? 1 : 0;
+  const current = complete || status === "completed" ? 3 : download ? 2 : status === "approved" ? 1 : 0;
   const steps = [d.media.requested, d.media.approved, d.media.downloading];
   return (
     <div className="mt-2 max-w-xl">

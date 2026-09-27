@@ -161,6 +161,7 @@ export const ru: Dictionary = {
     all: "Все",
     popular: "Сейчас популярно",
     noResults: "Ничего не найдено",
+    discoveryUnavailable: "Seerr не загрузил фильмы и сериалы. Проверьте соединение с TMDB; медиатека Jellyfin по-прежнему доступна.",
     configureOverseerr:
       "Добавьте Overseerr в настройках, чтобы включить поиск и запросы.",
     configureJellyfin:
@@ -170,6 +171,7 @@ export const ru: Dictionary = {
     request: "Добавить",
     requested: "Запрошено",
     approved: "Подтверждено",
+    declined: "Отклонено",
     downloading: "Скачивание",
     downloadSetup: "Параметры загрузки",
     downloadSetupHint:

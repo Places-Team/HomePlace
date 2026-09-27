@@ -8,6 +8,7 @@ import { linkServerId } from "./linkServer";
 import { secretsEqual } from "./security";
 import { discardFileTransfer, pruneExpiredFileTransfers } from "./linkFiles";
 import { SHARE_LIFETIME_MS } from "./linkShare";
+import { chooseLinkNotificationAction, type LinkNotificationMessage } from "./linkNotificationQueue";
 
 const PAIRING_LIFETIME_MS = 5 * 60_000;
 const MAX_PENDING_EVENTS = 50;
@@ -251,7 +252,7 @@ export async function queueTestNotification(deviceId: string) {
 /** Queue an alert for every paired, capable device owned by these users. */
 export async function queueLinkNotifications(
   userIds: string[],
-  message: { title: string; body: string; url?: string; tag?: string; urgent?: boolean },
+  message: LinkNotificationMessage,
 ): Promise<number> {
   if (userIds.length === 0) return 0;
   const devices = await prisma.linkDevice.findMany({
@@ -260,19 +261,26 @@ export async function queueLinkNotifications(
   });
   const capable = devices.filter((device) => parsedCapabilities(device.capabilities).has("notification.receive"));
   let queued = 0;
+  const payload = JSON.stringify(message);
   for (const device of capable) {
-    const pending = await prisma.linkDeviceEvent.count({
-      where: { deviceId: device.id, kind: "notification.deliver", deliveredAt: null },
+    const accepted = await prisma.$transaction(async (tx) => {
+      const pending = await tx.linkDeviceEvent.findMany({
+        where: { deviceId: device.id, kind: "notification.deliver", deliveredAt: null },
+        orderBy: { createdAt: "asc" },
+        take: MAX_PENDING_EVENTS,
+        select: { id: true, payload: true },
+      });
+      const action = chooseLinkNotificationAction(pending, message, MAX_PENDING_EVENTS);
+      if (action.kind === "skip") return false;
+      if (action.kind === "replace" || action.kind === "evict") {
+        await tx.linkDeviceEvent.delete({ where: { id: action.id } });
+      }
+      await tx.linkDeviceEvent.create({
+        data: { deviceId: device.id, kind: "notification.deliver", payload },
+      });
+      return true;
     });
-    if (pending >= MAX_PENDING_EVENTS) continue;
-    await prisma.linkDeviceEvent.create({
-      data: {
-        deviceId: device.id,
-        kind: "notification.deliver",
-        payload: JSON.stringify(message),
-      },
-    });
-    queued += 1;
+    if (accepted) queued += 1;
   }
   return queued;
 }

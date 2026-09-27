@@ -88,6 +88,7 @@ async function deliver(text: string, quietHours: string, itemId: string, state: 
       type: state,
       tag: `item-${itemId}`,
       url: "/events",
+      urgent: state === "down",
     });
 
     // Nothing got through: leave it unmarked so the next tick tries again. A

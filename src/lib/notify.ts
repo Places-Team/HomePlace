@@ -170,11 +170,10 @@ export type Notification = {
   /** Whether quiet hours may swallow this. Reminders say no. */
   respectQuietHours?: boolean;
   /**
-   * Skip the push route. Used when the caller has already pushed to one
-   * specific person — a reminder belongs to whoever set it, and pushing again
-   * to every administrator would tell the household about someone's dentist.
+   * Restrict browser push and Link delivery to these users. Personal
+   * reminders must not reach every administrator's devices.
    */
-  skipPush?: boolean;
+  recipientUserIds?: string[];
   /** A broken Telegram bot must not be used to announce its own outage. */
   skipTelegram?: boolean;
   /** Request high-priority delivery for a confirmed incident. */
@@ -222,23 +221,21 @@ export async function notify(message: Notification): Promise<DeliveryResult> {
 
   const jobs: Promise<void>[] = [];
 
-  if (!message.skipPush) {
-    const recipients = await alertRecipients();
-    jobs.push(
-      sendPush(recipients, { title: message.title, body: message.body, url: targetUrl, tag: message.tag, urgent: message.urgent })
-        .then((r) => {
-          result.push = r.sent;
-        })
-        .catch(() => {})
-    );
-    jobs.push(
-      queueLinkNotifications(recipients, { title: message.title, body: message.body, url: targetUrl, tag: message.tag, urgent: message.urgent })
-        .then((queued) => {
-          result.link = queued;
-        })
-        .catch(() => {})
-    );
-  }
+  const recipients = message.recipientUserIds ?? await alertRecipients();
+  jobs.push(
+    sendPush(recipients, { title: message.title, body: message.body, url: targetUrl, tag: message.tag, urgent: message.urgent })
+      .then((r) => {
+        result.push = r.sent;
+      })
+      .catch(() => {})
+  );
+  jobs.push(
+    queueLinkNotifications(recipients, { title: message.title, body: message.body, url: targetUrl, tag: message.tag, urgent: message.urgent })
+      .then((queued) => {
+        result.link = queued;
+      })
+      .catch(() => {})
+  );
 
   if (telegram?.enabled && !message.skipTelegram) {
     jobs.push(

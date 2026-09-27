@@ -1,6 +1,5 @@
 import "server-only";
 import { prisma } from "./db";
-import { sendPush } from "./push";
 import { notify } from "./notify";
 import { nextOccurrence } from "./recurrence";
 
@@ -38,24 +37,15 @@ export async function processReminders(): Promise<void> {
       data: { type: "system", severity: "info", title: reminder.title, detail: "reminder" },
     });
 
-    // Push goes to the person who set it, and nobody else — a reminder is
-    // personal in a way an alert is not.
-    await sendPush([reminder.userId], {
-      title: `⏰ ${reminder.title}`,
-      body: reminder.at.toLocaleString(),
-      tag: `reminder-${reminder.id}`,
-    }).catch(() => ({ sent: 0, failed: 0 }));
-
-    // The shared routes carry it too, and quiet hours do not apply: this is a
-    // time the person chose, not something the server decided to raise.
+    // Browser and Link notifications go only to the reminder's owner.
+    // Quiet hours do not apply to the time that person chose.
     await notify({
       title: `⏰ ${reminder.title}`,
       body: reminder.at.toLocaleString(),
       severity: "info",
       tag: `reminder-${reminder.id}`,
       respectQuietHours: false,
-      // Already pushed, to the one person it belongs to.
-      skipPush: true,
+      recipientUserIds: [reminder.userId],
     });
   }
 }

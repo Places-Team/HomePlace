@@ -6,7 +6,7 @@ import { inQuietHours } from "../src/lib/quietHours";
 import { bytes, duration, latency, percent } from "../src/lib/format";
 import { dashboardIconSlugs, dashboardIconUrl, guessKey, guessIcon, autoIcon, faviconUrl } from "../src/lib/icons";
 import { nextOccurrence } from "../src/lib/recurrence";
-import { createLinkInfo, isLinkServerId, LINK_PROTOCOL_MAX, LINK_PROTOCOL_MIN, parseLinkCapabilities, parseLinkPairRequest } from "../src/lib/linkProtocol";
+import { createLinkInfo, isLinkServerId, LINK_PROTOCOL_MAX, LINK_PROTOCOL_MIN, parseLinkCapabilities, parseLinkPairRequest, parseLinkPairRequestDetailed } from "../src/lib/linkProtocol";
 import { parseShareMessage, safeFilename, safeSharedUrl, SHARE_LIFETIME_MS } from "../src/lib/linkShare";
 import { mobileContainerSummary } from "../src/lib/linkMonitoring";
 import { checkDeviceActionRateLimit } from "../src/lib/linkRateLimit";
@@ -252,6 +252,12 @@ test("link pairing accepts only supported capabilities and protocol versions", (
   assert.equal(parseLinkPairRequest({ ...valid, capabilities: [{ name: "system.shell", version: 1, constraints: {} }] }), null);
   assert.equal(parseLinkPairRequest({ ...valid, permissions: ["system.shell"] }), null);
   assert.equal(parseLinkPairRequest({ ...valid, publicKey: Buffer.alloc(65).toString("base64") }), null);
+  assert.equal(parseLinkPairRequestDetailed({ ...valid, device: { ...valid.device, name: "😀".repeat(41) } }).error, "invalid_device_name");
+  assert.equal(parseLinkPairRequestDetailed({ ...valid, protocol: 2 }).error, "invalid_protocol");
+  assert.equal(parseLinkPairRequestDetailed({ ...valid, publicKey: "bad" }).error, "invalid_public_key");
+  assert.equal(parseLinkPairRequestDetailed({ ...valid, permissions: ["system.shell"] }).error, "invalid_permissions");
+  assert.equal(parseLinkPairRequestDetailed({ ...valid, capabilities: [{ name: "system.shell", version: 1, constraints: {} }] }).error, "invalid_capabilities");
+  assert.deepEqual(parseLinkPairRequestDetailed(valid).request, valid);
 });
 
 test("link calendar exposes only bounded normalized event fields", () => {

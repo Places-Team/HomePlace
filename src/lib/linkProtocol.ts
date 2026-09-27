@@ -67,6 +67,20 @@ export type LinkPairRequest = {
   permissions: LinkPermission[];
 };
 
+export type LinkPairRequestError =
+  | "invalid_protocol"
+  | "invalid_device_name"
+  | "invalid_device_platform"
+  | "invalid_device_version"
+  | "invalid_app_version"
+  | "invalid_public_key"
+  | "invalid_capabilities"
+  | "invalid_permissions";
+
+export type LinkPairRequestResult =
+  | { request: LinkPairRequest; error?: never }
+  | { request: null; error: LinkPairRequestError };
+
 type LinkInfoInput = {
   serverId: string;
   serverName: string;
@@ -96,9 +110,16 @@ export function createLinkInfo(input: LinkInfoInput): LinkInfo {
 
 /** Parse the deliberately small public pairing document before database work. */
 export function parseLinkPairRequest(value: unknown): LinkPairRequest | null {
-  if (!value || typeof value !== "object") return null;
+  return parseLinkPairRequestDetailed(value).request;
+}
+
+/** Return a stable, non-sensitive reason so clients can explain rejected pairing requests. */
+export function parseLinkPairRequestDetailed(value: unknown): LinkPairRequestResult {
+  if (!value || typeof value !== "object") return { request: null, error: "invalid_protocol" };
   const input = value as Record<string, unknown>;
-  if (input.protocol !== LINK_PROTOCOL_MAX || !input.device || typeof input.device !== "object") return null;
+  if (input.protocol !== LINK_PROTOCOL_MAX || !input.device || typeof input.device !== "object") {
+    return { request: null, error: "invalid_protocol" };
+  }
   const device = input.device as Record<string, unknown>;
   const name = shortText(device.name, 80);
   const platform = parsePlatform(device.platform);
@@ -107,18 +128,24 @@ export function parseLinkPairRequest(value: unknown): LinkPairRequest | null {
   const publicKey = typeof input.publicKey === "string" && isP256PublicKey(input.publicKey)
     ? input.publicKey
     : null;
-  if (!name || !platform || !platformVersion || !appVersion || !publicKey || !Array.isArray(input.capabilities)) return null;
+  if (!name) return { request: null, error: "invalid_device_name" };
+  if (!platform) return { request: null, error: "invalid_device_platform" };
+  if (!platformVersion) return { request: null, error: "invalid_device_version" };
+  if (!appVersion) return { request: null, error: "invalid_app_version" };
+  if (!publicKey) return { request: null, error: "invalid_public_key" };
 
   const capabilities = parseLinkCapabilities(input.capabilities);
-  if (!capabilities) return null;
+  if (!capabilities) return { request: null, error: "invalid_capabilities" };
   const permissions = parsePermissions(input.permissions);
-  if (!permissions) return null;
+  if (!permissions) return { request: null, error: "invalid_permissions" };
   return {
-    protocol: LINK_PROTOCOL_MAX,
-    device: { name, platform, platformVersion, appVersion },
-    publicKey,
-    capabilities,
-    permissions,
+    request: {
+      protocol: LINK_PROTOCOL_MAX,
+      device: { name, platform, platformVersion, appVersion },
+      publicKey,
+      capabilities,
+      permissions,
+    },
   };
 }
 

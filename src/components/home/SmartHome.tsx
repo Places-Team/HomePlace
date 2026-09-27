@@ -235,13 +235,13 @@ export function SmartHome({
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={d.common.search} className="w-52" />
-        <Select value={group} onChange={(e) => setGroup(e.target.value as typeof group)} className="w-40">
+        <Input value={query} onChange={(e) => setQuery(e.target.value)} placeholder={d.common.search} aria-label={d.common.search} className="!w-full sm:!w-52" />
+        <Select value={group} onChange={(e) => setGroup(e.target.value as typeof group)} aria-label={d.home.byRoom} className="!w-full sm:!w-40">
           <option value="area">{d.home.byRoom}</option>
           <option value="device">{d.home.byDevice}</option>
           <option value="domain">{d.home.byKind}</option>
         </Select>
-        <Select value={only} onChange={(e) => setOnly(e.target.value as typeof only)} className="w-40">
+        <Select value={only} onChange={(e) => setOnly(e.target.value as typeof only)} aria-label={d.home.everything} className="!w-full sm:!w-40">
           <option value="all">{d.home.everything}</option>
           <option value="controls">{d.home.controls}</option>
           <option value="sensors">{d.home.sensors}</option>

@@ -420,16 +420,17 @@ export function ContainerTable({
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder={`${d.common.search} · ${rows.length}`}
-          className="min-w-[12rem] flex-1"
+          aria-label={d.common.search}
+          className="!w-full min-w-0 sm:!w-auto sm:min-w-[12rem] sm:flex-1"
         />
-        <Select value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)} className="w-40">
+        <Select value={filter} onChange={(e) => setFilter(e.target.value as typeof filter)} aria-label={d.containers.filterAll} className="!w-full sm:!w-40">
           <option value="all">{d.containers.filterAll}</option>
           <option value="running">{d.status.running}</option>
           <option value="stopped">{d.status.stopped}</option>
           <option value="problems">{d.containers.filterProblems}</option>
         </Select>
         {hosts.length > 1 && (
-          <Select value={host} onChange={(e) => setHost(e.target.value)} className="w-40">
+          <Select value={host} onChange={(e) => setHost(e.target.value)} aria-label={d.containers.allHosts} className="!w-full sm:!w-40">
             <option value="all">{d.containers.allHosts}</option>
             {hosts.map((h) => (
               <option key={h.key} value={h.key}>
@@ -438,7 +439,7 @@ export function ContainerTable({
             ))}
           </Select>
         )}
-        <Select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} className="w-40">
+        <Select value={sort} onChange={(e) => setSort(e.target.value as typeof sort)} aria-label={d.containers.sortName} className="!w-full sm:!w-40">
           <option value="name">{d.containers.sortName}</option>
           <option value="project">{d.containers.sortProject}</option>
           <option value="state">{d.containers.sortState}</option>

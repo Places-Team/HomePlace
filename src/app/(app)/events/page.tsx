@@ -69,7 +69,7 @@ export default async function EventsPage({
     <>
       <AutoRefresh seconds={60} />
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-lg font-semibold tracking-tight">{d.events.title}</h1>
         <EventFilters d={d} type={type} q={q} severity={severity} />
       </div>
@@ -80,7 +80,7 @@ export default async function EventsPage({
       <Card>
         <ul className="divide-y divide-line">
           {events.map((event) => (
-            <li key={event.id} className="flex items-start gap-3 px-4 py-2.5">
+            <li key={event.id} className="flex items-start gap-3 px-4 py-3">
               <span
                 className={`mt-1.5 inline-block h-1.5 w-1.5 shrink-0 rounded-full ${
                   event.severity === "error" ? "bg-danger" : event.severity === "warn" ? "bg-warn" : "bg-ok"
@@ -93,9 +93,14 @@ export default async function EventsPage({
                   <span className="text-muted">{label[event.type] ?? event.type}</span>
                 </p>
                 {event.detail && (
-                  <p className="mt-0.5 truncate font-mono text-[11px] text-faint" title={event.detail}>
-                    {event.detail}
-                  </p>
+                  <details className="group mt-1 min-w-0">
+                    <summary className="cursor-pointer truncate font-mono text-xs leading-relaxed text-muted hover:text-text focus-visible:text-text">
+                      {event.detail}
+                    </summary>
+                    <p className="mt-2 whitespace-pre-wrap break-all rounded-control bg-raised px-3 py-2 font-mono text-xs leading-relaxed text-muted">
+                      {event.detail}
+                    </p>
+                  </details>
                 )}
               </div>
               <div className="flex shrink-0 items-center gap-2">

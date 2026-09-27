@@ -55,7 +55,7 @@ export function EventFilters({
   ];
 
   return (
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex w-full flex-wrap items-center gap-2 lg:w-auto">
       <Input
         value={text}
         onChange={(e) => setText(e.target.value)}
@@ -66,16 +66,17 @@ export function EventFilters({
           if (text !== q) apply({ q: text });
         }}
         placeholder={d.common.search}
-        className="w-44"
+        aria-label={d.common.search}
+        className="!w-full sm:!w-44"
       />
-      <Select value={type} onChange={(e) => apply({ type: e.target.value })} className="w-44">
+      <Select value={type} onChange={(e) => apply({ type: e.target.value })} aria-label={d.events.allKinds} className="!w-full sm:!w-44">
         {kinds.map((kind) => (
           <option key={kind.value} value={kind.value}>
             {kind.label}
           </option>
         ))}
       </Select>
-      <Select value={severity} onChange={(e) => apply({ severity: e.target.value })} className="w-40">
+      <Select value={severity} onChange={(e) => apply({ severity: e.target.value })} aria-label={d.events.allSeverities} className="!w-full sm:!w-40">
         {severities.map((s) => (
           <option key={s.value} value={s.value}>
             {s.label}

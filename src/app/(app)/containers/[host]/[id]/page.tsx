@@ -11,6 +11,7 @@ import { Card, CardHeader, Badge, StatusDot } from "@/components/ui";
 import { TileIcon } from "@/components/TileIcon";
 import { HoverChart } from "@/components/HoverChart";
 import { ContainerControls } from "@/components/containers/ContainerControls";
+import { ContainerOpenLink } from "@/components/containers/ContainerOpenLink";
 import { LiveLogs } from "@/components/containers/LiveLogs";
 import { AutoRefresh } from "@/components/AutoRefresh";
 import { autoIcon } from "@/lib/icons";
@@ -64,16 +65,13 @@ export default async function ContainerDetailPage({ params }: { params: Promise<
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          {container.suggestedUrl && (
-            <a
-              href={container.suggestedUrl.replace("HOST_ADDRESS", "")}
-              target="_blank"
-              rel="noreferrer"
-              className="rounded-control border border-line px-3 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-raised hover:text-text"
-            >
-              ↗
-            </a>
-          )}
+          <ContainerOpenLink
+            suggestedUrl={container.suggestedUrl}
+            label={d.containers.open}
+            className="rounded-control border border-line px-3 py-1.5 text-sm font-medium text-muted transition-colors hover:bg-raised hover:text-text"
+          >
+            ↗
+          </ContainerOpenLink>
           <ContainerControls
             d={d}
             hostKey={container.hostKey}

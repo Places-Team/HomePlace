@@ -8,6 +8,7 @@ import { Input, Select, Button, Field } from "@/components/form";
 import { Dialog } from "@/components/Dialog";
 import { TileIcon } from "@/components/TileIcon";
 import { LiveLogs } from "@/components/containers/LiveLogs";
+import { containerOpenUrl } from "@/lib/containerUrl";
 import {
   LogsIcon,
   PlayIcon,
@@ -90,6 +91,8 @@ export function ContainerTable({
   initialUpdates?: Record<string, "update" | "current" | "unknown">;
 }) {
   const [query, setQuery] = useState("");
+  const [browserHost, setBrowserHost] = useState<string>();
+  useEffect(() => setBrowserHost(window.location.hostname), []);
   const [filter, setFilter] = useState<"all" | "running" | "stopped" | "problems">("all");
   const [host, setHost] = useState<string>("all");
   const [sort, setSort] = useState<"name" | "cpu" | "memory" | "project" | "state" | "host">("name");
@@ -252,6 +255,7 @@ export function ContainerTable({
 
   function renderRow(row: Row) {
     const running = row.state === "running";
+    const openUrl = containerOpenUrl(row.suggestedUrl, browserHost);
     const icon = row.icon || autoIcon({ name: row.name, image: row.image, pack: iconPack });
     const memoryPercent = row.memory && row.memoryLimit ? (row.memory / row.memoryLimit) * 100 : null;
 
@@ -376,11 +380,12 @@ export function ContainerTable({
             <LogsIcon />
           </Button>
 
-          {row.suggestedUrl && (
+          {openUrl && (
             <a
-              href={row.suggestedUrl.replace("HOST_ADDRESS", typeof window === "undefined" ? "" : window.location.hostname)}
+              href={openUrl}
               target="_blank"
-              rel="noreferrer"
+              rel="noopener noreferrer"
+              aria-label={d.containers.open}
               title={d.containers.open}
               className="inline-flex items-center rounded-control px-2 py-1 text-muted transition-colors hover:bg-raised hover:text-text"
             >

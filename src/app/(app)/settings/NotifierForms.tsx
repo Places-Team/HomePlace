@@ -205,7 +205,11 @@ function NtfyCard({ d, value }: { d: Dictionary; value: { enabled: boolean; url:
               startTransition(async () => {
                 // Saved first, so the test uses what is in the boxes rather than
                 // what was stored before the person started typing.
-                await saveNtfySettings(form);
+                const saved = await saveNtfySettings(form);
+                if (!saved.ok) {
+                  setResult(saved);
+                  return;
+                }
                 setResult(await testNtfy());
               })
             }

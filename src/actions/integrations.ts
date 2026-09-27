@@ -11,7 +11,8 @@ import { proxmoxHealth } from "@/lib/proxmox";
 import { checkTelegramBot, sendWith } from "@/lib/telegram";
 import { saveGoogleConfig, unlinkAccount } from "@/lib/google";
 import { saveFatSecret } from "@/lib/fatsecret";
-import { saveNtfy, ntfyConfig, sendNtfy, saveWebhook, webhookConfig, sendWebhook, saveEmail, emailConfig, sendEmail, type EmailSettings } from "@/lib/notify";
+import { saveNtfy, ntfyConfig, deliverNtfy, saveWebhook, webhookConfig, sendWebhook, saveEmail, emailConfig, sendEmail, type EmailSettings } from "@/lib/notify";
+import { ntfyAddressError } from "@/lib/ntfyAddress";
 import { httpBaseUrlError } from "@/lib/outbound";
 
 /**
@@ -185,6 +186,8 @@ export async function saveNtfySettings(input: {
   token: string;
 }): Promise<TestResult> {
   await requireRole("admin");
+  const invalid = ntfyAddressError(input.url, input.topic);
+  if (invalid) return { ok: false, error: invalid };
   await saveNtfy(input);
   revalidatePath("/settings");
   return { ok: true };
@@ -194,8 +197,7 @@ export async function testNtfy(): Promise<TestResult> {
   await requireRole("admin");
   const cfg = await ntfyConfig();
   if (!cfg) return { ok: false, error: "ntfy is not configured" };
-  const ok = await sendNtfy(cfg, { title: "HomePlace", body: "Test notification — ntfy is working.", severity: "info" });
-  return ok ? { ok: true } : { ok: false, error: "the server did not accept the message" };
+  return deliverNtfy(cfg, { title: "HomePlace", body: "Test notification — ntfy is working.", severity: "info" });
 }
 
 /** A webhook, for whatever else the household runs. */

@@ -6,6 +6,7 @@ import { send as sendTelegram } from "./telegram";
 import { inQuietHours } from "./quietHours";
 import { telegramConfig } from "./integrations";
 import { queueLinkNotifications } from "./linkDevices";
+import { ntfyEndpoint, ntfyResponseError } from "./ntfyAddress";
 import {
   NOTIFY_POLICY_KEY,
   normalizePolicy,
@@ -289,11 +290,17 @@ export async function notify(message: Notification): Promise<DeliveryResult> {
  * is precisely when a server alert matters.
  */
 export async function sendNtfy(cfg: NtfySettings, message: Notification): Promise<boolean> {
+  return (await deliverNtfy(cfg, message)).ok;
+}
+
+export async function deliverNtfy(cfg: NtfySettings, message: Notification): Promise<{ ok: boolean; error?: string }> {
+  const endpoint = ntfyEndpoint(cfg.url, cfg.topic);
+  if (!endpoint) return { ok: false, error: "The ntfy server URL or topic is invalid. Check the saved settings." };
   const priority = message.severity === "error" ? "high" : message.severity === "warn" ? "default" : "low";
   const tags = message.severity === "error" ? "rotating_light" : message.severity === "warn" ? "warning" : "information_source";
 
   try {
-    const res = await fetch(`${cfg.url}/${encodeURIComponent(cfg.topic)}`, {
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: {
         // Headers rather than JSON: ntfy's plain-body form is the one that works
@@ -307,10 +314,11 @@ export async function sendNtfy(cfg: NtfySettings, message: Notification): Promis
       cache: "no-store",
       signal: AbortSignal.timeout(10000),
     });
-    return res.ok;
+    if (res.ok) return { ok: true };
+    return { ok: false, error: ntfyResponseError(res.status) };
   } catch (e) {
     console.error("ntfy delivery failed:", e instanceof Error ? e.message : e);
-    return false;
+    return { ok: false, error: "The HomePlace server could not reach ntfy or the request timed out. Check its address and network." };
   }
 }
 

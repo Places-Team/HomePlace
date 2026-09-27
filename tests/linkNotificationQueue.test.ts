@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { chooseLinkNotificationAction } from "../src/lib/linkNotificationQueue";
+import { chooseLinkNotificationAction, parseLinkNotificationPayload } from "../src/lib/linkNotificationQueue";
 
 const pending = (id: string, tag?: string, urgent = false) => ({
   id,
@@ -44,4 +44,15 @@ test("routine events are skipped only when the queue is full", () => {
   const message = { title: "Update", body: "Update available" };
   assert.deepEqual(chooseLinkNotificationAction([], message, 1), { kind: "append" });
   assert.deepEqual(chooseLinkNotificationAction([pending("old")], message, 1), { kind: "skip" });
+});
+
+test("notification history accepts only bounded messages and local links", () => {
+  assert.deepEqual(
+    parseLinkNotificationPayload(JSON.stringify({ title: "HomePlace", body: "Service is down", url: "/events", urgent: true })),
+    { title: "HomePlace", body: "Service is down", url: "/events", tag: undefined, urgent: true },
+  );
+  assert.equal(parseLinkNotificationPayload(JSON.stringify({ title: "", body: "Message" })), null);
+  assert.equal(parseLinkNotificationPayload(JSON.stringify({ title: "Title", body: "x".repeat(2001) })), null);
+  assert.equal(parseLinkNotificationPayload("not JSON"), null);
+  assert.equal(parseLinkNotificationPayload(JSON.stringify({ title: "Title", body: "Message", url: "//other.example" }))?.url, undefined);
 });

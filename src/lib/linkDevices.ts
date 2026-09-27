@@ -12,6 +12,9 @@ import { chooseLinkNotificationAction, type LinkNotificationMessage } from "./li
 
 const PAIRING_LIFETIME_MS = 5 * 60_000;
 const MAX_PENDING_EVENTS = 50;
+const DELIVERED_NOTIFICATION_RETENTION_MS = 30 * 24 * 60 * 60_000;
+const NOTIFICATION_PRUNE_INTERVAL_MS = 60 * 60_000;
+let lastNotificationPruneAt = 0;
 
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 const secret = () => randomBytes(32).toString("base64url");
@@ -166,6 +169,7 @@ export function linkDeviceHasCapability(device: { capabilities: string }, capabi
 
 export async function heartbeatLinkDevice(deviceId: string, acknowledgedEventIds: string[], capabilities?: LinkCapability[]) {
   await pruneExpiredFileTransfers();
+  await pruneDeliveredLinkNotifications().catch((error) => console.error("Link notification cleanup failed:", error));
   const now = new Date();
   const clipboardCutoff = new Date(now.getTime() - 5 * 60_000);
   const shareCutoff = new Date(now.getTime() - SHARE_LIFETIME_MS);
@@ -224,6 +228,18 @@ export async function heartbeatLinkDevice(deviceId: string, acknowledgedEventIds
       payload: JSON.parse(event.payload) as unknown,
     })),
   };
+}
+
+async function pruneDeliveredLinkNotifications(): Promise<void> {
+  const now = Date.now();
+  if (now - lastNotificationPruneAt < NOTIFICATION_PRUNE_INTERVAL_MS) return;
+  lastNotificationPruneAt = now;
+  await prisma.linkDeviceEvent.deleteMany({
+    where: {
+      kind: "notification.deliver",
+      deliveredAt: { lt: new Date(now - DELIVERED_NOTIFICATION_RETENTION_MS) },
+    },
+  });
 }
 
 export async function revokeLinkDevice(deviceId: string) {

@@ -8,6 +8,25 @@ export type LinkNotificationMessage = {
   urgent?: boolean;
 };
 
+export function parseLinkNotificationPayload(payload: string): LinkNotificationMessage | null {
+  try {
+    const parsed: unknown = JSON.parse(payload);
+    if (!parsed || typeof parsed !== "object") return null;
+    const value = parsed as Record<string, unknown>;
+    if (typeof value.title !== "string" || !value.title.trim() || value.title.length > 120) return null;
+    if (typeof value.body !== "string" || !value.body.trim() || value.body.length > 2000) return null;
+    return {
+      title: value.title,
+      body: value.body,
+      url: typeof value.url === "string" && value.url.startsWith("/") && !value.url.startsWith("//") ? value.url : undefined,
+      tag: typeof value.tag === "string" && value.tag.length <= 120 ? value.tag : undefined,
+      urgent: value.urgent === true,
+    };
+  } catch {
+    return null;
+  }
+}
+
 export type QueueAction =
   | { kind: "append" }
   | { kind: "replace"; id: string }

@@ -209,6 +209,9 @@ latest-state record. Only meaningful transitions become history events.
   receives an approved credential once.
 - `POST /api/link/heartbeat`: authenticated presence, event delivery and event
   acknowledgement.
+- `GET /api/link/notifications`: paginated, delivered notification history for
+  the authenticated `notification.receive` device. Delivered records expire
+  after 30 days; pending events remain queued.
 - `DELETE /api/link/device`: revoke the authenticated device.
 - `GET /api/link/mobile/overview`: scoped calendar, reminder, media, Telegram,
   monitoring and same-account share targets for the approved user.

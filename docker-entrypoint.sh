@@ -36,6 +36,10 @@ if ! su-exec "$PUID:$PGID" node scripts/migrate-file-sizes.mjs; then
   echo "✖ file-size migration failed — refusing to start; check the backup in ${DATA_DIR}/backups"
   exit 1
 fi
+if ! su-exec "$PUID:$PGID" node scripts/migrate-exchange-codes.mjs; then
+  echo "✖ short-code migration failed — refusing start; check backup in ${DATA_DIR}/backups"
+  exit 1
+fi
 if ! su-exec "$PUID:$PGID" node node_modules/prisma/build/index.js db push --skip-generate; then
   echo "✖ could not apply the schema — refusing to start on a database in an unknown state"
   echo "  The message above says what Prisma would not do on its own. Nothing has"

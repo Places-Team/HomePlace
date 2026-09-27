@@ -206,7 +206,13 @@ function NtfyCard({ d, value }: { d: Dictionary; value: { enabled: boolean; url:
           <Button
             variant="primary"
             disabled={pending}
-            onClick={() => startTransition(async () => setResult(await saveNtfySettings(form)))}
+            onClick={() =>
+              startTransition(async () => {
+                const saved = await saveNtfySettings(form);
+                setResult(saved);
+                if (saved.ok) setForm((current) => ({ ...current, clearToken: false }));
+              })
+            }
           >
             {d.common.save}
           </Button>
@@ -221,6 +227,7 @@ function NtfyCard({ d, value }: { d: Dictionary; value: { enabled: boolean; url:
                   setResult(saved);
                   return;
                 }
+                setForm((current) => ({ ...current, clearToken: false }));
                 setResult(await testNtfy());
               })
             }

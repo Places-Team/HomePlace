@@ -18,7 +18,7 @@ const command = z.discriminatedUnion("action", [
   z.object({ action: z.literal("renameCategory"), id, name }),
   z.object({ action: z.literal("deleteCategory"), id }),
   z.object({ action: z.literal("createIdea"), title, note: note.optional(), categoryId: id.optional() }),
-  z.object({ action: z.literal("updateIdea"), id, title: title.optional(), note: note.optional(), categoryId: id.optional(), pinned: z.boolean().optional(), archived: z.boolean().optional() }),
+  z.object({ action: z.literal("updateIdea"), id, title: title.optional(), note: note.optional(), categoryId: id.optional(), pinned: z.boolean().optional(), archived: z.boolean().optional(), completed: z.boolean().optional() }),
   z.object({ action: z.literal("deleteIdea"), id }),
   z.object({ action: z.literal("import"), categories: z.array(name).max(40), ideas: z.array(z.object({ sourceId: legacyId, title, category: name, createdAt: z.string().datetime() })).max(30) }),
 ]);
@@ -51,15 +51,17 @@ export async function GET(request: Request) {
   const query = params.get("q")?.trim().slice(0, 100) ?? "";
   const categoryId = params.get("categoryId");
   const archived = params.get("archived") === "1";
+  const completed = params.get("completed");
   if (cursor && !id.safeParse(cursor).success) return NextResponse.json({ error: "invalid cursor" }, { status: 400 });
   if (categoryId && !id.safeParse(categoryId).success) return NextResponse.json({ error: "invalid category" }, { status: 400 });
+  if (completed !== null && completed !== "0" && completed !== "1") return NextResponse.json({ error: "invalid completion filter" }, { status: 400 });
   const userId = auth.device.userId;
   await inbox(userId);
-  const where: Prisma.IdeaWhereInput = { userId, archived, ...(categoryId ? { categoryId } : {}), ...(query ? { OR: [{ title: { contains: query } }, { note: { contains: query } }] } : {}) };
+  const where: Prisma.IdeaWhereInput = { userId, archived, ...(categoryId ? { categoryId } : {}), ...(completed !== null ? { completedAt: completed === "1" ? { not: null } : null } : {}), ...(query ? { OR: [{ title: { contains: query } }, { note: { contains: query } }] } : {}) };
   if (cursor && !(await prisma.idea.findFirst({ where: { ...where, id: cursor }, select: { id: true } }))) return NextResponse.json({ error: "idea page not found" }, { status: 404 });
   const [categories, rows] = await Promise.all([
     prisma.ideaCategory.findMany({ where: { userId }, orderBy: [{ position: "asc" }, { createdAt: "asc" }], take: 100, select: { id: true, name: true, position: true } }),
-    prisma.idea.findMany({ where, orderBy: [{ pinned: "desc" }, { updatedAt: "desc" }, { id: "desc" }], take: 101, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}), select: { id: true, categoryId: true, title: true, note: true, pinned: true, archived: true, createdAt: true, updatedAt: true } }),
+    prisma.idea.findMany({ where, orderBy: [{ pinned: "desc" }, { updatedAt: "desc" }, { id: "desc" }], take: 101, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}), select: { id: true, categoryId: true, title: true, note: true, pinned: true, archived: true, completedAt: true, createdAt: true, updatedAt: true } }),
   ]);
   return NextResponse.json({ categories, ideas: rows.slice(0, 100), nextCursor: rows.length > 100 ? rows[99].id : null }, { headers: { "cache-control": "no-store" } });
 }
@@ -108,7 +110,7 @@ export async function POST(request: Request) {
       }
       case "updateIdea": {
         if (input.categoryId && !(await ownedCategory(userId, input.categoryId))) return NextResponse.json({ error: "category not found" }, { status: 404 });
-        const result = await prisma.idea.updateMany({ where: { id: input.id, userId }, data: { title: input.title, note: input.note, categoryId: input.categoryId, pinned: input.pinned, archived: input.archived } });
+      const result = await prisma.idea.updateMany({ where: { id: input.id, userId }, data: { title: input.title, note: input.note, categoryId: input.categoryId, pinned: input.pinned, archived: input.archived, completedAt: input.completed === undefined ? undefined : input.completed ? new Date() : null } });
         return result.count ? NextResponse.json({ ok: true }) : NextResponse.json({ error: "idea not found" }, { status: 404 });
       }
       case "deleteIdea": {

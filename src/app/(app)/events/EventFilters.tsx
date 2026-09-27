@@ -29,6 +29,8 @@ export function EventFilters({
 
   function apply(next: { type?: string; q?: string; severity?: string }) {
     const search = new URLSearchParams(params.toString());
+    search.delete("page");
+    search.delete("event");
     for (const [key, value] of Object.entries(next)) {
       if (value) search.set(key, value);
       else search.delete(key);

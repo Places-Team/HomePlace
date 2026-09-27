@@ -811,6 +811,13 @@ export const en = {
   },
   events: {
     title: "Events",
+    viewLabel: "Event view",
+    groupedView: "Grouped",
+    allView: "Chronological",
+    pages: "Event pages",
+    page: "Page",
+    newer: "Newer",
+    older: "Older",
     empty: "Nothing has happened yet",
     wentDown: "went offline",
     cameUp: "came back online",

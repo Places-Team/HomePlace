@@ -87,7 +87,7 @@ export async function checkContainerHealthDue(): Promise<void> {
           type: "container",
           severity: "error",
           tag: key,
-          url: eventId ? `/events?event=${encodeURIComponent(eventId)}#event-${encodeURIComponent(eventId)}` : "/events?type=container",
+          url: eventId ? `/events?event=${encodeURIComponent(eventId)}` : "/events?type=container",
           respectQuietHours: false,
           urgent: true,
         });
@@ -101,7 +101,7 @@ export async function checkContainerHealthDue(): Promise<void> {
           type: "container",
           severity: "info",
           tag: key,
-          url: `/events?event=${encodeURIComponent(eventId!)}#event-${encodeURIComponent(eventId!)}`,
+          url: `/events?event=${encodeURIComponent(eventId!)}`,
         });
       } else if (eventKind === "restart") {
         await notify({
@@ -110,7 +110,7 @@ export async function checkContainerHealthDue(): Promise<void> {
           type: "container",
           severity: "info",
           tag: key,
-          url: `/events?event=${encodeURIComponent(eventId!)}#event-${encodeURIComponent(eventId!)}`,
+          url: `/events?event=${encodeURIComponent(eventId!)}`,
         });
       }
     }

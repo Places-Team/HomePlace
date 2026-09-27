@@ -811,6 +811,13 @@ export const ru: Dictionary = {
   },
   events: {
     title: "События",
+    viewLabel: "Вид событий",
+    groupedView: "Группы",
+    allView: "По времени",
+    pages: "Страницы событий",
+    page: "Страница",
+    newer: "Новее",
+    older: "Раньше",
     empty: "Пока ничего не происходило",
     wentDown: "недоступен",
     cameUp: "снова в сети",

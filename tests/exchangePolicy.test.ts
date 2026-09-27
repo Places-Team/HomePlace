@@ -4,9 +4,11 @@ import {
   EXCHANGE_TEXT_LIMIT,
   exchangeTokenHash,
   newExchangeToken,
+  newShortCode,
   parseExchangeOptions,
   validExchangeText,
   validExchangeToken,
+  validShortCode,
 } from "../src/lib/exchangePolicy";
 
 test("exchange links use independent high-entropy URL-safe tokens", () => {
@@ -18,6 +20,17 @@ test("exchange links use independent high-entropy URL-safe tokens", () => {
   assert.notEqual(exchangeTokenHash(first), exchangeTokenHash(second));
   assert.equal(validExchangeToken("short-code"), false);
   assert.equal(validExchangeToken("../" + first), false);
+});
+
+test("quick exchange codes are five unambiguous characters", () => {
+  const code = newShortCode();
+  assert.equal(code.length, 5);
+  assert.equal(validShortCode(code), true);
+  assert.equal(validShortCode("OOOOO"), false);
+  assert.equal(validShortCode("../x/"), false);
+  assert.deepEqual(parseExchangeOptions({ quick: true, expiresInSeconds: 86400, access: "account" }), {
+    expiresInSeconds: 600, access: "link", deleteAfterOpen: true, quick: true,
+  });
 });
 
 test("exchange options default to expiring public links", () => {

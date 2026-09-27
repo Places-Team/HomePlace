@@ -1,10 +1,10 @@
 import "server-only";
 import type { Exchange } from "@prisma/client";
 import { prisma } from "./db";
-import { decrypt, encrypt } from "./secretBox";
+import { decrypt, encrypt, secretIndex } from "./secretBox";
 import { createFileTransfer, discardFileTransfer, openFileTransfer } from "./linkFiles";
 import { safeFilename } from "./linkShare";
-import { exchangeTokenHash, newExchangeToken, type ExchangeOptions, validExchangeToken } from "./exchangePolicy";
+import { exchangeTokenHash, newExchangeToken, newShortCode, type ExchangeOptions, validExchangeToken, validShortCode } from "./exchangePolicy";
 
 const MAX_ACTIVE = 100;
 const MAX_OWNER_FILE_BYTES = 20n * 1024n ** 3n;
@@ -30,19 +30,30 @@ function expiresAt(options: ExchangeOptions): Date {
 export async function createTextExchange(ownerId: string, value: string, options: ExchangeOptions) {
   await ensureRoom(ownerId);
   const token = newExchangeToken();
+  const shortCode = options.quick ? await availableShortCode() : null;
   const record = await prisma.exchange.create({
     data: {
       ownerId,
       tokenHash: exchangeTokenHash(token),
       encryptedToken: await encrypt(token),
+      shortCodeHash: shortCode ? await secretIndex(shortCode) : null,
+      encryptedShortCode: shortCode ? await encrypt(shortCode) : null,
       kind: "text",
-      access: options.access,
+      access: shortCode ? "link" : options.access,
       encryptedText: await encrypt(value),
-      deleteAfterOpen: options.deleteAfterOpen,
-      expiresAt: expiresAt(options),
+      deleteAfterOpen: shortCode ? true : options.deleteAfterOpen,
+      expiresAt: expiresAt(shortCode ? { ...options, expiresInSeconds: 600 } : options),
     },
   });
-  return ownerView(record, token);
+  return ownerView(record, token, shortCode);
+}
+
+async function availableShortCode(): Promise<string> {
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const code = newShortCode();
+    if (!(await prisma.exchange.findUnique({ where: { shortCodeHash: await secretIndex(code) }, select: { id: true } }))) return code;
+  }
+  throw new Error("short exchange code unavailable");
 }
 
 export async function createFileExchange(ownerId: string, input: {
@@ -53,6 +64,7 @@ export async function createFileExchange(ownerId: string, input: {
 }, options: ExchangeOptions) {
   await ensureRoom(ownerId, input.size);
   const token = newExchangeToken();
+  const shortCode = options.quick ? await availableShortCode() : null;
   const tokenHash = exchangeTokenHash(token);
   const target = `exchange:${tokenHash}`;
   const transfer = await createFileTransfer({
@@ -70,26 +82,29 @@ export async function createFileExchange(ownerId: string, input: {
         ownerId,
         tokenHash,
         encryptedToken: await encrypt(token),
+        shortCodeHash: shortCode ? await secretIndex(shortCode) : null,
+        encryptedShortCode: shortCode ? await encrypt(shortCode) : null,
         kind: "file",
-        access: options.access,
+        access: shortCode ? "link" : options.access,
         transferId: transfer.id,
         filename: transfer.filename,
         mimeType: transfer.mimeType,
         size: BigInt(transfer.size),
-        deleteAfterOpen: options.deleteAfterOpen,
-        expiresAt: expiresAt(options),
+        deleteAfterOpen: shortCode ? true : options.deleteAfterOpen,
+        expiresAt: expiresAt(shortCode ? { ...options, expiresInSeconds: 600 } : options),
       },
     });
-    return ownerView(record, token);
+    return ownerView(record, token, shortCode);
   } catch (error) {
     await discardFileTransfer(transfer.id, target);
     throw error;
   }
 }
 
-function ownerView(record: Exchange, token: string) {
+function ownerView(record: Exchange, token: string, shortCode: string | null = null) {
   return {
     token,
+    shortCode,
     kind: record.kind,
     access: record.access,
     filename: record.filename,
@@ -108,7 +123,15 @@ export async function listExchanges(ownerId: string) {
     orderBy: { createdAt: "desc" },
     take: MAX_ACTIVE,
   });
-  return Promise.all(records.map(async (record) => ownerView(record, await decrypt(record.encryptedToken))));
+  return Promise.all(records.map(async (record) => ownerView(record, await decrypt(record.encryptedToken),
+    record.encryptedShortCode ? await decrypt(record.encryptedShortCode) : null)));
+}
+
+export async function getShortExchangeToken(code: string): Promise<string | null> {
+  if (!validShortCode(code)) return null;
+  const record = await prisma.exchange.findUnique({ where: { shortCodeHash: await secretIndex(code) } });
+  if (!record || record.expiresAt <= new Date() || record.openedAt || !record.encryptedShortCode) return null;
+  return (await decrypt(record.encryptedToken)) || null;
 }
 
 export async function getExchange(token: string) {

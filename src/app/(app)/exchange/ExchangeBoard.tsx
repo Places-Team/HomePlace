@@ -6,6 +6,7 @@ import type { Dictionary } from "@/i18n";
 type Labels = Dictionary["exchange"];
 type Exchange = {
   token: string;
+  shortCode: string | null;
   kind: "text" | "file";
   access: "link" | "account";
   filename: string | null;
@@ -48,15 +49,17 @@ export function ExchangeBoard({ d, serverOrigin, maxFileBytes }: { d: Labels; se
   const [expiresInSeconds, setExpiresInSeconds] = useState(3600);
   const [access, setAccess] = useState<"link" | "account">("link");
   const [deleteAfterOpen, setDeleteAfterOpen] = useState(false);
+  const [quick, setQuick] = useState(true);
   const [items, setItems] = useState<Exchange[]>([]);
-  const [latest, setLatest] = useState<string | null>(null);
+  const [latest, setLatest] = useState<Exchange | null>(null);
   const [localOrigin, setLocalOrigin] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const latestInput = useRef<HTMLInputElement>(null);
 
   useEffect(() => { setLocalOrigin(window.location.origin); }, []);
-  const linkFor = (origin: string, token: string) => `${origin}/x/${token}`;
+  const linkFor = (origin: string, item: Exchange) => item.shortCode
+    ? `${origin}/f/${item.shortCode}` : `${origin}/x/${item.token}`;
   const alternateOrigin = serverOrigin && serverOrigin !== localOrigin ? serverOrigin : null;
 
   useEffect(() => {
@@ -82,7 +85,7 @@ export function ExchangeBoard({ d, serverOrigin, maxFileBytes }: { d: Labels; se
         response = await fetch("/api/exchange", {
           method: "POST",
           headers: { "content-type": "application/json" },
-          body: JSON.stringify({ text, expiresInSeconds, access, deleteAfterOpen }),
+        body: JSON.stringify({ text, expiresInSeconds, access, deleteAfterOpen, quick }),
         });
       } else {
         response = await fetch("/api/exchange/file", {
@@ -93,7 +96,8 @@ export function ExchangeBoard({ d, serverOrigin, maxFileBytes }: { d: Labels; se
             "x-homeplace-filename-base64": encodedFilename(file!.name),
             "x-homeplace-expires": String(expiresInSeconds),
             "x-homeplace-access": access,
-            "x-homeplace-delete-after-open": String(deleteAfterOpen),
+          "x-homeplace-delete-after-open": String(deleteAfterOpen),
+          "x-homeplace-quick": String(quick),
           },
           body: file,
         });
@@ -102,7 +106,7 @@ export function ExchangeBoard({ d, serverOrigin, maxFileBytes }: { d: Labels; se
       if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : d.error);
       const item = data.exchange as Exchange;
       setItems((current) => [item, ...current]);
-      setLatest(item.token);
+      setLatest(item);
       setNotice(d.created);
       setText("");
       setFile(null);
@@ -120,7 +124,7 @@ export function ExchangeBoard({ d, serverOrigin, maxFileBytes }: { d: Labels; se
       const response = await fetch(`/api/exchange/${token}`, { method: "DELETE" });
       if (!response.ok) throw new Error(d.error);
       setItems((current) => current.filter((item) => item.token !== token));
-      if (latest === token) setLatest(null);
+      if (latest?.token === token) setLatest(null);
       setNotice("");
     } catch { setNotice(d.error); }
     finally { setBusy(false); }
@@ -149,7 +153,11 @@ export function ExchangeBoard({ d, serverOrigin, maxFileBytes }: { d: Labels; se
             <p className="mt-2 text-xs text-muted">{d.fileLimit.replace("{size}", formatBytes(maxFileBytes))}</p>
           </div>
         )}
-        <div className="mt-5 flex flex-wrap gap-4">
+      <label className="mt-5 flex items-start gap-2 text-sm text-text">
+        <input type="checkbox" checked={quick} onChange={(event) => setQuick(event.target.checked)} className="mt-1" />
+        <span>{d.quickMode}</span>
+      </label>
+      {!quick && <div className="mt-5 flex flex-wrap gap-4">
           <label className="min-w-40 flex-1 text-xs font-medium text-muted">{d.expires}
             <select value={expiresInSeconds} onChange={(event) => setExpiresInSeconds(Number(event.target.value))}
               className="mt-1 block w-full rounded-control border border-line bg-raised px-3 py-2.5 text-sm text-text">
@@ -162,13 +170,13 @@ export function ExchangeBoard({ d, serverOrigin, maxFileBytes }: { d: Labels; se
               <option value="link">{d.linkAccess}</option><option value="account">{d.accountAccess}</option>
             </select>
           </label>
-        </div>
-        <label className="mt-4 flex items-start gap-2 text-sm text-text">
+      </div>}
+      {!quick && <label className="mt-4 flex items-start gap-2 text-sm text-text">
           <input type="checkbox" checked={deleteAfterOpen} onChange={(event) => setDeleteAfterOpen(event.target.checked)} className="mt-1" />
           {d.oneTime}
-        </label>
-        <p className="mt-2 text-xs leading-5 text-muted">{access === "link" ? d.publicWarning : d.private}</p>
-        {deleteAfterOpen && <p className="mt-1 text-xs leading-5 text-muted">{d.onceWarning}</p>}
+      </label>}
+      <p className="mt-2 text-xs leading-5 text-muted">{quick || access === "link" ? d.publicWarning : d.private}</p>
+      {(quick || deleteAfterOpen) && <p className="mt-1 text-xs leading-5 text-muted">{d.onceWarning}</p>}
         <button type="button" disabled={busy || (kind === "text" ? !text.trim() : !file || file.size > maxFileBytes)} onClick={create}
           className="mt-5 rounded-control bg-accent px-5 py-2.5 text-sm font-semibold text-accent-fg disabled:opacity-50">
           {d.create}
@@ -178,7 +186,7 @@ export function ExchangeBoard({ d, serverOrigin, maxFileBytes }: { d: Labels; se
             <input ref={latestInput} readOnly value={linkFor(localOrigin, latest)} aria-label={d.currentAddress} className="min-w-0 flex-1 rounded-control border border-line bg-raised px-3 py-2 text-sm text-text" />
             <button type="button" onClick={async () => setNotice(await copy(linkFor(localOrigin, latest), latestInput.current) ? d.copied : d.error)}
               className="rounded-control border border-line px-3 py-2 text-sm font-medium">{d.copyLink}</button>
-            {alternateOrigin && <button type="button" onClick={async () => setNotice(await copy(linkFor(alternateOrigin, latest), null) ? d.copied : d.error)}
+              {alternateOrigin && <button type="button" onClick={async () => setNotice(await copy(linkFor(alternateOrigin, latest), null) ? d.copied : d.error)}
               className="rounded-control border border-line px-3 py-2 text-sm font-medium">{d.copyServerLink}</button>}
           </div>
         )}
@@ -190,7 +198,7 @@ export function ExchangeBoard({ d, serverOrigin, maxFileBytes }: { d: Labels; se
         {items.length === 0 ? <p className="border-t border-line py-5 text-sm text-muted">{d.empty}</p> : (
           <ul className="divide-y divide-line border-t border-line">
             {items.map((item) => {
-              const url = linkFor(localOrigin, item.token);
+            const url = linkFor(localOrigin, item);
               return <li key={item.token} className="flex flex-wrap items-center gap-3 py-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{item.kind === "file" ? item.filename : d.text}</p>
@@ -201,7 +209,7 @@ export function ExchangeBoard({ d, serverOrigin, maxFileBytes }: { d: Labels; se
                   const field = event.currentTarget.previousElementSibling as HTMLInputElement | null;
                   setNotice(await copy(url, field) ? d.copied : d.error);
                 }} className="rounded-control border border-line px-3 py-1.5 text-xs font-medium">{d.copyLink}</button>
-                {alternateOrigin && <button type="button" onClick={async () => setNotice(await copy(linkFor(alternateOrigin, item.token), null) ? d.copied : d.error)}
+                {alternateOrigin && <button type="button" onClick={async () => setNotice(await copy(linkFor(alternateOrigin, item), null) ? d.copied : d.error)}
                   className="rounded-control border border-line px-3 py-1.5 text-xs font-medium">{d.copyServerLink}</button>}
                 <button type="button" disabled={busy} onClick={() => remove(item.token)} className="rounded-control px-2 py-1.5 text-xs text-muted hover:text-danger">{d.delete}</button>
               </li>;

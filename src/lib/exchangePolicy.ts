@@ -1,4 +1,4 @@
-import { createHash, randomBytes } from "node:crypto";
+import { createHash, randomBytes, randomInt } from "node:crypto";
 
 export const EXCHANGE_FILE_LIMIT = 10 * 1024 ** 3;
 export const EXCHANGE_TEXT_LIMIT = 16 * 1024;
@@ -8,6 +8,7 @@ export type ExchangeOptions = {
   expiresInSeconds: (typeof EXCHANGE_LIFETIMES)[number];
   deleteAfterOpen: boolean;
   access: ExchangeAccess;
+  quick?: boolean;
 };
 
 export function parseExchangeOptions(value: unknown): ExchangeOptions | null {
@@ -19,6 +20,8 @@ export function parseExchangeOptions(value: unknown): ExchangeOptions | null {
   if (!EXCHANGE_LIFETIMES.some((seconds) => seconds === expiresInSeconds)) return null;
   if (access !== "account" && access !== "link") return null;
   if (typeof deleteAfterOpen !== "boolean") return null;
+  if (input.quick !== undefined && typeof input.quick !== "boolean") return null;
+  if (input.quick === true) return { expiresInSeconds: 600, access: "link", deleteAfterOpen: true, quick: true };
   return { expiresInSeconds: expiresInSeconds as ExchangeOptions["expiresInSeconds"], access, deleteAfterOpen };
 }
 
@@ -28,6 +31,14 @@ export function validExchangeToken(value: unknown): value is string {
 
 export function newExchangeToken(): string {
   return randomBytes(16).toString("base64url");
+}
+
+const SHORT_ALPHABET = "23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz";
+export function newShortCode(): string {
+  return Array.from({ length: 5 }, () => SHORT_ALPHABET[randomInt(SHORT_ALPHABET.length)]).join("");
+}
+export function validShortCode(value: unknown): value is string {
+  return typeof value === "string" && value.length === 5 && [...value].every((character) => SHORT_ALPHABET.includes(character));
 }
 
 export function exchangeTokenHash(token: string): string {

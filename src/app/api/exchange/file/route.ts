@@ -23,6 +23,7 @@ export async function POST(request: Request) {
     expiresInSeconds: Number(request.headers.get("x-homeplace-expires") || 3600),
     access: request.headers.get("x-homeplace-access") || "link",
     deleteAfterOpen: request.headers.get("x-homeplace-delete-after-open") === "true",
+    quick: request.headers.get("x-homeplace-quick") === "true",
   });
   if (!options || !request.body) return NextResponse.json({ error: "invalid file exchange" }, { status: 400, headers });
   let filename = "shared-file";

@@ -1,5 +1,5 @@
 import "server-only";
-import { createCipheriv, createDecipheriv, randomBytes, createHash } from "node:crypto";
+import { createCipheriv, createDecipheriv, randomBytes, createHash, createHmac } from "node:crypto";
 import { getSetting, setSetting } from "./db";
 
 /**
@@ -36,6 +36,10 @@ async function generateFallback(): Promise<string> {
   const generated = randomBytes(32).toString("hex");
   await setSetting("auth.secret", generated);
   return generated;
+}
+
+export async function secretIndex(value: string): Promise<string> {
+  return createHmac("sha256", await key()).update("exchange-short:").update(value).digest("hex");
 }
 
 export async function encrypt(plain: string): Promise<string> {

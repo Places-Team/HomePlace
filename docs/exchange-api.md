@@ -21,6 +21,18 @@ The web UI offers a link for the current browser address and, when different, a 
 
 ## Recipient
 
+For a disposable, manually typed link, set `quick: true` in the text JSON or
+`x-homeplace-quick: true` on a file upload. The server overrides other access,
+expiry, and reuse options: anyone with the code may open it once within 10
+minutes. The response and owner listing include `shortCode` (five case-sensitive
+Base58 characters); use `{server-origin}/f/{shortCode}`. Without quick mode,
+`shortCode` is null and the existing 22-character `/x/{token}` link applies.
+The short route limits lookup attempts per client and across the server. Its
+landing page does not consume the exchange; opening text or starting a file
+download does. Do not use five-character codes for long-lived or reusable data.
+Short-code lookups use a keyed index, so a database-only copy cannot cheaply
+enumerate the five-character code space without the server secret.
+
 - `GET /api/exchange/{token}` returns metadata only. It never consumes a one-time exchange or reveals text.
 - `POST /api/exchange/{token}/open` returns `{ "text": "..." }`. This is the explicit text-open action.
 - `GET /api/exchange/{token}/file` downloads the file with attachment disposition and SHA-256 in `x-homeplace-sha256`.

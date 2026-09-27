@@ -6,6 +6,7 @@ import {
   createTextExchange,
   deleteExchange,
   getExchange,
+  getShortExchangeToken,
   listExchanges,
   openExchangeFile,
   openExchangeText,
@@ -21,6 +22,15 @@ const once: ExchangeOptions = { access: "link", deleteAfterOpen: true, expiresIn
 test("one-time text and encrypted file exchanges are consumed and removed", async () => {
   const user = await prisma.user.create({ data: { name: "Exchange test" } });
   try {
+    const quick = await createTextExchange(user.id, "short code proof", { ...once, quick: true });
+    assert.match(quick.shortCode!, /^[23456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz]{5}$/);
+    assert.equal(await getShortExchangeToken(quick.shortCode!), quick.token);
+    assert.equal((await listExchanges(user.id)).find((item) => item.token === quick.token)?.shortCode, quick.shortCode);
+    const quickRecord = await getExchange(quick.token);
+    assert.ok(quickRecord);
+    assert.equal(await openExchangeText(quickRecord), "short code proof");
+    assert.equal(await getShortExchangeToken(quick.shortCode!), null);
+
     const text = await createTextExchange(user.id, "hello from HomePlace", once);
     const textRecord = await getExchange(text.token);
     assert.ok(textRecord);

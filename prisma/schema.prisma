@@ -521,6 +521,8 @@ model Exchange {
   owner User @relation(fields: [ownerId], references: [id], onDelete: Cascade)
   tokenHash String @unique
   encryptedToken String
+  shortCodeHash String? @unique
+  encryptedShortCode String?
   kind String
   access String @default("link")
   encryptedText String?

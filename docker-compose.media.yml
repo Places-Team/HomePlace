@@ -6,8 +6,12 @@ services:
     networks:
       - default
       - homeplace-media
+      - homeplace-web
 
 networks:
   homeplace-media:
     external: true
     name: "${HOMEPLACE_MEDIA_NETWORK:-media_default}"
+  homeplace-web:
+    external: true
+    name: "${HOMEPLACE_WEB_NETWORK:-web}"

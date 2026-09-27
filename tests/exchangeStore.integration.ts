@@ -41,6 +41,26 @@ test("one-time text and encrypted file exchanges are consumed and removed", asyn
     assert.equal((await listExchanges(user.id)).length, 0);
 
     const bytes = new TextEncoder().encode("file exchange proof");
+    const shortFile = await createFileExchange(user.id, {
+      filename: "quick.txt", mimeType: "text/plain", size: bytes.byteLength,
+      stream: new ReadableStream({ start(controller) { controller.enqueue(bytes); controller.close(); } }),
+    }, { ...once, quick: true });
+    assert.ok(shortFile.shortCode);
+    assert.equal(await getShortExchangeToken(shortFile.shortCode), shortFile.token);
+    const shortFileRecord = await getExchange(shortFile.token);
+    assert.ok(shortFileRecord);
+    const shortDownload = await openExchangeFile(shortFileRecord);
+    assert.ok(shortDownload);
+    const shortReader = shortDownload.stream.getReader();
+    const shortParts: Uint8Array[] = [];
+    for (;;) {
+      const part = await shortReader.read();
+      if (part.done) break;
+      shortParts.push(part.value);
+    }
+    assert.equal(new TextDecoder().decode(Buffer.concat(shortParts)), "file exchange proof");
+    assert.equal(await getShortExchangeToken(shortFile.shortCode), null);
+
     const file = await createFileExchange(user.id, {
       filename: "proof.txt",
       mimeType: "text/plain",

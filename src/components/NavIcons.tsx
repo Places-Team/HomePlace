@@ -102,23 +102,6 @@ export function GearIcon({ className }: IconProps) {
   );
 }
 
-export function CalendarIcon({ className }: IconProps) {
-  return (
-    <Svg className={className}>
-      <rect x="3" y="5" width="18" height="16" rx="2" />
-      <path d="M7 3v4M17 3v4M3 10h18M7 14h3M14 14h3M7 18h3" />
-    </Svg>
-  );
-}
-
-export function TransferIcon({ className }: IconProps) {
-  return (
-    <Svg className={className}>
-      <path d="M4 8h15m-4-4 4 4-4 4M20 16H5m4-4-4 4 4 4" />
-    </Svg>
-  );
-}
-
 export function SectionsIcon({ className }: IconProps) {
   return (
     <Svg className={className}>

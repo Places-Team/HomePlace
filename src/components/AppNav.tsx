@@ -11,7 +11,7 @@ import { NotificationBell } from "./NotificationBell";
 import type { Dictionary } from "@/i18n";
 
 /**
- * Task-first navigation. Less frequent tools live in the section directory.
+ * Server-first navigation. Personal tools live in the section directory.
  */
 export function AppNav({
   d,
@@ -27,10 +27,10 @@ export function AppNav({
 
   const links = [
     { href: "/", label: d.nav.dashboard, path: "/" },
-    { href: "/calendar", label: d.nav.plan, path: "/calendar" },
-    { href: "/media?tab=requests", label: d.nav.requests, path: "/media" },
-    ...(user.role === "viewer" ? [] : [{ href: "/transfers", label: d.nav.transfers, path: "/transfers" }]),
     { href: "/monitoring", label: d.nav.monitoring, path: "/monitoring" },
+    { href: "/containers", label: d.nav.containers, path: "/containers" },
+    { href: "/home", label: d.nav.home, path: "/home" },
+    { href: "/media", label: d.nav.media, path: "/media" },
     { href: "/sections", label: d.nav.allSections, path: "/sections" },
   ];
 

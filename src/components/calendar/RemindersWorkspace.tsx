@@ -84,7 +84,7 @@ export function RemindersWorkspace({ active, completed, d, locale }: {
   return (
     <div className="space-y-7" aria-busy={pending}>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted">{active.length} {d.plan.upcoming.toLowerCase()}</p>
+        <p className="text-sm text-muted">{d.plan.upcoming}: {active.length}</p>
         <Button variant="primary" onClick={() => open()}>{d.plan.addReminder}</Button>
       </div>
 
@@ -171,13 +171,13 @@ function ReminderGroup({ title, rows, d, locale, pending, confirmDelete, setConf
     <h2 className="mb-2 text-xs font-semibold uppercase tracking-[0.15em] text-muted">{title}</h2>
     <ul className="divide-y divide-line border-t border-line">
       {rows.map((row) => (
-        <li key={row.id} className="flex flex-wrap items-center gap-3 py-4 sm:flex-nowrap">
+        <li key={row.id} className="grid grid-cols-[2.25rem_minmax(0,1fr)] items-start gap-x-3 gap-y-2 py-4 sm:grid-cols-[2.25rem_minmax(0,1fr)_auto] sm:items-center">
           <button type="button" onClick={() => run(() => completeReminder(row.id))} disabled={pending} className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line text-muted hover:border-ok hover:bg-ok/10 hover:text-ok" aria-label={`${row.title} — ${d.reminders.done}`}>✓</button>
           <div className="min-w-0 flex-1">
             <p className="break-words text-base font-medium">{row.title}</p>
             <p className="mt-1 text-sm text-muted">{new Date(row.at).toLocaleString(locale, { day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}{row.repeat !== "none" && ` · ${repeatLabel(row.repeat, d)}`}</p>
           </div>
-          <div className="ml-12 flex gap-1 sm:ml-0">
+          <div className="col-start-2 flex flex-wrap gap-1 sm:col-start-3 sm:flex-nowrap">
             <Button size="sm" variant="quiet" onClick={() => edit(row)} disabled={pending}>{d.common.edit}</Button>
             {confirmDelete === row.id ? <Button size="sm" variant="danger" onClick={() => { setConfirmDelete(null); run(() => deleteReminder(row.id)); }} disabled={pending}>{d.common.delete}?</Button> : <Button size="sm" variant="quiet" onClick={() => setConfirmDelete(row.id)} disabled={pending}>{d.common.delete}</Button>}
           </div>

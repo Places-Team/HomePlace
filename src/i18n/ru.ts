@@ -85,6 +85,7 @@ export const ru: Dictionary = {
     noOffers: "Здесь появятся недавние передачи.",
     waiting: "Ожидает устройство",
     delivered: "Доставлено на устройство",
+    expired: "Срок истёк",
     manage: "Управление подключениями",
   },
   mediaCenter: {

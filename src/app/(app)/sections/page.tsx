@@ -8,26 +8,26 @@ export default async function SectionsPage() {
   const d = dict(user.locale);
   const canManage = atLeast(user.role, "admin");
   const groups = [
-    { title: d.nav.everyday, links: [
+    { title: d.nav.system, links: [
       { href: "/", title: d.nav.dashboard, mark: "01" },
-      { href: "/calendar", title: d.nav.plan, mark: "02" },
-      { href: "/media?tab=requests", title: d.nav.requests, mark: "03" },
+      { href: "/monitoring", title: d.nav.monitoring, mark: "02" },
+      { href: "/containers", title: d.nav.containers, mark: "03" },
+      { href: "/events", title: d.nav.events, mark: "04" },
+      { href: "/settings", title: d.nav.settings, mark: "05" },
+    ] },
+    { title: d.nav.services, links: [
+      { href: "/home", title: d.nav.home, mark: "06" },
+      { href: "/media", title: d.nav.media, mark: "07" },
+      { href: "/media?tab=requests", title: d.nav.requests, mark: "08" },
+    ] },
+    { title: d.nav.everyday, links: [
+      { href: "/calendar", title: d.nav.plan, mark: "09" },
     ] },
     { title: d.nav.sharing, links: [
       ...(canManage ? [
-        { href: "/transfers", title: d.nav.transfers, mark: "04" },
-        { href: "/devices", title: d.nav.devices, mark: "05" },
+        { href: "/transfers", title: d.nav.transfers, mark: "10" },
+        { href: "/devices", title: d.nav.devices, mark: "11" },
       ] : []),
-    ] },
-    { title: d.nav.services, links: [
-      { href: "/media", title: d.nav.media, mark: "06" },
-      { href: "/home", title: d.nav.home, mark: "07" },
-    ] },
-    { title: d.nav.system, links: [
-      { href: "/monitoring", title: d.nav.monitoring, mark: "08" },
-      { href: "/containers", title: d.nav.containers, mark: "09" },
-      { href: "/events", title: d.nav.events, mark: "10" },
-      { href: "/settings", title: d.nav.settings, mark: "11" },
     ] },
   ].filter((group) => group.links.length > 0);
 

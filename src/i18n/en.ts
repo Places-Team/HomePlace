@@ -88,6 +88,7 @@ export const en = {
     noOffers: "Your recent transfers will appear here.",
     waiting: "Waiting for device",
     delivered: "Delivered to device",
+    expired: "Expired",
     manage: "Manage connections",
   },
   mediaCenter: {

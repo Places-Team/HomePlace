@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { HomeIcon, ChartIcon, CalendarIcon, TransferIcon, MediaIcon, SectionsIcon } from "./NavIcons";
+import { HomeIcon, ChartIcon, BoxIcon, BulbIcon, MediaIcon, SectionsIcon } from "./NavIcons";
 import type { Dictionary } from "@/i18n";
 
 /**
@@ -16,15 +16,15 @@ import type { Dictionary } from "@/i18n";
  * The bottom padding uses the safe-area inset so the pill clears the home
  * indicator on an iPhone instead of sitting under it.
  */
-export function MobileNav({ d, canShare }: { d: Dictionary; canShare: boolean }) {
+export function MobileNav({ d }: { d: Dictionary }) {
   const pathname = usePathname();
 
   const items = [
     { href: "/", label: d.nav.dashboard, Icon: HomeIcon },
-    { href: "/calendar", label: d.nav.plan, Icon: CalendarIcon },
-    { href: "/media?tab=requests", label: d.nav.requests, Icon: MediaIcon },
-    ...(canShare ? [{ href: "/transfers", label: d.nav.transfers, Icon: TransferIcon }] : []),
     { href: "/monitoring", label: d.nav.monitoring, Icon: ChartIcon },
+    { href: "/containers", label: d.nav.containers, Icon: BoxIcon },
+    { href: "/home", label: d.nav.home, Icon: BulbIcon },
+    { href: "/media", label: d.nav.media, Icon: MediaIcon },
     { href: "/sections", label: d.nav.allSections, Icon: SectionsIcon },
   ];
 

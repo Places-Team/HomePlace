@@ -6,6 +6,7 @@ import { atLeast } from "@/lib/auth";
 import { dict } from "@/i18n";
 import { Badge } from "@/components/ui";
 import { DeviceActions } from "@/app/(app)/devices/DeviceActions";
+import { SHARE_LIFETIME_MS } from "@/lib/linkShare";
 
 export const dynamic = "force-dynamic";
 
@@ -94,7 +95,7 @@ export default async function TransfersPage() {
           {offers.map((offer) => <li key={offer.id} className="flex flex-wrap items-center gap-2 py-3 text-sm">
             <span className="min-w-0 flex-1 truncate font-medium">{offerType(offer.payload, d.devices)}</span>
             <span className="text-muted">{names.get(offer.deviceId)}</span>
-            <span className="text-muted">{offer.deliveredAt ? d.transfers.delivered : d.transfers.waiting}</span>
+            <span className="text-muted">{offer.deliveredAt ? d.transfers.delivered : now - offer.createdAt.getTime() >= SHARE_LIFETIME_MS ? d.transfers.expired : d.transfers.waiting}</span>
             <time dateTime={offer.createdAt.toISOString()} className="w-full font-mono text-xs tabular-nums text-faint sm:w-auto">{offer.createdAt.toLocaleString(locale, { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</time>
           </li>)}
         </ul>}

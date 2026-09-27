@@ -133,6 +133,26 @@ body {
   border-radius: 4px;
 }
 
+/* The selected destination names itself; the rest stay compact until explored. */
+.app-nav-label {
+  display: block;
+  max-width: 0;
+  margin-left: 0;
+  overflow: hidden;
+  opacity: 0;
+  transition: max-width 180ms ease, margin-left 180ms ease, opacity 120ms ease;
+}
+.app-nav-link[data-active] .app-nav-label,
+.app-nav-link:hover .app-nav-label,
+.app-nav-link:focus-visible .app-nav-label {
+  max-width: 10rem;
+  margin-left: 0.5rem;
+  opacity: 1;
+}
+@media (prefers-reduced-motion: reduce) {
+  .app-nav-label { transition: none; }
+}
+
 ::selection {
   background: rgb(var(--accent) / 0.28);
 }

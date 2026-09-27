@@ -8,6 +8,7 @@ import { AppearanceMenu } from "./AppearanceMenu";
 import { CommandPalette } from "./CommandPalette";
 import { Help } from "./Help";
 import { NotificationBell } from "./NotificationBell";
+import { BoxIcon, BulbIcon, ChartIcon, HomeIcon, MediaIcon, SectionsIcon } from "./NavIcons";
 import type { Dictionary } from "@/i18n";
 
 /**
@@ -26,12 +27,12 @@ export function AppNav({
   const [menuOpen, setMenuOpen] = useState(false);
 
   const links = [
-    { href: "/", label: d.nav.dashboard, path: "/" },
-    { href: "/monitoring", label: d.nav.monitoring, path: "/monitoring" },
-    { href: "/containers", label: d.nav.containers, path: "/containers" },
-    { href: "/home", label: d.nav.home, path: "/home" },
-    { href: "/media", label: d.nav.media, path: "/media" },
-    { href: "/sections", label: d.nav.allSections, path: "/sections" },
+    { href: "/", label: d.nav.dashboard, path: "/", Icon: HomeIcon },
+    { href: "/monitoring", label: d.nav.monitoring, path: "/monitoring", Icon: ChartIcon },
+    { href: "/containers", label: d.nav.containers, path: "/containers", Icon: BoxIcon },
+    { href: "/home", label: d.nav.home, path: "/home", Icon: BulbIcon },
+    { href: "/media", label: d.nav.media, path: "/media", Icon: MediaIcon },
+    { href: "/sections", label: d.nav.allSections, path: "/sections", Icon: SectionsIcon },
   ];
 
   return (
@@ -44,7 +45,7 @@ export function AppNav({
         </Link>
 
         {/* Hidden on a phone: those destinations live in the bottom pill. */}
-        <nav className="hidden min-w-0 items-center gap-0.5 overflow-x-auto lg:flex" aria-label={d.nav.allSections}>
+        <nav className="hidden min-w-0 items-center gap-1 overflow-x-auto px-1 py-1 lg:flex" aria-label={d.nav.allSections}>
           {links.map((link) => {
             // Exact match for the dashboard, prefix for the rest, so a detail
             // page still highlights its section.
@@ -53,12 +54,16 @@ export function AppNav({
               <Link
                 key={link.href}
                 href={link.href}
+                aria-label={link.label}
                 aria-current={active ? "page" : undefined}
-                className={`whitespace-nowrap rounded-control px-3 py-2 text-sm font-medium transition-colors ${
+                title={link.label}
+                data-active={active || undefined}
+                className={`app-nav-link group flex h-11 shrink-0 items-center justify-center rounded-control px-3 text-sm font-medium transition-colors ${
                   active ? "bg-accent/10 text-accent" : "text-muted hover:bg-raised hover:text-text"
                 }`}
               >
-                {link.label}
+                <link.Icon className="h-5 w-5 shrink-0" />
+                <span className="app-nav-label whitespace-nowrap" aria-hidden="true">{link.label}</span>
               </Link>
             );
           })}

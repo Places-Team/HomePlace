@@ -54,7 +54,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
           transform or backdrop-filter — and the header has backdrop-blur, which
           is why the bar rendered stuck to the bottom of the *header* instead of
           the bottom of the screen. */}
-      <MobileNav d={d} canShare={atLeast(user.role, "admin")} />
+      <MobileNav d={d} />
     </div>
   );
 }

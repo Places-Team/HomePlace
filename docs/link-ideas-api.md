@@ -1,6 +1,6 @@
 # Link ideas API
 
-Ideas and sections are personal to the paired HomePlace account. A Link device must request and receive `ideas.manage` during pairing. Existing devices need fresh approval; the server never infers this permission from calendar or reminder access. All routes require the device bearer credential.
+Ideas and sections are personal to the paired HomePlace account. A Link device must receive `ideas.manage` during pairing or through an administrator-confirmed grant in Devices. A grant applies only to a paired device with an assigned account owner. The server never infers this permission from calendar or reminder access. Revoking the grant immediately blocks the Ideas API without revoking the device's other permissions. All routes require the device bearer credential and remain scoped to its owner.
 
 ## Read
 

@@ -111,6 +111,8 @@ export default async function DevicesPage() {
                     canReceiveFile={capabilities.some((capability) => capability.name === "file.receive")}
                     allowHouseholdShares={device.allowHouseholdShares}
                     quickSharingEnabled={permissions.includes("share.relay")}
+                    ideasAccessEnabled={permissions.includes("ideas.manage")}
+                    ownerAssigned={!!device.userId}
                     d={d}
                   />
                 </div>

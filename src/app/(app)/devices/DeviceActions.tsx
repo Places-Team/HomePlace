@@ -9,6 +9,7 @@ import {
   sendDeviceShare,
   sendDeviceTestNotification,
   updateDeviceHouseholdSharing,
+  updateDeviceIdeasAccess,
   updateDeviceQuickSharing,
 } from "@/actions/linkDevices";
 import { Dialog } from "@/components/Dialog";
@@ -39,6 +40,8 @@ export function DeviceActions({
   canReceiveFile,
   allowHouseholdShares,
   quickSharingEnabled,
+  ideasAccessEnabled = false,
+  ownerAssigned = false,
   compact = false,
   d,
 }: {
@@ -49,6 +52,8 @@ export function DeviceActions({
   canReceiveFile: boolean;
   allowHouseholdShares: boolean;
   quickSharingEnabled: boolean;
+  ideasAccessEnabled?: boolean;
+  ownerAssigned?: boolean;
   compact?: boolean;
   d: Dictionary;
 }) {
@@ -64,6 +69,7 @@ export function DeviceActions({
   const [progress, setProgress] = useState(0);
   const upload = useRef<XMLHttpRequest | null>(null);
   const [result, setResult] = useState<{ ok: boolean; error?: string } | null>(null);
+  const [ideasAccessError, setIdeasAccessError] = useState(false);
   const busy = pending || uploading;
 
   function submit() {
@@ -170,6 +176,25 @@ export function DeviceActions({
       >
         {quickSharingEnabled ? d.devices.disableQuickSharing : d.devices.enableQuickSharing}
       </Button>}
+      {!compact && ownerAssigned && <Button
+        disabled={busy}
+        onClick={() => {
+          if (!ideasAccessEnabled && !window.confirm(d.devices.ideasAccessConfirm)) return;
+          setIdeasAccessError(false);
+          startTransition(async () => {
+            try {
+              const changed = await updateDeviceIdeasAccess(id, !ideasAccessEnabled);
+              if (!changed) setIdeasAccessError(true);
+              router.refresh();
+            } catch {
+              setIdeasAccessError(true);
+            }
+          });
+        }}
+      >
+        {ideasAccessEnabled ? d.devices.disableIdeasAccess : d.devices.enableIdeasAccess}
+      </Button>}
+      {ideasAccessError && <p role="alert" className="text-sm text-danger">{d.devices.ideasAccessError}</p>}
       {!compact && <Button
         disabled={pending}
         onClick={() => startTransition(() => updateDeviceHouseholdSharing(id, !allowHouseholdShares))}

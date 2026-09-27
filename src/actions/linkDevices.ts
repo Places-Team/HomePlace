@@ -49,6 +49,13 @@ export async function updateDeviceQuickSharing(id: string, enabled: boolean): Pr
   revalidatePath("/devices");
 }
 
+export async function updateDeviceIdeasAccess(id: string, enabled: boolean): Promise<boolean> {
+  await requireRole("admin");
+  const changed = await setLinkDevicePermission(id, "ideas.manage", enabled);
+  if (changed) revalidatePath("/devices");
+  return changed;
+}
+
 export async function sendDeviceShare(
   id: string,
   type: "text" | "url",

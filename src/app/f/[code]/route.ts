@@ -1,4 +1,3 @@
-import { NextResponse } from "next/server";
 import { getShortExchangeToken } from "@/lib/exchange";
 import { checkDeviceActionRateLimit } from "@/lib/linkRequest";
 import { clientAddress } from "@/lib/security";
@@ -15,5 +14,5 @@ export async function GET(request: Request, context: { params: Promise<{ code: s
   }
   const token = await getShortExchangeToken((await context.params).code);
   if (!token) return new Response("Link unavailable", { status: 404, headers });
-  return NextResponse.redirect(new URL(`/x/${token}`, request.url), { status: 303, headers });
+  return new Response(null, { status: 303, headers: { ...headers, location: `/x/${token}` } });
 }

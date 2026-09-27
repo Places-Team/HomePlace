@@ -27,6 +27,7 @@ test("one-time text and encrypted file exchanges are consumed and removed", asyn
     assert.notEqual(textRecord.encryptedText, "hello from HomePlace");
     assert.equal(await openExchangeText(textRecord), "hello from HomePlace");
     assert.equal(await getExchange(text.token), null);
+    assert.equal(await prisma.exchange.findUnique({ where: { id: textRecord.id } }), null);
     assert.equal((await listExchanges(user.id)).length, 0);
 
     const bytes = new TextEncoder().encode("file exchange proof");
@@ -52,6 +53,7 @@ test("one-time text and encrypted file exchanges are consumed and removed", asyn
     }
     assert.equal(new TextDecoder().decode(Buffer.concat(chunks)), "file exchange proof");
     assert.equal(await getExchange(file.token), null);
+    assert.equal(await prisma.exchange.findUnique({ where: { id: fileRecord.id } }), null);
     assert.equal(await prisma.linkFileTransfer.findUnique({ where: { id: fileRecord.transferId! } }), null);
 
     const reusableFile = await createFileExchange(user.id, {

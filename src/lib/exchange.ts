@@ -134,25 +134,33 @@ async function claimOnce(record: Exchange): Promise<boolean> {
   if (!record.deleteAfterOpen) return true;
   const result = await prisma.exchange.updateMany({
     where: { id: record.id, openedAt: null, expiresAt: { gt: new Date() } },
-    data: { openedAt: new Date() },
+    data: { openedAt: new Date(), ...(record.kind === "text" ? { encryptedText: null } : {}) },
   });
   return result.count === 1;
 }
 
 export async function openExchangeText(record: Exchange): Promise<string | null> {
   if (record.kind !== "text" || !record.encryptedText || !(await claimOnce(record))) return null;
-  return (await decrypt(record.encryptedText)) || null;
+  const text = (await decrypt(record.encryptedText)) || null;
+  if (record.deleteAfterOpen) await prisma.exchange.deleteMany({ where: { id: record.id, openedAt: { not: null } } });
+  return text;
 }
 
 export async function openExchangeFile(record: Exchange) {
   if (record.kind !== "file" || !record.transferId || !(await claimOnce(record))) return null;
   const target = `exchange:${record.tokenHash}`;
   const file = await openFileTransfer(record.transferId, target);
-  if (!file) return null;
+  if (!file) {
+    if (record.deleteAfterOpen) await prisma.exchange.deleteMany({ where: { id: record.id, openedAt: { not: null } } });
+    return null;
+  }
   if (!record.deleteAfterOpen) return file;
 
   const reader = file.stream.getReader();
-  const cleanup = () => discardFileTransfer(record.transferId!, target).catch(() => undefined);
+  const cleanup = async () => {
+    await discardFileTransfer(record.transferId!, target).catch(() => undefined);
+    await prisma.exchange.deleteMany({ where: { id: record.id, openedAt: { not: null } } }).catch(() => undefined);
+  };
   const stream = new ReadableStream<Uint8Array>({
     async pull(controller) {
       try {

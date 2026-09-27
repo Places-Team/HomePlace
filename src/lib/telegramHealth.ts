@@ -65,7 +65,7 @@ async function processTelegramBotHealth(checks: CheckedBot[]): Promise<void> {
           type: "telegram-bot",
           severity: "error",
           title: `${bot.label} is unavailable`,
-          detail: bot.error?.slice(0, 300) ?? "No response for at least five minutes.",
+          detail: bot.error?.slice(0, 300) ?? "No response for at least fifteen minutes.",
         },
       });
     } else if (transition.event === "up") {
@@ -82,7 +82,7 @@ async function processTelegramBotHealth(checks: CheckedBot[]): Promise<void> {
     if (transition.state?.state === "alerted" && transition.state.notifiedAt === null) {
       const delivered = await notify({
         title: "Telegram bot unavailable",
-        body: `${bot.label} has not responded for at least five minutes. Open HomePlace for details.`,
+        body: `${bot.label} has not responded for at least fifteen minutes. Open HomePlace for details.`,
         severity: "error",
         type: "telegram-bot",
         tag: itemId,

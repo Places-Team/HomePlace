@@ -5,8 +5,8 @@ export type TelegramIncidentState = {
   notifiedAt: Date | null;
 };
 
-export const TELEGRAM_DOWN_DELAY_MS = 5 * 60_000;
-export const TELEGRAM_RECOVERY_DELAY_MS = 2 * 60_000;
+export const TELEGRAM_DOWN_DELAY_MS = 15 * 60_000;
+export const TELEGRAM_RECOVERY_DELAY_MS = 10 * 60_000;
 
 export function nextTelegramIncident(
   previous: TelegramIncidentState | null,

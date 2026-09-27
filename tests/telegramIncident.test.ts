@@ -14,11 +14,11 @@ test("short Telegram disconnects produce no incident", () => {
 
 test("one prolonged outage is reported and retried without duplicate events", () => {
   const initial = nextTelegramIncident(null, false, at(0));
-  assert.equal(nextTelegramIncident(initial.state, false, at(4)).event, undefined);
-  const alert = nextTelegramIncident(initial.state, false, at(5));
+  assert.equal(nextTelegramIncident(initial.state, false, at(14)).event, undefined);
+  const alert = nextTelegramIncident(initial.state, false, at(15));
   assert.equal(alert.event, "down");
   assert.equal(alert.state?.state, "alerted");
-  assert.equal(nextTelegramIncident(alert.state, false, at(6)).event, undefined);
+  assert.equal(nextTelegramIncident(alert.state, false, at(16)).event, undefined);
 });
 
 test("a brief reconnect does not close an announced incident", () => {
@@ -30,5 +30,6 @@ test("a brief reconnect does not close an announced incident", () => {
   assert.equal(dropped.state?.state, "alerted");
   assert.equal(dropped.event, undefined);
   const stable = nextTelegramIncident(dropped.state, true, at(8));
-  assert.equal(nextTelegramIncident(stable.state, true, at(10)).event, "up");
+  assert.equal(nextTelegramIncident(stable.state, true, at(17)).event, undefined);
+  assert.equal(nextTelegramIncident(stable.state, true, at(18)).event, "up");
 });

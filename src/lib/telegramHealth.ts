@@ -3,9 +3,9 @@ import { prisma } from "./db";
 import { telegramBotMonitors, telegramConfig, type TelegramBotMonitor } from "./integrations";
 import { notify } from "./notify";
 import { checkTelegramBot, type TelegramBotHealth } from "./telegram";
+import { nextTelegramIncident, type TelegramIncidentState } from "./telegramIncident";
 
 const CHECK_INTERVAL_MS = 60_000;
-const DOWN_DELAY_MS = 90_000;
 let nextCheckAt = 0;
 let running = false;
 
@@ -46,46 +46,52 @@ async function processTelegramBotHealth(checks: CheckedBot[]): Promise<void> {
 
   for (const bot of checks) {
     const itemId = `telegram-bot:${bot.id}`;
-    const state = bot.ok ? "up" : "down";
     const previous = byId.get(itemId);
-    if (!previous || previous.state !== state) {
-      const recoveryShouldNotify = bot.ok && previous?.state === "down" && previous.notifiedAt !== null;
+    const current: TelegramIncidentState | null = previous
+      ? { state: previous.state, since: previous.since, notifiedAt: previous.notifiedAt }
+      : null;
+    const transition = nextTelegramIncident(current, bot.ok, now);
+    if (transition.state && transition.changed) {
       await prisma.alertState.upsert({
         where: { itemId },
-        update: { state, since: now, notifiedAt: null },
-        create: { itemId, state, since: now },
+        update: transition.state,
+        create: { itemId, ...transition.state },
       });
+    }
+
+    if (transition.event === "down") {
       await prisma.event.create({
         data: {
           type: "telegram-bot",
-          severity: bot.ok ? "info" : "error",
-          title: bot.ok ? `${bot.label} is available again` : `${bot.label} is unavailable`,
-          detail: bot.ok ? bot.username ? `@${bot.username}` : null : bot.error?.slice(0, 300) ?? null,
+          severity: "error",
+          title: `${bot.label} is unavailable`,
+          detail: bot.error?.slice(0, 300) ?? "No response for at least five minutes.",
         },
       });
-      if (recoveryShouldNotify) {
-        await notify({
-          title: "Telegram bot recovered",
-          body: `${bot.label}${bot.username ? ` (@${bot.username})` : ""} is available again.`,
-          severity: "info",
+    } else if (transition.event === "up") {
+      await prisma.event.create({
+        data: {
           type: "telegram-bot",
-          tag: itemId,
-          respectQuietHours: false,
-        });
-      }
-      continue;
+          severity: "info",
+          title: `${bot.label} is available again`,
+          detail: bot.username ? `@${bot.username}` : null,
+        },
+      });
     }
 
-    if (bot.ok || previous.notifiedAt || now.getTime() - previous.since.getTime() < DOWN_DELAY_MS) continue;
-    const delivered = await notify({
-      title: "Telegram bot unavailable",
-      body: `${bot.label} is not responding${bot.error ? `: ${bot.error}` : "."}`,
-      severity: "error",
-      type: "telegram-bot",
-      tag: itemId,
-      respectQuietHours: false,
-    });
-    const sent = delivered.suppressed || delivered.push > 0 || delivered.link > 0 || delivered.ntfy || delivered.webhook || delivered.email;
-    if (sent) await prisma.alertState.update({ where: { itemId }, data: { notifiedAt: now } });
+    if (transition.state?.state === "alerted" && transition.state.notifiedAt === null) {
+      const delivered = await notify({
+        title: "Telegram bot unavailable",
+        body: `${bot.label} has not responded for at least five minutes. Open HomePlace for details.`,
+        severity: "error",
+        type: "telegram-bot",
+        tag: itemId,
+        respectQuietHours: false,
+        skipTelegram: true,
+        urgent: true,
+      });
+      const sent = delivered.suppressed || delivered.push > 0 || delivered.link > 0 || delivered.ntfy || delivered.webhook || delivered.email;
+      if (sent) await prisma.alertState.update({ where: { itemId }, data: { notifiedAt: now } });
+    }
   }
 }

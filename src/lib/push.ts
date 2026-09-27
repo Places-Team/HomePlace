@@ -48,7 +48,7 @@ async function configure(): Promise<void> {
   webpush.setVapidDetails("mailto:homeplace@localhost", keys.publicKey, keys.privateKey);
 }
 
-export type PushMessage = { title: string; body: string; url?: string; tag?: string };
+export type PushMessage = { title: string; body: string; url?: string; tag?: string; urgent?: boolean };
 
 /**
  * Send to every browser subscribed for these users.
@@ -73,7 +73,8 @@ export async function sendPush(userIds: string[], message: PushMessage): Promise
       try {
         await webpush.sendNotification(
           { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          payload
+          payload,
+          { urgency: message.urgent ? "high" : "normal" }
         );
         sent++;
       } catch (e) {

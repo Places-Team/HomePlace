@@ -173,6 +173,10 @@ export type Notification = {
    * to every administrator would tell the household about someone's dentist.
    */
   skipPush?: boolean;
+  /** A broken Telegram bot must not be used to announce its own outage. */
+  skipTelegram?: boolean;
+  /** Request high-priority delivery for a confirmed incident. */
+  urgent?: boolean;
 };
 
 export type DeliveryResult = {
@@ -218,14 +222,14 @@ export async function notify(message: Notification): Promise<DeliveryResult> {
   if (!message.skipPush) {
     const recipients = await alertRecipients();
     jobs.push(
-      sendPush(recipients, { title: message.title, body: message.body, tag: message.tag })
+      sendPush(recipients, { title: message.title, body: message.body, tag: message.tag, urgent: message.urgent })
         .then((r) => {
           result.push = r.sent;
         })
         .catch(() => {})
     );
     jobs.push(
-      queueLinkNotifications(recipients, { title: message.title, body: message.body, tag: message.tag })
+      queueLinkNotifications(recipients, { title: message.title, body: message.body, tag: message.tag, urgent: message.urgent })
         .then((queued) => {
           result.link = queued;
         })
@@ -233,7 +237,7 @@ export async function notify(message: Notification): Promise<DeliveryResult> {
     );
   }
 
-  if (telegram?.enabled) {
+  if (telegram?.enabled && !message.skipTelegram) {
     jobs.push(
       sendTelegram(`<b>${escapeHtml(message.title)}</b>\n${escapeHtml(message.body)}`)
         .then((r) => {

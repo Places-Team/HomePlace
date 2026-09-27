@@ -54,6 +54,7 @@ self.addEventListener("push", (event) => {
       // A tag replaces an earlier notification with the same one: a service
       // flapping should not stack up ten identical lines.
       tag: payload.tag || "homeplace",
+      requireInteraction: payload.urgent === true,
       data: { url: payload.url || "/" },
     })
   );

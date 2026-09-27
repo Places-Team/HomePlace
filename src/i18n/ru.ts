@@ -108,6 +108,8 @@ export const ru: Dictionary = {
     recent: "Ваши активные ссылки",
     empty: "Активных ссылок пока нет.",
     copyLink: "Копировать ссылку",
+    copyServerLink: "Копировать ссылку сервера",
+    currentAddress: "Ссылка для текущего адреса",
     copied: "Скопировано",
     delete: "Удалить",
     deleteConfirm: "Удалить ссылку и её содержимое?",

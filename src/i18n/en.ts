@@ -111,6 +111,8 @@ export const en = {
     recent: "Your active links",
     empty: "No active links yet.",
     copyLink: "Copy link",
+    copyServerLink: "Copy server link",
+    currentAddress: "Link for this address",
     copied: "Copied",
     delete: "Delete",
     deleteConfirm: "Delete this link and its content?",

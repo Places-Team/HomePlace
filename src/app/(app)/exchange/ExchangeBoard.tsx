@@ -18,10 +18,18 @@ async function copy(value: string, fallback: HTMLInputElement | null): Promise<b
   if (navigator.clipboard?.writeText) {
     try { await navigator.clipboard.writeText(value); return true; } catch { /* Try selection below. */ }
   }
-  if (!fallback) return false;
-  fallback.focus();
-  fallback.select();
-  return document.execCommand("copy");
+  const field = fallback ?? document.createElement("input");
+  if (!fallback) {
+    field.value = value;
+    field.style.position = "fixed";
+    field.style.opacity = "0";
+    document.body.appendChild(field);
+  }
+  field.focus();
+  field.select();
+  const copied = document.execCommand("copy");
+  if (!fallback) field.remove();
+  return copied;
 }
 
 function encodedFilename(value: string): string {
@@ -29,7 +37,7 @@ function encodedFilename(value: string): string {
   return btoa(Array.from(bytes, (byte) => String.fromCharCode(byte)).join(""));
 }
 
-export function ExchangeBoard({ d }: { d: Labels }) {
+export function ExchangeBoard({ d, serverOrigin }: { d: Labels; serverOrigin: string | null }) {
   const [kind, setKind] = useState<"text" | "file">("text");
   const [text, setText] = useState("");
   const [file, setFile] = useState<File | null>(null);
@@ -38,9 +46,14 @@ export function ExchangeBoard({ d }: { d: Labels }) {
   const [deleteAfterOpen, setDeleteAfterOpen] = useState(false);
   const [items, setItems] = useState<Exchange[]>([]);
   const [latest, setLatest] = useState<string | null>(null);
+  const [localOrigin, setLocalOrigin] = useState("");
   const [notice, setNotice] = useState("");
   const [busy, setBusy] = useState(false);
   const latestInput = useRef<HTMLInputElement>(null);
+
+  useEffect(() => { setLocalOrigin(window.location.origin); }, []);
+  const linkFor = (origin: string, token: string) => `${origin}/x/${token}`;
+  const alternateOrigin = serverOrigin && serverOrigin !== localOrigin ? serverOrigin : null;
 
   useEffect(() => {
     let active = true;
@@ -81,7 +94,7 @@ export function ExchangeBoard({ d }: { d: Labels }) {
       if (!response.ok) throw new Error(typeof data.error === "string" ? data.error : d.error);
       const item = data.exchange as Exchange;
       setItems((current) => [item, ...current]);
-      setLatest(`${window.location.origin}/x/${item.token}`);
+      setLatest(item.token);
       setNotice(d.created);
       setText("");
       setFile(null);
@@ -99,7 +112,7 @@ export function ExchangeBoard({ d }: { d: Labels }) {
       const response = await fetch(`/api/exchange/${token}`, { method: "DELETE" });
       if (!response.ok) throw new Error(d.error);
       setItems((current) => current.filter((item) => item.token !== token));
-      if (latest?.endsWith(`/x/${token}`)) setLatest(null);
+      if (latest === token) setLatest(null);
       setNotice("");
     } catch { setNotice(d.error); }
     finally { setBusy(false); }
@@ -153,10 +166,12 @@ export function ExchangeBoard({ d }: { d: Labels }) {
           {d.create}
         </button>
         {latest && (
-          <div className="mt-5 flex gap-2">
-            <input ref={latestInput} readOnly value={latest} aria-label={d.created} className="min-w-0 flex-1 rounded-control border border-line bg-raised px-3 py-2 text-sm text-text" />
-            <button type="button" onClick={async () => setNotice(await copy(latest, latestInput.current) ? d.copied : d.error)}
+          <div className="mt-5 flex flex-wrap gap-2">
+            <input ref={latestInput} readOnly value={linkFor(localOrigin, latest)} aria-label={d.currentAddress} className="min-w-0 flex-1 rounded-control border border-line bg-raised px-3 py-2 text-sm text-text" />
+            <button type="button" onClick={async () => setNotice(await copy(linkFor(localOrigin, latest), latestInput.current) ? d.copied : d.error)}
               className="rounded-control border border-line px-3 py-2 text-sm font-medium">{d.copyLink}</button>
+            {alternateOrigin && <button type="button" onClick={async () => setNotice(await copy(linkFor(alternateOrigin, latest), null) ? d.copied : d.error)}
+              className="rounded-control border border-line px-3 py-2 text-sm font-medium">{d.copyServerLink}</button>}
           </div>
         )}
         {notice && <p role="status" className="mt-3 text-sm text-muted">{notice}</p>}
@@ -167,7 +182,7 @@ export function ExchangeBoard({ d }: { d: Labels }) {
         {items.length === 0 ? <p className="border-t border-line py-5 text-sm text-muted">{d.empty}</p> : (
           <ul className="divide-y divide-line border-t border-line">
             {items.map((item) => {
-              const url = `${typeof window === "undefined" ? "" : window.location.origin}/x/${item.token}`;
+              const url = linkFor(localOrigin, item.token);
               return <li key={item.token} className="flex flex-wrap items-center gap-3 py-3">
                 <div className="min-w-0 flex-1">
                   <p className="truncate text-sm font-medium">{item.kind === "file" ? item.filename : d.text}</p>
@@ -178,6 +193,8 @@ export function ExchangeBoard({ d }: { d: Labels }) {
                   const field = event.currentTarget.previousElementSibling as HTMLInputElement | null;
                   setNotice(await copy(url, field) ? d.copied : d.error);
                 }} className="rounded-control border border-line px-3 py-1.5 text-xs font-medium">{d.copyLink}</button>
+                {alternateOrigin && <button type="button" onClick={async () => setNotice(await copy(linkFor(alternateOrigin, item.token), null) ? d.copied : d.error)}
+                  className="rounded-control border border-line px-3 py-1.5 text-xs font-medium">{d.copyServerLink}</button>}
                 <button type="button" disabled={busy} onClick={() => remove(item.token)} className="rounded-control px-2 py-1.5 text-xs text-muted hover:text-danger">{d.delete}</button>
               </li>;
             })}

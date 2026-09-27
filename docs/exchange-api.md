@@ -17,6 +17,8 @@ Creation, listing, and deletion accept an authenticated HomePlace browser sessio
 
 Missing options default to one hour, public-link access, and reusable until expiry. At most 100 active exchanges and 1 GiB of active file data per account are retained; the server-wide active file cap is 4 GiB. File creation is limited to two requests per minute per account. Use the returned code to construct `{server-origin}/x/{token}`; do not assume the configured server URL equals the browser's LAN or external origin. A reverse proxy may impose a lower upload limit than HomePlace's 500 MiB limit.
 
+The web UI offers a link for the current browser address and, when different, a link using the configured `APP_URL` origin. Both addresses use the same code and expiry. The configured address must be reachable by the recipient.
+
 ## Recipient
 
 - `GET /api/exchange/{token}` returns metadata only. It never consumes a one-time exchange or reveals text.

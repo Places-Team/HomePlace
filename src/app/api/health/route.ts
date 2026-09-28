@@ -12,7 +12,9 @@ export const dynamic = "force-dynamic";
  */
 export async function GET() {
   try {
-    await prisma.$queryRaw`SELECT 1`;
+    // SELECT 1 can be answered without opening the database file, so it stays
+    // green even when another SQLite connection holds an exclusive lock.
+    await prisma.$queryRaw`SELECT count(*) FROM sqlite_master`;
     return NextResponse.json({ ok: true }, { headers: { "cache-control": "no-store" } });
   } catch (e) {
     return NextResponse.json(

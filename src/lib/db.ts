@@ -1,7 +1,9 @@
 import { PrismaClient } from "@prisma/client";
 
-// A single client per process. Next.js reloads modules in development, and a
-// fresh PrismaClient per reload exhausts SQLite connections within minutes.
+// A single client per process. Next.js bundles server routes independently in
+// production as well as reloading modules in development. Without the shared
+// instance, each bundle opens another SQLite connection and concurrent reads
+// and writes can block one another indefinitely under background sync load.
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
 export const prisma =
@@ -10,7 +12,7 @@ export const prisma =
     log: process.env.NODE_ENV === "development" ? ["warn", "error"] : ["error"],
   });
 
-if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
+globalForPrisma.prisma = prisma;
 
 /** Read a JSON setting, falling back when it is missing or unparsable. */
 export async function getSetting<T>(key: string, fallback: T): Promise<T> {

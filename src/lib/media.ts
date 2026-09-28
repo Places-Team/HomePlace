@@ -13,6 +13,7 @@ import {
 } from "./services";
 
 export type MediaKind = "movie" | "tv";
+export type MediaLocale = "en" | "ru";
 export type MediaCard = {
   id: number;
   kind: MediaKind;
@@ -24,6 +25,7 @@ export type MediaCard = {
   year?: number;
   rating?: number;
   popularity?: number;
+  isAnime?: boolean;
   status:
     | "available"
     | "partially-available"
@@ -243,6 +245,9 @@ function normalizeMedia(raw: Record<string, any>): MediaCard | null {
     year: /^\d{4}/.test(date) ? Number(date.slice(0, 4)) : undefined,
     rating: Number(raw.voteAverage ?? 0) || undefined,
     popularity: Number(raw.popularity ?? 0) || undefined,
+    isAnime: (Array.isArray(raw.genreIds) ? raw.genreIds : raw.genres ?? []).some(
+      (genre: unknown) => Number(typeof genre === "object" && genre !== null ? (genre as { id?: unknown }).id : genre) === 16,
+    ) && String(raw.originalLanguage ?? raw.original_language ?? "").toLowerCase() === "ja",
     status: requestStatus(raw),
     requestId: Number(request?.id) || undefined,
   };
@@ -635,7 +640,9 @@ export async function discoverMedia(
   options: {
     query?: string;
     kind?: "all" | MediaKind;
+    category?: "all" | "anime";
     page?: number;
+    locale?: MediaLocale;
   } = {},
 ): Promise<{
   configured: boolean;
@@ -649,19 +656,41 @@ export async function discoverMedia(
   const page = Math.max(1, Math.min(100, Number(options.page) || 1));
   const query = options.query?.trim().slice(0, 120);
   const kind = options.kind ?? "all";
-  const path = query
-    ? `/search?query=${encodeURIComponent(query)}&page=${page}`
-    : kind === "movie"
-      ? `/discover/movies?page=${page}`
-      : kind === "tv"
-        ? `/discover/tv?page=${page}`
-        : `/discover/trending?page=${page}`;
-  const payload = await overseerrGet(path);
+  const anime = options.category === "anime";
+  const locale = options.locale === "ru" ? "ru" : "en";
+  if (anime && !query && kind === "all") {
+    const [movies, series] = await Promise.all([
+      overseerrGet(`/discover/movies?page=${page}&genre=16&language=ja`),
+      overseerrGet(`/discover/tv?page=${page}&genre=16&language=ja`),
+    ]);
+    if (!movies && !series) return { configured: true, unavailable: true, page, pages: page, items: [] };
+    const items = [movies, series]
+      .flatMap((payload) => Array.isArray(payload?.results) ? payload.results : [])
+      .map(normalizeMedia)
+      .filter((item): item is MediaCard => !!item)
+      .sort((a, b) => (b.popularity ?? 0) - (a.popularity ?? 0));
+    return {
+      configured: true, page,
+      pages: Math.min(100, Math.max(Number(movies?.totalPages ?? page), Number(series?.totalPages ?? page))),
+      items,
+    };
+  }
+  let path = `/discover/trending?page=${page}&language=${locale}`;
+  if (query) path = `/search?query=${encodeURIComponent(query)}&page=${page}&language=${locale}`;
+  else if (anime && kind === "movie") path = `/discover/movies?page=${page}&genre=16&language=ja`;
+  else if (anime && kind === "tv") path = `/discover/tv?page=${page}&genre=16&language=ja`;
+  else if (kind !== "all") path += `&mediaType=${kind}`;
+  let payload = await overseerrGet(path);
+  // Russian metadata frequently uses е in an alternate title where a user
+  // typed ё. Only retry an empty result, so normal search stays one request.
+  if (query && locale === "ru" && /ё/i.test(query) && !payload?.results?.length) {
+    payload = await overseerrGet(`/search?query=${encodeURIComponent(query.replaceAll("ё", "е").replaceAll("Ё", "Е"))}&page=${page}&language=ru`) ?? payload;
+  }
   if (!payload) return { configured: true, unavailable: true, page, pages: page, items: [] };
   const items = (Array.isArray(payload?.results) ? payload.results : [])
     .map(normalizeMedia)
     .filter((item): item is MediaCard => !!item)
-    .filter((item) => kind === "all" || item.kind === kind);
+    .filter((item) => (kind === "all" || item.kind === kind) && (!anime || !query || item.isAnime));
   return {
     configured: true,
     page: Number(payload?.page ?? page),
@@ -673,12 +702,13 @@ export async function discoverMedia(
 export async function discoverMediaDetails(
   kind: MediaKind,
   id: number,
+  locale: MediaLocale = "en",
 ): Promise<MediaDetailsData | null> {
   const mediaId = Math.floor(Number(id));
   if (!mediaId || mediaId < 1) return null;
   const cfg = await overseerrConfig();
   if (!cfg) return null;
-  const cacheKey = `overseerr-${kind}-${mediaId}`;
+  const cacheKey = `overseerr-${kind}-${mediaId}-${locale}`;
   const jellyfin = await jellyfinConfig();
   if (jellyfin?.cacheLocally) {
     const cached = await readCachedJson<MediaDetailsData>(
@@ -688,7 +718,7 @@ export async function discoverMediaDetails(
     if (cached && (kind === "movie" || cached.tvdbId)) return cached;
   }
   const raw = await overseerrGet(
-    `/${kind === "tv" ? "tv" : "movie"}/${mediaId}`,
+    `/${kind === "tv" ? "tv" : "movie"}/${mediaId}?language=${locale === "ru" ? "ru" : "en"}`,
   );
   if (!raw) return null;
   const base = normalizeMedia({ ...raw, id: mediaId, mediaType: kind });

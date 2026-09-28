@@ -256,11 +256,12 @@ export async function searchMedia(input: {
   kind?: "all" | MediaKind;
   page?: number;
 }) {
-  await requireUser();
+  const user = await requireUser();
   return discoverMedia({
     query: input.query?.trim().slice(0, 120),
     kind: input.kind === "movie" || input.kind === "tv" ? input.kind : "all",
     page: Math.max(1, Math.min(100, Number(input.page) || 1)),
+    locale: user.locale === "ru" ? "ru" : "en",
   });
 }
 
@@ -283,9 +284,9 @@ export async function readMediaDetails(
   profiles?: MediaQualityProfile[];
   error?: string;
 }> {
-  await requireUser();
+  const user = await requireUser();
   const [details, profiles] = await Promise.all([
-    discoverMediaDetails(kind, id),
+    discoverMediaDetails(kind, id, user.locale === "ru" ? "ru" : "en"),
     mediaQualityProfiles(kind),
   ]);
   return details

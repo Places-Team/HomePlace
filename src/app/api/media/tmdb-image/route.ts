@@ -1,7 +1,7 @@
 import { socksDispatcher } from "fetch-socks";
 import { ProxyAgent } from "undici";
 
-import { requireUser } from "@/lib/auth";
+import { linkMediaAccess } from "@/lib/linkMediaAccess";
 import { readCachedImage, writeCachedImage } from "@/lib/mediaCache";
 import { jellyfinConfig } from "@/lib/services";
 
@@ -40,7 +40,7 @@ function proxyDispatcher(): unknown {
 }
 
 export async function GET(request: Request) {
-  await requireUser();
+  if (!await linkMediaAccess(request)) return new Response("Unauthorized", { status: 401 });
   const url = new URL(request.url);
   const imagePath = url.searchParams.get("path") ?? "";
   const size = url.searchParams.get("size") === "original" ? "original" : "w500";

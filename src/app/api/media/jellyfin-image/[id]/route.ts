@@ -1,11 +1,11 @@
-import { requireUser } from "@/lib/auth";
+import { linkMediaAccess } from "@/lib/linkMediaAccess";
 import { jellyfinAuthHeaders, jellyfinConfig, jellyfinServerUrl } from "@/lib/services";
 import { readCachedImage, writeCachedImage } from "@/lib/mediaCache";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
-  await requireUser();
+export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  if (!await linkMediaAccess(request)) return new Response("Unauthorized", { status: 401 });
   const cfg = await jellyfinConfig();
   if (!cfg) return new Response("Jellyfin is not configured", { status: 404 });
   const serverUrl = await jellyfinServerUrl(cfg);

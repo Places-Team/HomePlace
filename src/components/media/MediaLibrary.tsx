@@ -942,6 +942,9 @@ function MediaPoster({
         )}
         <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 to-transparent p-3 pt-10 text-white">
           <p className="line-clamp-2 text-sm font-semibold">{item.title}</p>
+          {item.originalTitle && item.originalTitle.toLocaleLowerCase() !== item.title.toLocaleLowerCase() && (
+            <p className="mt-0.5 truncate text-xs text-white/65">{item.originalTitle}</p>
+          )}
           <p className="mt-1 text-xs text-white/70">
             {item.year ?? "—"}
             {item.rating ? ` · ★ ${item.rating.toFixed(1)}` : ""}

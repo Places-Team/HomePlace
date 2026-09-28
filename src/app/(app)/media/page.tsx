@@ -45,7 +45,7 @@ export default async function MediaPage({ searchParams }: { searchParams: Promis
     automationTasks,
   ] = await Promise.all([
     initialTab === "discover"
-      ? within(discoverMedia(), {
+      ? within(discoverMedia({ locale: user.locale === "ru" ? "ru" : "en" }), {
         configured: !!services.overseerr.url,
         unavailable: true,
         page: 1,

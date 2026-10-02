@@ -2,6 +2,7 @@ import Link from "next/link";
 import { pageUser } from "@/lib/pageUser";
 import { dict } from "@/i18n";
 import { atLeast } from "@/lib/auth";
+import { PlantIcon } from "@/components/NavIcons";
 import { BoxIcon, BulbIcon, CalendarIcon, ChartIcon, DevicesIcon, EventsIcon, GearIcon, HomeIcon, MediaIcon, RequestsIcon, TransferIcon } from "@/components/NavIcons";
 
 export default async function SectionsPage() {
@@ -22,7 +23,8 @@ export default async function SectionsPage() {
       { href: "/media?tab=requests", title: d.nav.requests, Icon: RequestsIcon },
     ] },
     { title: d.nav.everyday, links: [
-      { href: "/calendar", title: d.nav.plan, Icon: CalendarIcon },
+        { href: "/calendar", title: d.nav.plan, Icon: CalendarIcon },
+        { href: "/plants", title: user.locale === "ru" ? "Растения" : "Plants", Icon: PlantIcon },
     ] },
     { title: d.nav.sharing, links: [
       { href: "/exchange", title: d.nav.exchange, Icon: TransferIcon },

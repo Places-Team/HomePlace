@@ -10,6 +10,9 @@
  * inherit the active/inactive colour and stay optically even next to each other.
  */
 type IconProps = { className?: string };
+export function PlantIcon({ className }: IconProps) {
+  return <Svg className={className}><path d="M12 21V11M12 14C5 14 3 10 3 5c6 0 9 3 9 9ZM12 11c0-5 3-8 9-8 0 5-3 8-9 8Z" /></Svg>;
+}
 
 function Svg({ children, className }: { children: React.ReactNode; className?: string }) {
   return (

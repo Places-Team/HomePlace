@@ -1098,6 +1098,7 @@ async function EmbedWidget({ config, title, d }: { config: Record<string, unknow
 async function RecentEventsWidget({ config, title, d }: { config: Record<string, unknown>; title: string; d: Dictionary }) {
   const limit = num(config.limit, 8);
   const rows = await prisma.event.findMany({
+    where: { userId: null },
     orderBy: { at: "desc" },
     take: limit * 4,
     include: { item: { select: { title: true } } },

@@ -164,7 +164,7 @@ export function NotificationBell({ d, initialUnread }: { d: Dictionary; initialU
                         </ol>
                       )}
                       <Link
-                        href={`/events?event=${encodeURIComponent(it.id)}`}
+                        href={it.url}
                         onClick={() => setOpen(false)}
                         className="mt-3 inline-flex rounded-control px-2 py-1 text-sm font-medium text-accent hover:bg-raised focus-visible:ring-2 focus-visible:ring-accent"
                       >

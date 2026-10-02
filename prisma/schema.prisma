@@ -73,6 +73,8 @@ model Plant {
   location String @default("")
   notes String @default("")
   intervalDays Int
+  remindersEnabled Boolean @default(true)
+  photoName String?
   lastWateredAt DateTime
   revision Int @default(1)
   deletedAt DateTime?
@@ -80,7 +82,27 @@ model Plant {
   updatedAt DateTime @updatedAt
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   @@unique([userId, clientId])
+  alerts PlantAlert[]
   @@index([userId, updatedAt])
+}
+
+// Persist watering reminders and channel retries across server restarts.
+model PlantAlert {
+  id String @id
+  plantId String
+  cycle String
+  wateringAt DateTime
+  nextAttemptAt DateTime @default(now())
+  attempts Int @default(0)
+  appDeliveredAt DateTime?
+  telegramDeliveredAt DateTime?
+  lastError String?
+  eventId String?
+  finishedAt DateTime?
+  createdAt DateTime @default(now())
+  plant Plant @relation(fields: [plantId], references: [id], onDelete: Cascade)
+  @@index([finishedAt, nextAttemptAt])
+  @@index([createdAt])
 }
 
 // Personal idea sections are account-scoped and shared by approved Link clients.
@@ -311,6 +333,8 @@ model FoodLog {
 // A change worth remembering: a service went down, came back, a container was
 // restarted, someone logged in. The feed on the dashboard reads this table.
 model Event {
+  // Null for shared infrastructure events; personal alerts belong to one user.
+  userId String?
   id     String  @id @default(cuid())
   itemId String?
   item   Item?   @relation(fields: [itemId], references: [id], onDelete: SetNull)
@@ -328,6 +352,7 @@ model Event {
 
   @@index([at])
   @@index([itemId, at])
+  @@index([userId, at])
 }
 
 // ───────────────────────────── Miscellaneous ────────────────────────────

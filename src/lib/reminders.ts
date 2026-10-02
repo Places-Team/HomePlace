@@ -34,7 +34,7 @@ export async function processReminders(): Promise<void> {
     }
 
     await prisma.event.create({
-      data: { type: "system", severity: "info", title: reminder.title, detail: "reminder" },
+      data: { userId: reminder.userId, type: "system", severity: "info", title: reminder.title, detail: "reminder" },
     });
 
     // Browser and Link notifications go only to the reminder's owner.

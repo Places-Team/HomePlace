@@ -20,7 +20,7 @@ export async function authorizeMobile(request: Request, permission: MobilePermis
   return { ok: true, device: { ...device, userId: device.userId } };
 }
 
-export async function monitoringSummary() {
+export async function monitoringSummary(userId: string) {
   const [items, recent, containers] = await Promise.all([
     prisma.item.findMany({
       where: { checkKind: { not: "none" } },
@@ -33,6 +33,7 @@ export async function monitoringSummary() {
       take: 100,
     }),
     prisma.event.findMany({
+      where: { OR: [{ userId: null }, { userId }] },
       orderBy: { at: "desc" },
       take: 32,
       select: { id: true, type: true, severity: true, title: true, detail: true, itemId: true, actor: true, at: true },

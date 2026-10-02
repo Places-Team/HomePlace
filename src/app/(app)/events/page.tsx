@@ -40,6 +40,7 @@ export default async function EventsPage({
   const [pageRows, linkedEvent] = await Promise.all([
     prisma.event.findMany({
       where: {
+        AND: [{ OR: [{ userId: null }, { userId: user.id }] }],
         ...(type ? { type } : {}),
         ...(severity ? { severity } : {}),
         ...(q
@@ -59,7 +60,7 @@ export default async function EventsPage({
       include: { item: { select: { title: true } } },
     }),
     query.event
-      ? prisma.event.findUnique({ where: { id: query.event }, include: { item: { select: { title: true } } } })
+      ? prisma.event.findFirst({ where: { id: query.event, OR: [{ userId: null }, { userId: user.id }] }, include: { item: { select: { title: true } } } })
       : Promise.resolve(null),
   ]);
   const hasOlder = pageRows.length > PAGE_SIZE;
@@ -137,7 +138,7 @@ export default async function EventsPage({
         <ul className="divide-y divide-line">
           {events.map((event) => {
             const focused = !!query.event && event.eventIds.includes(query.event);
-            const contextHref = event.type === "container" ? "/containers" : event.type === "telegram-bot" ? "/settings?section=integrations" : null;
+            const contextHref = event.type === "plant-care" && event.actor ? `/plants?plant=${encodeURIComponent(event.actor)}` : event.type === "container" ? "/containers" : event.type === "telegram-bot" ? "/settings?section=integrations" : null;
             return (
             <li
               key={event.id}

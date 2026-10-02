@@ -14,7 +14,8 @@
     "postinstall": "prisma generate",
     "security:audit": "npm audit --omit=dev --audit-level=high",
     "test": "node --import tsx --test tests/*.test.ts",
-    "test:exchange": "node scripts/test-exchange.mjs"
+    "test:exchange": "node scripts/test-exchange.mjs",
+    "test:plants": "node scripts/run-plant-tests.mjs"
   },
   "dependencies": {
     "@prisma/client": "^5.18.0",

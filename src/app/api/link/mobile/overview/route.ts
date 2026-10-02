@@ -21,7 +21,7 @@ export async function GET(request: Request) {
     }),
     linkedAccount(userId),
     upcomingEvents(userId, 45, 120),
-    monitoringSummary(),
+    monitoringSummary(userId),
     arrState(),
     qbitState(),
     telegramConfig(),

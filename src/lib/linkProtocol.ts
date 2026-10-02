@@ -17,8 +17,11 @@ export type LinkInfo = {
   features: {
     pairing: boolean;
     realtime: boolean;
+    plants: boolean;
+    plantPhotos: boolean;
+    plantReminders: boolean;
   };
-  limits: { maxFileBytes: number };
+  limits: { maxFileBytes: number; maxPlantPhotoBytes: number };
 };
 
 export const LINK_CAPABILITIES = new Set([
@@ -109,8 +112,11 @@ export function createLinkInfo(input: LinkInfoInput): LinkInfo {
     features: {
       pairing: true,
       realtime: false,
+      plants: true,
+      plantPhotos: true,
+      plantReminders: true,
     },
-    limits: { maxFileBytes: input.maxFileBytes },
+    limits: { maxFileBytes: input.maxFileBytes, maxPlantPhotoBytes: 12 * 1024 * 1024 },
   };
 }
 

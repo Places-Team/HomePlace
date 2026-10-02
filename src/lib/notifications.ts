@@ -23,13 +23,14 @@ export type FeedItem = {
   detail: string | null;
   at: number;
   count: number;
+  url: string;
   occurrences: { id: string; at: number; detail: string | null }[];
 };
 
 /** The most recent events, and how many the user has not seen yet. */
 export async function notificationFeed(userId: string): Promise<{ items: FeedItem[]; unread: number }> {
   const [rows, seen] = await Promise.all([
-    prisma.event.findMany({ orderBy: { at: "desc" }, take: FETCH_LIMIT }),
+    prisma.event.findMany({ where: { OR: [{ userId: null }, { userId }] }, orderBy: { at: "desc" }, take: FETCH_LIMIT }),
     getSetting<number>(`${SEEN_PREFIX}${userId}`, 0),
   ]);
   const grouped = groupNotificationEvents(rows);
@@ -42,6 +43,7 @@ export async function notificationFeed(userId: string): Promise<{ items: FeedIte
     detail: e.detail,
     at: e.at.getTime(),
     count: e.count,
+    url: e.type === "plant-care" && e.actor ? `/plants?plant=${encodeURIComponent(e.actor)}` : `/events?event=${encodeURIComponent(e.id)}`,
     occurrences: e.eventIds.flatMap((id) => {
       const row = byId.get(id);
       return row ? [{ id, at: row.at.getTime(), detail: row.detail }] : [];
@@ -54,7 +56,7 @@ export async function notificationFeed(userId: string): Promise<{ items: FeedIte
 export async function unreadFor(userId: string): Promise<number> {
   const seen = await getSetting<number>(`${SEEN_PREFIX}${userId}`, 0);
   const rows = await prisma.event.findMany({
-    where: { at: { gt: new Date(seen) } },
+    where: { at: { gt: new Date(seen) }, OR: [{ userId: null }, { userId }] },
     orderBy: { at: "desc" },
     take: FETCH_LIMIT,
   });

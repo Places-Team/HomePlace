@@ -5,6 +5,7 @@ import { listContainers } from "./docker";
 import { processAlerts } from "./alerts";
 import { evaluateRules } from "./rules";
 import { processReminders } from "./reminders";
+import { startPlantReminderScheduler } from "./plantReminders";
 import { runDueSchedules } from "./schedules";
 import { startTelegramPolling } from "./telegramBot";
 import { sampleContainersToDb, pruneMetrics } from "./metricStore";
@@ -53,6 +54,7 @@ export function startMonitor(): void {
   // The Telegram command bot has its own long-polling loop and is independent of
   // the probe monitor — start it even if uptime monitoring is switched off.
   startTelegramPolling();
+  startPlantReminderScheduler();
   if (timer || !settings.monitorEnabled()) return;
   // A first pass shortly after boot, so the dashboard is not blank on arrival.
   setTimeout(() => void tick(), 3000);

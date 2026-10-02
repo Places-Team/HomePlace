@@ -154,6 +154,8 @@ export async function saveWebhook(input: Partial<WebhookSettings>): Promise<void
 }
 
 export type Notification = {
+  /** Omitted for infrastructure alerts; personal features opt into channels. */
+  channels?: ("push" | "link" | "telegram" | "ntfy" | "webhook" | "email")[];
   title: string;
   body: string;
   /** Local destination opened when a browser or Link alert is selected. */
@@ -201,6 +203,7 @@ export async function notifyPolicy(): Promise<NotifyPolicy> {
 /** Send to every configured route. Never throws — a notifier that can take the
  *  monitor down with it is worse than a missed message. */
 export async function notify(message: Notification): Promise<DeliveryResult> {
+  const channel = (name: NonNullable<Notification["channels"]>[number]) => !message.channels || message.channels.includes(name);
   const result: DeliveryResult = { push: 0, link: 0, telegram: false, ntfy: false, webhook: false, email: false, quiet: false, suppressed: false };
   const targetUrl = message.url?.startsWith("/") && !message.url.startsWith("//") ? message.url : "/";
 
@@ -213,18 +216,18 @@ export async function notify(message: Notification): Promise<DeliveryResult> {
     }
   }
 
-  const telegram = await telegramConfig();
+  const telegram = channel("telegram") || message.respectQuietHours !== false ? await telegramConfig() : null;
   if (message.respectQuietHours !== false && inQuietHours(telegram?.quietHours ?? "")) {
     result.quiet = true;
     return result;
   }
 
-  const [ntfy, webhook, email] = await Promise.all([ntfyConfig(), webhookConfig(), emailConfig()]);
+  const [ntfy, webhook, email] = await Promise.all([channel("ntfy") ? ntfyConfig() : null, channel("webhook") ? webhookConfig() : null, channel("email") ? emailConfig() : null]);
 
   const jobs: Promise<void>[] = [];
 
   const recipients = message.recipientUserIds ?? await alertRecipients();
-  jobs.push(
+  if (channel("push")) jobs.push(
     sendPush(recipients, { title: message.title, body: message.body, url: targetUrl, tag: message.tag, urgent: message.urgent })
       .then((r) => {
         result.push = r.sent;
@@ -232,14 +235,14 @@ export async function notify(message: Notification): Promise<DeliveryResult> {
       .catch(() => {})
   );
   jobs.push(
-    queueLinkNotifications(recipients, { title: message.title, body: message.body, url: targetUrl, tag: message.tag, urgent: message.urgent })
+    (channel("link") ? queueLinkNotifications(recipients, { title: message.title, body: message.body, url: targetUrl, tag: message.tag, urgent: message.urgent }) : Promise.resolve(0))
       .then((queued) => {
         result.link = queued;
       })
       .catch(() => {})
   );
 
-  if (telegram?.enabled && !message.skipTelegram) {
+  if (channel("telegram") && telegram?.enabled && !message.skipTelegram) {
     jobs.push(
       sendTelegram(`<b>${escapeHtml(message.title)}</b>\n${escapeHtml(message.body)}`)
         .then((r) => {
@@ -249,7 +252,7 @@ export async function notify(message: Notification): Promise<DeliveryResult> {
     );
   }
 
-  if (ntfy?.enabled) {
+  if (channel("ntfy") && ntfy?.enabled) {
     jobs.push(
       sendNtfy(ntfy, message)
         .then((ok) => {
@@ -259,7 +262,7 @@ export async function notify(message: Notification): Promise<DeliveryResult> {
     );
   }
 
-  if (webhook?.enabled) {
+  if (channel("webhook") && webhook?.enabled) {
     jobs.push(
       sendWebhook(webhook, message)
         .then((ok) => {
@@ -269,7 +272,7 @@ export async function notify(message: Notification): Promise<DeliveryResult> {
     );
   }
 
-  if (email?.enabled) {
+  if (channel("email") && email?.enabled) {
     jobs.push(
       sendEmail(email, message)
         .then((ok) => {

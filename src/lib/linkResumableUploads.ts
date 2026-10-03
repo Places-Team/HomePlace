@@ -26,33 +26,49 @@ export async function pruneUploadSessions() {
 }
 
 export async function beginUpload(input: {
-  source: { id: string; userId: string; capabilities: string };
+  source: { id: string; userId: string; capabilities: string; approvedCapabilities: string | null };
   targetDeviceId: string;
   filename: string;
   mimeType: string;
   size: number;
+  batchFileId?: string;
 }) {
   await pruneUploadSessions();
-  if (!Number.isSafeInteger(input.size) || input.size < 1 || input.size > MAX_SHARE_FILE_BYTES || input.size > await availableFileLimit()) {
+  const batchFile = input.batchFileId ? await prisma.linkBatchFile.findFirst({ where: { id: input.batchFileId, transferId: null, batch: { sourceDeviceId: input.source.id, targetDeviceId: input.targetDeviceId, status: "assembling", expiresAt: { gt: new Date() } } }, include: { batch: true } }) : null;
+  if (input.batchFileId && (!batchFile || !Number.isSafeInteger(input.size) || batchFile.size !== BigInt(input.size) || batchFile.filename !== input.filename || batchFile.mimeType !== input.mimeType)) return { error: "batch file unavailable or manifest mismatch" } as const;
+  if (!Number.isSafeInteger(input.size) || input.size < 1 || input.size > MAX_SHARE_FILE_BYTES) {
     return { error: "file exceeds server limit or available storage" } as const;
   }
   const target = await resolveShareTarget(input.source, input.targetDeviceId, "file");
   if (!target) return { error: "target device unavailable" } as const;
+  if (batchFile) {
+    const existing = await prisma.linkUploadSession.findUnique({ where: { batchFileId: batchFile.id } });
+    if (existing && existing.expiresAt > new Date()) return { id: existing.id, offset: Number(existing.offset), chunkBytes: UPLOAD_CHUNK_BYTES, expiresAt: existing.expiresAt.toISOString() } as const;
+  }
+  if (input.size > await availableFileLimit()) return { error: "file exceeds available storage" } as const;
   const active = await prisma.linkUploadSession.count({ where: { sourceDeviceId: input.source.id, status: { in: ["uploading", "finalizing"] }, expiresAt: { gt: new Date() } } });
   if (active >= 3) return { error: "too many active uploads" } as const;
   const key = randomBytes(32);
   const session = await prisma.linkUploadSession.create({
     data: {
       sourceDeviceId: input.source.id, targetDeviceId: target.id,
+      batchFileId: batchFile?.id ?? null,
       filename: safeFilename(input.filename), mimeType: input.mimeType.slice(0, 120),
       size: BigInt(input.size), encryptedKey: await encrypt(key.toString("base64")),
       expiresAt: new Date(Date.now() + SESSION_TTL_MS),
     },
+  }).catch(async error => {
+    if (batchFile && error && typeof error === "object" && error.code === "P2002") {
+      const existing = await prisma.linkUploadSession.findUnique({ where: { batchFileId: batchFile.id } });
+      if (existing && existing.sourceDeviceId === input.source.id && existing.expiresAt > new Date()) return existing;
+    }
+    throw error;
   });
-  return { id: session.id, offset: 0, chunkBytes: UPLOAD_CHUNK_BYTES, expiresAt: session.expiresAt.toISOString() } as const;
+  return { id: session.id, offset: Number(session.offset), chunkBytes: UPLOAD_CHUNK_BYTES, expiresAt: session.expiresAt.toISOString() } as const;
 }
 
 export async function uploadStatus(id: string, sourceDeviceId: string) {
+  await prisma.linkUploadSession.updateMany({ where: { id, sourceDeviceId, status: "finalizing", finalizingAt: { lt: new Date(Date.now() - 60 * 60_000) } }, data: { status: "uploading", finalizingAt: null } });
   const row = await prisma.linkUploadSession.findFirst({
     where: { id, sourceDeviceId, expiresAt: { gt: new Date() } },
     select: { id: true, size: true, offset: true, status: true, expiresAt: true },
@@ -121,13 +137,16 @@ export async function appendUploadChunk(id: string, sourceDeviceId: string, offs
   return { offset: current + bytes.length } as const;
 }
 
-export async function finishUpload(id: string, source: { id: string; userId: string; capabilities: string; name: string }) {
+export async function finishUpload(id: string, source: { id: string; userId: string; capabilities: string; approvedCapabilities: string | null; name: string }) {
+  await uploadStatus(id, source.id);
   const row = await prisma.linkUploadSession.findFirst({ where: { id, sourceDeviceId: source.id, expiresAt: { gt: new Date() } } });
   if (!row) return { error: "upload unavailable", status: 404 } as const;
   if (row.status !== "uploading" || row.offset !== row.size) return { error: "upload is incomplete", status: 409 } as const;
   const target = await resolveShareTarget(source, row.targetDeviceId, "file");
   if (!target) return { error: "target device unavailable", status: 404 } as const;
-  const claimed = await prisma.linkUploadSession.updateMany({ where: { id, status: "uploading", offset: row.size }, data: { status: "finalizing" } });
+  const batchFile = row.batchFileId ? await prisma.linkBatchFile.findFirst({ where: { id: row.batchFileId, transferId: null, batch: { sourceDeviceId: source.id, targetDeviceId: target.id, status: "assembling", expiresAt: { gt: new Date() } } }, include: { batch: true } }) : null;
+  if (row.batchFileId && !batchFile) return { error: "batch unavailable", status: 409 } as const;
+  const claimed = await prisma.linkUploadSession.updateMany({ where: { id, status: "uploading", offset: row.size }, data: { status: "finalizing", finalizingAt: new Date() } });
   if (!claimed.count) return { error: "upload is already finalizing", status: 409 } as const;
   try {
     const key = Buffer.from(await decrypt(row.encryptedKey), "base64");
@@ -151,8 +170,27 @@ export async function finishUpload(id: string, source: { id: string; userId: str
     });
     const transfer = await createFileTransfer({
       sourceDeviceId: source.id, targetDeviceId: target.id, filename: row.filename,
-      mimeType: row.mimeType, size: Number(row.size), stream,
+      mimeType: row.mimeType, size: Number(row.size), stream, batchId: batchFile?.batchId,
+      lifetimeMs: batchFile ? Math.max(1, batchFile.batch.expiresAt.getTime() - Date.now()) : undefined,
     });
+    if (batchFile) {
+      if (transfer.sha256 !== batchFile.sha256) {
+        await discardFileTransfer(transfer.id, target.id);
+        return { error: "file checksum differs from manifest", status: 422 } as const;
+      }
+      const linked = await prisma.$transaction(async tx => {
+        const state = await tx.linkShareBatch.findUnique({ where: { id: batchFile.batchId } });
+        if (!state || state.status !== "assembling" || state.expiresAt <= new Date()) return false;
+        return (await tx.linkBatchFile.updateMany({ where: { id: batchFile.id, transferId: null }, data: { transferId: transfer.id } })).count === 1;
+      });
+      if (!linked) {
+        await discardFileTransfer(transfer.id, target.id);
+        return { error: "batch changed during upload", status: 409 } as const;
+      }
+      await prisma.linkUploadSession.deleteMany({ where: { id } });
+      await rm(directory, { recursive: true, force: true }).catch(() => undefined);
+      return { transferId: transfer.id, sha256: transfer.sha256, batchId: batchFile.batchId } as const;
+    }
     const queued = await queueShareOffer(target.id, {
       type: "file", transferId: transfer.id, filename: transfer.filename, mimeType: transfer.mimeType,
       size: Number(transfer.size), sha256: transfer.sha256, sourceName: source.name,
@@ -166,6 +204,6 @@ export async function finishUpload(id: string, source: { id: string; userId: str
     await rm(directory, { recursive: true, force: true }).catch(() => undefined);
     return { transferId: transfer.id, sha256: transfer.sha256 } as const;
   } finally {
-    await prisma.linkUploadSession.updateMany({ where: { id, status: "finalizing" }, data: { status: "uploading" } });
+    await prisma.linkUploadSession.updateMany({ where: { id, status: "finalizing" }, data: { status: "uploading", finalizingAt: null } });
   }
 }

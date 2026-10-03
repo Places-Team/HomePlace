@@ -20,6 +20,7 @@ export type LinkInfo = {
     plants: boolean;
     plantPhotos: boolean;
     plantReminders: boolean;
+    fileBatches: boolean;
   };
   limits: { maxFileBytes: number; maxPlantPhotoBytes: number };
 };
@@ -29,6 +30,7 @@ export const LINK_CAPABILITIES = new Set([
   "url.open",
   "text.receive",
   "file.receive",
+  "file.batch.receive",
   "share.send",
   "device.battery",
   "device.network",
@@ -115,6 +117,7 @@ export function createLinkInfo(input: LinkInfoInput): LinkInfo {
       plants: true,
       plantPhotos: true,
       plantReminders: true,
+      fileBatches: true,
     },
     limits: { maxFileBytes: input.maxFileBytes, maxPlantPhotoBytes: 12 * 1024 * 1024 },
   };

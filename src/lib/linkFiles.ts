@@ -32,6 +32,7 @@ export async function createFileTransfer(input: {
   size: number;
   stream: ReadableStream<Uint8Array>;
   lifetimeMs?: number;
+  batchId?: string;
 }) {
   await pruneExpiredFileTransfers();
   if (!Number.isSafeInteger(input.size) || input.size < 1 || input.size > configuredFileLimit()) {
@@ -94,6 +95,7 @@ export async function createFileTransfer(input: {
       data: {
         sourceDeviceId: input.sourceDeviceId,
         targetDeviceId: input.targetDeviceId,
+        batchId: input.batchId ?? null,
         encryptedKey: await encrypt(key.toString("base64")),
         storageName,
         filename: safeFilename(input.filename),
@@ -126,6 +128,12 @@ export async function openFileTransfer(id: string, targetDeviceId: string) {
     where: { id, targetDeviceId, expiresAt: { gt: new Date() } },
   });
   if (!transfer) return null;
+  if (transfer.batchId) {
+    const { getBatch } = await import("./linkBatches");
+    const device = await prisma.linkDevice.findFirst({ where: { id: targetDeviceId, revokedAt: null, user: { disabled: false } } });
+    const batch = device ? await getBatch(transfer.batchId, device) : null;
+    if (!batch || !["accepted", "completed"].includes(batch.status)) return null;
+  }
   const key = Buffer.from(await decrypt(transfer.encryptedKey), "base64");
   if (key.length !== 32) return null;
   const storagePath = path.join(transferDir(), transfer.storageName);

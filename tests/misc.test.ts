@@ -224,7 +224,7 @@ test("link info exposes a versioned, secret-free discovery document", () => {
     server: { id: "018f2b5c-7d9a-7e11-8a22-123456789abc", name: "Home server" },
     protocol: { min: LINK_PROTOCOL_MIN, max: LINK_PROTOCOL_MAX },
     serverTime: "2026-09-13T12:00:00.000Z",
-    features: { pairing: true, realtime: false, plants: true, plantPhotos: true, plantReminders: true },
+    features: { pairing: true, realtime: false, plants: true, plantPhotos: true, plantReminders: true, fileBatches: true },
     limits: { maxFileBytes: 10 * 1024 ** 3, maxPlantPhotoBytes: 12 * 1024 ** 2 },
   });
   assert.equal("token" in info, false);

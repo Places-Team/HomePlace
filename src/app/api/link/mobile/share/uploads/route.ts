@@ -19,6 +19,7 @@ export async function POST(request: Request) {
   const result = await beginUpload({
     source: auth.device, targetDeviceId, filename: input.filename,
     mimeType: input.mimeType, size: input.size,
+    batchFileId: input.batchFileId === undefined ? undefined : validDeviceId(input.batchFileId) ?? "invalid",
   });
   if ("error" in result) return NextResponse.json(result, { status: 400 });
   return NextResponse.json(result, { status: 201 });

@@ -552,6 +552,7 @@ model LinkFileTransfer {
   mimeType       String
   size           BigInt
   sha256         String
+  batchId        String?
   expiresAt      DateTime
   createdAt      DateTime @default(now())
 
@@ -649,15 +650,47 @@ model LinkUploadSession {
   id String @id @default(cuid())
   sourceDeviceId String
   targetDeviceId String
+  batchFileId    String? @unique
   filename String
   mimeType String
   size BigInt
   offset BigInt @default(0)
   encryptedKey String
   status String @default("uploading")
+  finalizingAt DateTime?
   expiresAt DateTime
   createdAt DateTime @default(now())
 
   @@index([sourceDeviceId, expiresAt])
   @@index([expiresAt])
+}
+
+// One recipient decision covers an immutable, verified file manifest.
+model LinkShareBatch {
+  id             String @id @default(cuid())
+  sourceDeviceId String
+  targetDeviceId String
+  requestKey     String?
+  status         String @default("assembling")
+  expiresAt      DateTime
+  createdAt      DateTime @default(now())
+  files          LinkBatchFile[]
+  @@unique([sourceDeviceId, requestKey])
+  @@index([sourceDeviceId, expiresAt])
+  @@index([targetDeviceId, expiresAt])
+}
+
+model LinkBatchFile {
+  id           String @id @default(cuid())
+  batchId      String
+  batch        LinkShareBatch @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  ordinal      Int
+  filename     String
+  mimeType     String
+  size         BigInt
+  sha256       String
+  transferId   String? @unique
+  receivedAt   DateTime?
+  downloadedBytes BigInt @default(0)
+  @@unique([batchId, ordinal])
 }

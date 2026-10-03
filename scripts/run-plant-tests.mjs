@@ -36,7 +36,7 @@ try {
       "./scripts/server-test-preload.cjs",
       "--import",
       "tsx",
-      "scripts/test-plants.ts",
+      process.argv[2] === "batches" ? "scripts/test-batches.ts" : "scripts/test-plants.ts",
     ],
     { env, stdio: "inherit" },
   );

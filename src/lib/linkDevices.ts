@@ -293,7 +293,9 @@ export async function revokeLinkDevice(deviceId: string) {
     where: { id: deviceId, revokedAt: null },
     data: { revokedAt: new Date() },
   });
-  return result.count > 0;
+  const { purgeRevokedLinkDevices } = await import("./linkDeviceRemoval");
+  const removed = await purgeRevokedLinkDevices([deviceId]);
+  return result.count > 0 || removed > 0;
 }
 
 export async function queueTestNotification(deviceId: string) {

@@ -518,6 +518,7 @@ model LinkDevice {
   publicKey       String
   credentialHash  String   @unique
   capabilities    String
+  approvedCapabilities String?
   // Server-side actions approved with the pairing request. Device
   // capabilities describe what the phone can do; permissions describe what
   // the phone may ask HomePlace to do.

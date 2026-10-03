@@ -6,6 +6,7 @@ import type { LinkCapability, LinkPairRequest } from "./linkProtocol";
 import { LINK_PROTOCOL_MAX } from "./linkProtocol";
 import { linkServerId } from "./linkServer";
 import { secretsEqual } from "./security";
+import { withinApprovedCapabilities } from "./linkCapabilityPolicy";
 import { discardFileTransfer, pruneExpiredFileTransfers } from "./linkFiles";
 import { SHARE_LIFETIME_MS } from "./linkShare";
 import { chooseLinkNotificationAction, type LinkNotificationMessage } from "./linkNotificationQueue";
@@ -15,6 +16,7 @@ const MAX_PENDING_EVENTS = 50;
 const DELIVERED_NOTIFICATION_RETENTION_MS = 30 * 24 * 60 * 60_000;
 const NOTIFICATION_PRUNE_INTERVAL_MS = 60 * 60_000;
 let lastNotificationPruneAt = 0;
+export class UnapprovedCapabilitiesError extends Error {}
 
 const digest = (value: string) => createHash("sha256").update(value).digest("hex");
 const secret = () => randomBytes(32).toString("base64url");
@@ -107,7 +109,8 @@ export async function approveLinkPairing(id: string, userId: string) {
       appVersion: pairing.appVersion,
       publicKey: pairing.publicKey,
       credentialHash: digest(credential),
-      capabilities: pairing.capabilities,
+    capabilities: pairing.capabilities,
+    approvedCapabilities: pairing.capabilities,
       permissions: pairing.permissions,
       userId,
       revokedAt: null,
@@ -197,6 +200,16 @@ export async function heartbeatLinkDevice(deviceId: string, acknowledgedEventIds
     select: { payload: true },
   }) : [];
   const events = await prisma.$transaction(async (tx) => {
+    if (capabilities) {
+      const device = await tx.linkDevice.findUniqueOrThrow({
+        where: { id: deviceId }, select: { capabilities: true, approvedCapabilities: true },
+      });
+      const baseline = device.approvedCapabilities ?? device.capabilities;
+      if (!withinApprovedCapabilities(baseline, capabilities)) throw new UnapprovedCapabilitiesError();
+      if (device.approvedCapabilities === null) {
+        await tx.linkDevice.update({ where: { id: deviceId }, data: { approvedCapabilities: baseline } });
+      }
+    }
     await tx.linkDevice.update({
       where: { id: deviceId },
       data: { lastSeenAt: now, ...(capabilities ? { capabilities: JSON.stringify(capabilities) } : {}) },
@@ -426,7 +439,7 @@ export async function setHouseholdSharing(deviceId: string, enabled: boolean) {
 
 export async function setLinkDevicePermission(
   deviceId: string,
-  permission: "share.relay" | "ideas.manage" | "plants.manage",
+  permission: "share.relay" | "clipboard.relay" | "ideas.manage" | "plants.manage",
   enabled: boolean,
 ) {
   const device = await prisma.linkDevice.findFirst({

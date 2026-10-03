@@ -9,6 +9,7 @@ import { settings } from "@/lib/config";
 import { headers } from "next/headers";
 import { checkAttempt, recordFailure, clearAttempts } from "@/lib/rateLimit";
 import { clientAddress } from "@/lib/security";
+import { createInitialOwner } from "@/lib/bootstrapOwner";
 
 export type FormState = { error?: string; ok?: boolean };
 
@@ -22,8 +23,7 @@ const credentials = z.object({
  *
  * Guarded by the user count rather than by a token in .env: the window is open
  * only while the database has no accounts at all, and closes the moment the
- * owner exists. Two people racing to it cannot both win, because the second
- * insert finds a non-empty table.
+ * owner exists. A unique database marker serializes concurrent setup requests.
  */
 export async function setupOwner(_prev: FormState, form: FormData): Promise<FormState> {
   if (!(await needsSetup())) return { error: "setup.alreadyDone" };
@@ -37,22 +37,10 @@ export async function setupOwner(_prev: FormState, form: FormData): Promise<Form
   if (password.length < 8) return { error: "setup.passwordTooShort" };
   if (password !== repeat) return { error: "setup.passwordMismatch" };
 
-  const existing = await prisma.user.findUnique({ where: { login } });
-  if (existing) return { error: "setup.loginTaken" };
-
-  const user = await prisma.user.create({
-    data: {
-      name,
-      login,
-      passwordHash: await hashPassword(password),
-      role: "owner",
-      locale: settings.defaultLocale(),
-      lastLoginAt: new Date(),
-    },
+  const user = await createInitialOwner(prisma, {
+    name, login, passwordHash: await hashPassword(password), locale: settings.defaultLocale(),
   });
-
-  // A brand-new panel with no dashboard has nowhere to put the first tile.
-  await prisma.dashboard.create({ data: { name: "Home", order: 0, shared: true, ownerId: user.id } });
+  if (!user) return { error: "setup.alreadyDone" };
 
   await createSession(user.id);
   redirect("/");

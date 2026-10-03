@@ -49,6 +49,12 @@ export async function updateDeviceQuickSharing(id: string, enabled: boolean): Pr
   revalidatePath("/devices");
 }
 
+export async function updateDeviceClipboardRelay(id: string, enabled: boolean): Promise<void> {
+  await requireRole("admin");
+  await setLinkDevicePermission(id, "clipboard.relay", enabled);
+  revalidatePath("/devices");
+}
+
 export async function updateDeviceIdeasAccess(id: string, enabled: boolean): Promise<boolean> {
   await requireRole("admin");
   const changed = await setLinkDevicePermission(id, "ideas.manage", enabled);

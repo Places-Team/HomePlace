@@ -12,6 +12,7 @@ import {
   updateDeviceIdeasAccess,
   updateDevicePlantsAccess,
   updateDeviceQuickSharing,
+  updateDeviceClipboardRelay,
 } from "@/actions/linkDevices";
 import { Dialog } from "@/components/Dialog";
 import { Button, Field, Input, Select, Textarea } from "@/components/form";
@@ -43,6 +44,7 @@ export function DeviceActions({
   canReceiveFile,
   allowHouseholdShares,
   quickSharingEnabled,
+  clipboardRelayEnabled = false,
   ideasAccessEnabled = false,
   plantsAccessEnabled = false,
   ownerAssigned = false,
@@ -56,6 +58,7 @@ export function DeviceActions({
   canReceiveFile: boolean;
   allowHouseholdShares: boolean;
   quickSharingEnabled: boolean;
+  clipboardRelayEnabled?: boolean;
   ideasAccessEnabled?: boolean;
   plantsAccessEnabled?: boolean;
   ownerAssigned?: boolean;
@@ -198,6 +201,15 @@ export function DeviceActions({
         onClick={() => startTransition(() => updateDeviceQuickSharing(id, !quickSharingEnabled))}
       >
         {quickSharingEnabled ? d.devices.disableQuickSharing : d.devices.enableQuickSharing}
+      </Button>}
+      {!compact && ownerAssigned && <Button
+        disabled={pending}
+        onClick={() => {
+          if (!clipboardRelayEnabled && !window.confirm(d.devices.clipboardRelayConfirm)) return;
+          startTransition(() => updateDeviceClipboardRelay(id, !clipboardRelayEnabled));
+        }}
+      >
+        {clipboardRelayEnabled ? d.devices.disableClipboardRelay : d.devices.enableClipboardRelay}
       </Button>}
       {!compact && ownerAssigned && <Button
         disabled={busy}

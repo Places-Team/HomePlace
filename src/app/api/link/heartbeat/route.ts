@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { authenticateLinkDevice, heartbeatLinkDevice } from "@/lib/linkDevices";
+import { authenticateLinkDevice, heartbeatLinkDevice, UnapprovedCapabilitiesError } from "@/lib/linkDevices";
 import { boundedJson } from "@/lib/linkRequest";
 import { parseLinkCapabilities } from "@/lib/linkProtocol";
 
@@ -23,7 +23,14 @@ export async function POST(request: Request) {
     if (!parsed) return NextResponse.json({ error: "invalid capabilities" }, { status: 400 });
     capabilities = parsed;
   }
-  return NextResponse.json(await heartbeatLinkDevice(device.id, acknowledged, capabilities), {
-    headers: { "cache-control": "no-store" },
-  });
+  try {
+    return NextResponse.json(await heartbeatLinkDevice(device.id, acknowledged, capabilities), {
+      headers: { "cache-control": "no-store" },
+    });
+  } catch (error) {
+    if (error instanceof UnapprovedCapabilitiesError) {
+      return NextResponse.json({ error: "capabilities require new pairing approval" }, { status: 403 });
+    }
+    throw error;
+  }
 }

@@ -1,16 +1,16 @@
 import { NextResponse } from "next/server";
 import {
   authenticateLinkDevice,
-  linkDeviceHasCapability,
   relayClipboard,
 } from "@/lib/linkDevices";
 import { boundedJson, checkDeviceActionRateLimit } from "@/lib/linkRequest";
 import { MAX_SHARE_TEXT } from "@/lib/linkShare";
+import { canRelayClipboard } from "@/lib/linkCapabilityPolicy";
 
 export async function POST(request: Request) {
   const device = await authenticateLinkDevice(request);
   if (!device) return NextResponse.json({ error: "invalid device credential" }, { status: 401 });
-  if (!linkDeviceHasCapability(device, "clipboard.send")) {
+  if (!canRelayClipboard(device.capabilities, device.permissions)) {
     return NextResponse.json({ error: "clipboard sending is unavailable" }, { status: 403 });
   }
   const rate = checkDeviceActionRateLimit(device.id, "clipboard-sync", 120);

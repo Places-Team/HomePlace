@@ -6,6 +6,7 @@ import { appUrl, settings } from "@/lib/config";
 import { isSameOriginRequest } from "@/lib/security";
 import { boundedJson, checkDeviceActionRateLimit } from "@/lib/linkRequest";
 import { linkDeviceHasCapability } from "@/lib/linkDevices";
+import { reconcileLegacyLinkDevices } from "@/lib/linkCapabilityMigration";
 import { validDeviceId } from "@/lib/linkShare";
 
 export const dynamic = "force-dynamic";
@@ -44,9 +45,10 @@ export async function POST(request: NextRequest) {
   if (!rate.allowed) return NextResponse.json({ error: "too many commands" }, {
     status: 429, headers: { "retry-after": String(rate.retryAfterSeconds ?? 60) },
   });
+  await reconcileLegacyLinkDevices(prisma, [deviceId]);
   const device = await prisma.linkDevice.findFirst({
     where: { id: deviceId, userId: user!.id, revokedAt: null },
-    select: { id: true, capabilities: true },
+    select: { id: true, capabilities: true, approvedCapabilities: true },
   });
   if (!device || !linkDeviceHasCapability(device, action)) {
     return NextResponse.json({ error: "device does not support this command" }, { status: 404 });

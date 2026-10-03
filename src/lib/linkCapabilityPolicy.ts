@@ -19,6 +19,17 @@ export function withinApprovedCapabilities(approvedJson: string, reported: LinkC
   });
 }
 
+export function activeApprovedCapabilities(currentJson: string, approvedJson: string | null | undefined): Set<string> {
+  if (approvedJson == null) return new Set();
+  try {
+    const current = parseLinkCapabilities(JSON.parse(currentJson));
+    if (!current || !withinApprovedCapabilities(approvedJson, current)) return new Set();
+    return new Set(current.map((capability) => capability.name));
+  } catch {
+    return new Set();
+  }
+}
+
 export function canRelayClipboard(capabilitiesJson: string, permissionsJson: string): boolean {
   try {
     const capabilities = parseLinkCapabilities(JSON.parse(capabilitiesJson));

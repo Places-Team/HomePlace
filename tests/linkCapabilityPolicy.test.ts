@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { canRelayClipboard, withinApprovedCapabilities } from "../src/lib/linkCapabilityPolicy";
+import { activeApprovedCapabilities, canRelayClipboard, withinApprovedCapabilities } from "../src/lib/linkCapabilityPolicy";
 
 const approved = JSON.stringify([
   { name: "notification.receive", version: 1, constraints: {} },
@@ -34,4 +34,11 @@ test("clipboard relay requires both capability and approved permission", () => {
   assert.equal(canRelayClipboard(sending, JSON.stringify(["clipboard.relay"])), true);
   assert.equal(canRelayClipboard("[]", JSON.stringify(["clipboard.relay"])), false);
   assert.equal(canRelayClipboard(sending, "invalid"), false);
+});
+
+test("legacy or expanded live capabilities never authorize a target action", () => {
+  const live = JSON.stringify([{ name: "system.lock", version: 1, constraints: {} }]);
+  assert.equal(activeApprovedCapabilities(live, null).has("system.lock"), false);
+  assert.equal(activeApprovedCapabilities(live, approved).has("system.lock"), false);
+  assert.equal(activeApprovedCapabilities(approved, approved).has("clipboard.send"), true);
 });

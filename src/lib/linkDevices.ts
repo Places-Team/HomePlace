@@ -6,7 +6,8 @@ import type { LinkCapability, LinkPairRequest } from "./linkProtocol";
 import { LINK_PROTOCOL_MAX } from "./linkProtocol";
 import { linkServerId } from "./linkServer";
 import { secretsEqual } from "./security";
-import { withinApprovedCapabilities } from "./linkCapabilityPolicy";
+import { activeApprovedCapabilities, withinApprovedCapabilities } from "./linkCapabilityPolicy";
+import { migrateLegacyLinkCapabilities, reconcileLegacyLinkDevices } from "./linkCapabilityMigration";
 import { discardFileTransfer, pruneExpiredFileTransfers } from "./linkFiles";
 import { SHARE_LIFETIME_MS } from "./linkShare";
 import { chooseLinkNotificationAction, type LinkNotificationMessage } from "./linkNotificationQueue";
@@ -154,7 +155,11 @@ export async function authenticateLinkDevice(request: Request) {
   if (!header.startsWith("Bearer ")) return null;
   const token = header.slice(7);
   if (!/^[A-Za-z0-9_-]{40,80}$/.test(token)) return null;
-  return prisma.linkDevice.findFirst({ where: { credentialHash: digest(token), revokedAt: null } });
+  const credentialHash = digest(token);
+  const device = await prisma.linkDevice.findFirst({ where: { credentialHash, revokedAt: null } });
+  if (!device || device.approvedCapabilities !== null) return device;
+  if (!await migrateLegacyLinkCapabilities(prisma, device.id, credentialHash)) return null;
+  return prisma.linkDevice.findFirst({ where: { credentialHash, revokedAt: null, approvedCapabilities: { not: null } } });
 }
 
 export function linkDeviceHasPermission(device: { permissions: string }, permission: string): boolean {
@@ -166,8 +171,8 @@ export function linkDeviceHasPermission(device: { permissions: string }, permiss
   }
 }
 
-export function linkDeviceHasCapability(device: { capabilities: string }, capability: string): boolean {
-  return parsedCapabilities(device.capabilities).has(capability);
+export function linkDeviceHasCapability(device: { capabilities: string; approvedCapabilities: string | null }, capability: string): boolean {
+  return activeApprovedCapabilities(device.capabilities, device.approvedCapabilities).has(capability);
 }
 
 export async function heartbeatLinkDevice(deviceId: string, acknowledgedEventIds: string[], capabilities?: LinkCapability[]) {
@@ -204,11 +209,9 @@ export async function heartbeatLinkDevice(deviceId: string, acknowledgedEventIds
       const device = await tx.linkDevice.findUniqueOrThrow({
         where: { id: deviceId }, select: { capabilities: true, approvedCapabilities: true },
       });
-      const baseline = device.approvedCapabilities ?? device.capabilities;
+      const baseline = device.approvedCapabilities;
+      if (baseline === null) throw new UnapprovedCapabilitiesError();
       if (!withinApprovedCapabilities(baseline, capabilities)) throw new UnapprovedCapabilitiesError();
-      if (device.approvedCapabilities === null) {
-        await tx.linkDevice.update({ where: { id: deviceId }, data: { approvedCapabilities: baseline } });
-      }
     }
     await tx.linkDevice.update({
       where: { id: deviceId },
@@ -294,10 +297,10 @@ export async function revokeLinkDevice(deviceId: string) {
 }
 
 export async function queueTestNotification(deviceId: string) {
+  await reconcileLegacyLinkDevices(prisma, [deviceId]);
   const device = await prisma.linkDevice.findFirst({ where: { id: deviceId, revokedAt: null } });
   if (!device) return false;
-  const capabilities = JSON.parse(device.capabilities) as { name?: string }[];
-  if (!capabilities.some((capability) => capability.name === "notification.receive")) return false;
+  if (!linkDeviceHasCapability(device, "notification.receive")) return false;
   await prisma.linkDeviceEvent.create({
     data: {
       deviceId,
@@ -314,11 +317,16 @@ export async function queueLinkNotifications(
   message: LinkNotificationMessage,
 ): Promise<number> {
   if (userIds.length === 0) return 0;
+  const legacy = await prisma.linkDevice.findMany({
+    where: { userId: { in: userIds }, revokedAt: null, approvedCapabilities: null },
+    select: { id: true }, take: 100,
+  });
+  await reconcileLegacyLinkDevices(prisma, legacy.map((device) => device.id));
   const devices = await prisma.linkDevice.findMany({
     where: { userId: { in: userIds }, revokedAt: null },
-    select: { id: true, capabilities: true },
+    select: { id: true, capabilities: true, approvedCapabilities: true },
   });
-  const capable = devices.filter((device) => parsedCapabilities(device.capabilities).has("notification.receive"));
+  const capable = devices.filter((device) => linkDeviceHasCapability(device, "notification.receive"));
   let queued = 0;
   const payload = JSON.stringify(message);
   for (const device of capable) {
@@ -347,18 +355,16 @@ export async function queueLinkNotifications(
 /** Relay clipboard text only to the same user's explicitly capable devices. */
 export async function relayClipboard(source: { id: string; userId: string | null; name: string }, text: string) {
   if (!source.userId) return 0;
+  const legacy = await prisma.linkDevice.findMany({
+    where: { userId: source.userId, revokedAt: null, approvedCapabilities: null },
+    select: { id: true }, take: 100,
+  });
+  await reconcileLegacyLinkDevices(prisma, legacy.map((device) => device.id));
   const devices = await prisma.linkDevice.findMany({
     where: { userId: source.userId, id: { not: source.id }, revokedAt: null },
-    select: { id: true, capabilities: true },
+    select: { id: true, capabilities: true, approvedCapabilities: true },
   });
-  const targets = devices.filter((device) => {
-    try {
-      const capabilities = JSON.parse(device.capabilities) as { name?: string }[];
-      return capabilities.some((capability) => capability.name === "clipboard.receive");
-    } catch {
-      return false;
-    }
-  });
+  const targets = devices.filter((device) => linkDeviceHasCapability(device, "clipboard.receive"));
   if (targets.length === 0) return 0;
   await prisma.$transaction(targets.map((device) => prisma.linkDeviceEvent.create({
     data: {
@@ -372,6 +378,12 @@ export async function relayClipboard(source: { id: string; userId: string | null
 
 export async function shareTargets(source: { id: string; userId: string | null }) {
   if (!source.userId) return [];
+  const legacy = await prisma.linkDevice.findMany({
+    where: { revokedAt: null, approvedCapabilities: null, OR: [
+      { userId: source.userId }, { allowHouseholdShares: true },
+    ] }, select: { id: true }, take: 100,
+  });
+  await reconcileLegacyLinkDevices(prisma, legacy.map((device) => device.id));
   const devices = await prisma.linkDevice.findMany({
     where: {
       id: { not: source.id },
@@ -383,6 +395,7 @@ export async function shareTargets(source: { id: string; userId: string | null }
       name: true,
       platform: true,
       capabilities: true,
+      approvedCapabilities: true,
       lastSeenAt: true,
       userId: true,
       user: { select: { name: true } },
@@ -390,7 +403,7 @@ export async function shareTargets(source: { id: string; userId: string | null }
     orderBy: { name: "asc" },
   });
   return devices.flatMap((device) => {
-    const capabilities = parsedCapabilities(device.capabilities);
+    const capabilities = activeApprovedCapabilities(device.capabilities, device.approvedCapabilities);
     const supportsText = capabilities.has("text.receive");
     const supportsUrl = capabilities.has("url.open");
     const supportsFile = capabilities.has("file.receive");
@@ -410,11 +423,12 @@ export async function shareTargets(source: { id: string; userId: string | null }
 }
 
 export async function resolveShareTarget(
-  source: { id: string; userId: string | null; capabilities: string },
+  source: { id: string; userId: string | null; capabilities: string; approvedCapabilities: string | null },
   targetDeviceId: string,
   type: "text" | "url" | "file",
 ) {
-  if (!source.userId || !parsedCapabilities(source.capabilities).has("share.send")) return null;
+  if (!source.userId || !linkDeviceHasCapability(source, "share.send")) return null;
+  await reconcileLegacyLinkDevices(prisma, [targetDeviceId]);
   const target = await prisma.linkDevice.findFirst({
     where: {
       id: targetDeviceId,
@@ -422,11 +436,11 @@ export async function resolveShareTarget(
       revokedAt: null,
       OR: [{ userId: source.userId }, { allowHouseholdShares: true }],
     },
-    select: { id: true, capabilities: true, userId: true },
+    select: { id: true, capabilities: true, approvedCapabilities: true, userId: true },
   });
   if (!target) return null;
   const required = type === "text" ? "text.receive" : type === "url" ? "url.open" : "file.receive";
-  return parsedCapabilities(target.capabilities).has(required) ? target : null;
+  return linkDeviceHasCapability(target, required) ? target : null;
 }
 
 export async function setHouseholdSharing(deviceId: string, enabled: boolean) {
@@ -496,13 +510,14 @@ export async function queueDashboardShare(
   value: string,
   sourceUserId: string,
 ): Promise<"queued" | "unavailable" | "unsupported" | "full"> {
+  await reconcileLegacyLinkDevices(prisma, [targetDeviceId]);
   const target = await prisma.linkDevice.findFirst({
     where: { id: targetDeviceId, revokedAt: null },
-    select: { id: true, capabilities: true, userId: true },
+    select: { id: true, capabilities: true, approvedCapabilities: true, userId: true },
   });
   if (!target) return "unavailable";
   const required = type === "url" ? "url.open" : "text.receive";
-  if (!parsedCapabilities(target.capabilities).has(required)) return "unsupported";
+  if (!linkDeviceHasCapability(target, required)) return "unsupported";
   const queued = await queueShareOffer(target.id, {
     type,
     value,
@@ -510,15 +525,6 @@ export async function queueDashboardShare(
     sameAccount: target.userId === sourceUserId,
   });
   return queued ? "queued" : "full";
-}
-
-function parsedCapabilities(value: string): Set<string> {
-  try {
-    const capabilities = JSON.parse(value) as { name?: unknown }[];
-    return new Set(capabilities.flatMap((item) => typeof item.name === "string" ? [item.name] : []));
-  } catch {
-    return new Set();
-  }
 }
 
 function isUniqueConstraint(error: unknown): boolean {

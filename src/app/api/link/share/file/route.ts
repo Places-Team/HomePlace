@@ -34,11 +34,13 @@ export async function POST(request: NextRequest) {
   if (!targetDeviceId || !request.body) {
     return NextResponse.json({ error: "invalid file offer" }, { status: 400 });
   }
+  const dashboardShareCapability = JSON.stringify([{ name: "share.send", version: 1, constraints: {} }]);
   const target = await resolveShareTarget(
     {
       id: `dashboard:${user!.id}`,
       userId: user!.id,
-      capabilities: JSON.stringify([{ name: "share.send", version: 1, constraints: {} }]),
+      capabilities: dashboardShareCapability,
+      approvedCapabilities: dashboardShareCapability,
     },
     targetDeviceId,
     "file",

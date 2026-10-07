@@ -128,3 +128,21 @@ export function plantWateringState(
     daysUntil: dueDay - localClock(now, timeZone).day,
   };
 }
+
+/** A shared, bounded message for browser, Link and Telegram delivery. */
+export function plantReminderMessage(
+  plants: { name: string; location: string }[],
+  locale: string,
+) {
+  const ru = locale === "ru";
+  const title = ru ? `Пора полить растения (${plants.length})` : `Plants need watering (${plants.length})`;
+  const footer = ru ? "Отметьте полив в HomePlace." : "Mark watered in HomePlace.";
+  const lines: string[] = [];
+  for (const plant of plants) {
+    const line = `• ${plant.name}${plant.location ? ` — ${plant.location}` : ""}`;
+    if ([...lines, line, footer].join("\n").length > 1800) break;
+    lines.push(line);
+  }
+  if (lines.length < plants.length) lines.push(ru ? `И ещё ${plants.length - lines.length}.` : `And ${plants.length - lines.length} more.`);
+  return { title, body: [...lines, "", footer].join("\n"), url: "/plants" };
+}

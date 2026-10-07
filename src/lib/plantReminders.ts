@@ -1,8 +1,8 @@
 import "server-only";
 import { createHash } from "node:crypto";
 import { prisma } from "./db";
-import { plantReminderSlot } from "./plantCare";
-import { plantSettings } from "./plants";
+import { plantReminderSlot, plantReminderMessage } from "./plantCare";
+import { plantSettings, plantReminderTag } from "./plants";
 import { notify, type Notification } from "./notify";
 
 let lastRun = 0;
@@ -11,72 +11,46 @@ const scheduler = globalThis as typeof globalThis & {
   homeplacePlantTimer?: ReturnType<typeof setInterval>;
   homeplacePlantRunning?: boolean;
 };
-/** Keep personal reminders running even when infrastructure monitoring is disabled. */
+
+/** Personal reminders run independently of infrastructure monitoring. */
 export function startPlantReminderScheduler() {
   if (scheduler.homeplacePlantTimer) return;
   const run = async () => {
     if (scheduler.homeplacePlantRunning) return;
     scheduler.homeplacePlantRunning = true;
-    try {
-      await processPlantReminders();
-    } catch (error) {
-      console.error("plant reminders failed:", error);
-    } finally {
-      scheduler.homeplacePlantRunning = false;
-    }
+    try { await processPlantReminders(); }
+    catch (error) { console.error("plant reminders failed:", error); }
+    finally { scheduler.homeplacePlantRunning = false; }
   };
   scheduler.homeplacePlantTimer = setInterval(() => void run(), 60_000);
   console.log("plant reminder scheduler started");
   setTimeout(() => void run(), 5000);
 }
-/** Calendar reminders run once a minute; durable rows deduplicate across bundles. */
-export async function processPlantReminders(
-  now = new Date(),
-  force = false,
-): Promise<void> {
+
+/** Durable per-plant cycle markers, delivered as one account digest per channel. */
+export async function processPlantReminders(now = new Date(), force = false): Promise<void> {
   if (!force && now.getTime() - lastRun < 60_000) return;
   lastRun = now.getTime();
   const plants = await prisma.plant.findMany({
-    where: {
-      deletedAt: null,
-      remindersEnabled: true,
-      user: { disabled: false },
-    },
-    include: { user: { select: { locale: true } } },
+    where: { deletedAt: null, remindersEnabled: true, user: { disabled: false } },
   });
-  const settingsByUser = new Map<
-    string,
-    Awaited<ReturnType<typeof plantSettings>>
-  >();
-  for (const plant of plants) {
-    let settings = settingsByUser.get(plant.userId);
+  const settingsByUser = new Map<string, Awaited<ReturnType<typeof plantSettings>>>();
+  const settingsFor = async (userId: string) => {
+    let settings = settingsByUser.get(userId);
     if (!settings) {
-      settings = await plantSettings(plant.userId);
-      settingsByUser.set(plant.userId, settings);
+      settings = await plantSettings(userId);
+      settingsByUser.set(userId, settings);
     }
-    const cycle = plantReminderSlot(plant, settings, now);
+    return settings;
+  };
+  for (const plant of plants) {
+    const cycle = plantReminderSlot(plant, await settingsFor(plant.userId), now);
     if (!cycle) continue;
-    const id = createHash("sha256")
-      .update(
-        `${plant.id}:${plant.lastWateredAt.toISOString()}:${plant.intervalDays}:${cycle}`,
-      )
-      .digest("hex");
-    // Existing slots are read without writes, keeping idle monitoring inexpensive.
-    if (
-      !(await prisma.plantAlert.findUnique({
-        where: { id },
-        select: { id: true },
-      }))
-    ) {
+    const id = createHash("sha256").update(`${plant.id}:${plant.lastWateredAt.toISOString()}:${plant.intervalDays}:${cycle}`).digest("hex");
+    if (!(await prisma.plantAlert.findUnique({ where: { id }, select: { id: true } }))) {
       await prisma.plantAlert.upsert({
         where: { id },
-        create: {
-          id,
-          plantId: plant.id,
-          cycle,
-          wateringAt: plant.lastWateredAt,
-          nextAttemptAt: now,
-        },
+        create: { id, plantId: plant.id, cycle, wateringAt: plant.lastWateredAt, nextAttemptAt: now },
         update: {},
       });
     }
@@ -84,114 +58,81 @@ export async function processPlantReminders(
   const pending = await prisma.plantAlert.findMany({
     where: { finishedAt: null, nextAttemptAt: { lte: now } },
     orderBy: { nextAttemptAt: "asc" },
-    take: 20,
+    include: { plant: { include: { user: { select: { locale: true, disabled: true } } } } },
   });
+  const groups = new Map<string, typeof pending>();
   for (const alert of pending) {
-    const lease = await prisma.plantAlert.updateMany({
-      where: { id: alert.id, finishedAt: null, nextAttemptAt: { lte: now } },
-      data: { nextAttemptAt: new Date(now.getTime() + 120_000) },
-    });
-    if (!lease.count) continue;
-    const plant = await prisma.plant.findUnique({
-      where: { id: alert.plantId },
-      include: { user: { select: { locale: true, disabled: true } } },
-    });
-    if (!plant) continue;
-    const settings = await plantSettings(plant.userId);
-    if (
-      plant.user.disabled ||
-      alert.wateringAt.getTime() !== plant.lastWateredAt.getTime() ||
-      plantReminderSlot(plant, settings, now) !== alert.cycle ||
-      now.getTime() - alert.createdAt.getTime() > 7 * 86_400_000
-    ) {
-      await prisma.plantAlert.update({
-        where: { id: alert.id },
-        data: { finishedAt: now },
-      });
+    const { plant } = alert;
+    const settings = await settingsFor(plant.userId);
+    if (plant.user.disabled || alert.wateringAt.getTime() !== plant.lastWateredAt.getTime()
+      || plantReminderSlot(plant, settings, now) !== alert.cycle
+      || now.getTime() - alert.createdAt.getTime() > 7 * 86_400_000) {
+      await prisma.plantAlert.updateMany({ where: { id: alert.id, finishedAt: null }, data: { finishedAt: now } });
       continue;
     }
-    const ru = plant.user.locale === "ru";
-    const title = ru
-      ? `Пора полить: ${plant.name}`
-      : `Time to water: ${plant.name}`;
-    const body = ru
-      ? `${plant.location ? `${plant.location}. ` : ""}Полив каждые ${plant.intervalDays} дн. Отметьте полив в HomePlace.`
-      : `${plant.location ? `${plant.location}. ` : ""}Water every ${plant.intervalDays} days. Mark watered in HomePlace.`;
-    const channels: NonNullable<Notification["channels"]> = [];
-    if (settings.app && !alert.appDeliveredAt) channels.push("push", "link");
-    if (settings.telegram && !alert.telegramDeliveredAt)
-      channels.push("telegram");
-    const eventId = alert.eventId ?? `plant-care-${alert.id}`;
-    if (settings.app && !alert.eventId) {
+    const group = groups.get(plant.userId) ?? [];
+    group.push(alert);
+    groups.set(plant.userId, group);
+  }
+  for (const [userId, alerts] of groups) {
+    // Claim all rows together so concurrent workers cannot split an account digest.
+    const claimed = await prisma.$transaction(async (tx) => {
+      const current = await tx.plantAlert.findMany({ where: { id: { in: alerts.map((a) => a.id) }, finishedAt: null } });
+      if (current.length !== alerts.length || current.some((a) => a.nextAttemptAt > now)) return false;
+      await tx.plantAlert.updateMany({
+        where: { id: { in: alerts.map((a) => a.id) } },
+        data: { nextAttemptAt: new Date(now.getTime() + 120_000) },
+      });
+      return true;
+    });
+    if (!claimed) continue;
+    const settings = await settingsFor(userId);
+    const locale = alerts[0].plant.user.locale;
+    const appAlerts = settings.app ? alerts.filter((a) => !a.appDeliveredAt) : [];
+    const telegramAlerts = settings.telegram ? alerts.filter((a) => !a.telegramDeliveredAt) : [];
+    const digestId = (rows: typeof alerts) => `plant-care-${createHash("sha256").update(rows.map((a) => a.id).sort().join(":")).digest("hex")}`;
+    if (appAlerts.length) {
+      const eventId = digestId(appAlerts);
+      const message = plantReminderMessage(appAlerts.map((a) => a.plant), locale);
       await prisma.event.upsert({
         where: { id: eventId },
-        create: {
-          id: eventId,
-          userId: plant.userId,
-          type: "plant-care",
-          severity: "info",
-          title,
-          detail: body,
-          actor: plant.clientId,
-        },
+        create: { id: eventId, userId, type: "plant-care", severity: "info", title: message.title, detail: message.body },
         update: {},
       });
-      await prisma.plantAlert.update({
-        where: { id: alert.id },
-        data: { eventId },
+      await prisma.plantAlert.updateMany({ where: { id: { in: appAlerts.map((a) => a.id) } }, data: { eventId } });
+    }
+    const deliver = async (rows: typeof alerts, channels: NonNullable<Notification["channels"]>) => rows.length
+      ? notify({
+        ...plantReminderMessage(rows.map((a) => a.plant), locale),
+        tag: plantReminderTag(userId), recipientUserIds: [userId], respectQuietHours: false, channels,
+      }) : null;
+    const appDelivery = await deliver(appAlerts, ["push", "link"]);
+    const telegramDelivery = await deliver(telegramAlerts, ["telegram"]);
+    for (const alert of alerts) {
+      const appDeliveredAt = alert.appDeliveredAt ?? (appDelivery && (appDelivery.push > 0 || appDelivery.link > 0) ? now : null);
+      const telegramDeliveredAt = alert.telegramDeliveredAt ?? (telegramDelivery?.telegram ? now : null);
+      const finished = (!settings.app || appDeliveredAt !== null) && (!settings.telegram || telegramDeliveredAt !== null);
+      const attempts = alert.attempts + 1;
+      await prisma.plantAlert.updateMany({
+        where: { id: alert.id, finishedAt: null },
+        data: {
+          appDeliveredAt, telegramDeliveredAt, attempts, finishedAt: finished ? now : null,
+          nextAttemptAt: new Date(now.getTime() + Math.min(3600, 60 * 2 ** Math.min(attempts - 1, 6)) * 1000),
+          lastError: finished ? null : settings.telegram && !telegramDeliveredAt
+            ? "Telegram delivery pending; check Telegram integration."
+            : "Waiting for receiving device or browser push subscription.",
+        },
       });
     }
-    const delivery = channels.length
-      ? await notify({
-          title,
-          body,
-          url: `/plants?plant=${plant.clientId}`,
-          tag: `plant-${plant.clientId}`,
-          recipientUserIds: [plant.userId],
-          respectQuietHours: false,
-          channels,
-        })
-      : null;
-    const appDeliveredAt =
-      alert.appDeliveredAt ??
-      (delivery && (delivery.push > 0 || delivery.link > 0) ? now : null);
-    const telegramDeliveredAt =
-      alert.telegramDeliveredAt ?? (delivery?.telegram ? now : null);
-    const finished =
-      (!settings.app || appDeliveredAt !== null) &&
-      (!settings.telegram || telegramDeliveredAt !== null);
-    const attempts = alert.attempts + 1;
-    await prisma.plantAlert.update({
-      where: { id: alert.id },
-      data: {
-        appDeliveredAt,
-        telegramDeliveredAt,
-        attempts,
-        finishedAt: finished ? now : null,
-        nextAttemptAt: new Date(
-          now.getTime() +
-            Math.min(3600, 60 * 2 ** Math.min(attempts - 1, 6)) * 1000,
-        ),
-        lastError: finished
-          ? null
-          : settings.telegram && !telegramDeliveredAt
-            ? "Telegram delivery pending; check the Telegram integration."
-            : "Waiting for a receiving device or browser push subscription.",
-      },
-    });
   }
   if (force || now.getTime() - lastCleanup >= 86_400_000) {
     lastCleanup = now.getTime();
-    // Keep current watering-cycle markers: deleting one would resend a
-    // one-time reminder after thirty days without a new watering action.
+    // Preserve current-cycle deduplication markers for once-only reminders.
     const expired = await prisma.$queryRaw<{ id: string }[]>`
       SELECT a.id FROM PlantAlert a JOIN Plant p ON a.plantId = p.id
       WHERE a.finishedAt IS NOT NULL AND a.createdAt < ${new Date(now.getTime() - 30 * 86_400_000)}
       AND (p.deletedAt IS NOT NULL OR a.wateringAt <> p.lastWateredAt) LIMIT 200
     `;
-    if (expired.length)
-      await prisma.plantAlert.deleteMany({
-        where: { id: { in: expired.map((row) => row.id) } },
-      });
+    if (expired.length) await prisma.plantAlert.deleteMany({ where: { id: { in: expired.map((row) => row.id) } } });
   }
 }

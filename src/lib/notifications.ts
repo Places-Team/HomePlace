@@ -43,7 +43,7 @@ export async function notificationFeed(userId: string): Promise<{ items: FeedIte
     detail: e.detail,
     at: e.at.getTime(),
     count: e.count,
-    url: e.type === "plant-care" && e.actor ? `/plants?plant=${encodeURIComponent(e.actor)}` : `/events?event=${encodeURIComponent(e.id)}`,
+    url: e.type === "plant-care" ? (e.actor ? `/plants?plant=${encodeURIComponent(e.actor)}` : "/plants") : `/events?event=${encodeURIComponent(e.id)}`,
     occurrences: e.eventIds.flatMap((id) => {
       const row = byId.get(id);
       return row ? [{ id, at: row.at.getTime(), detail: row.detail }] : [];

@@ -11,6 +11,7 @@ import {
 import { PATCH as settings } from "../src/app/api/link/plants/settings/route";
 import { processPlantReminders } from "../src/lib/plantReminders";
 import { notificationFeed } from "../src/lib/notifications";
+import { saveTelegram } from "../src/lib/integrations";
 
 async function main() {
   assert.ok(
@@ -52,9 +53,10 @@ async function main() {
         publicKey: "test-key",
         userId,
         credentialHash: createHash("sha256").update(credential).digest("hex"),
-        permissions: JSON.stringify(permissions),
+      permissions: JSON.stringify(permissions),
+      approvedCapabilities: JSON.stringify([{ name: "notification.receive", version: 1, constraints: {} }]),
         capabilities: JSON.stringify([
-          { name: "notification.receive", version: 1 },
+        { name: "notification.receive", version: 1, constraints: {} },
         ]),
       },
     });
@@ -362,7 +364,64 @@ async function main() {
       null,
       "Obsolete completed cycles can be cleaned up.",
     );
-    await setSetting(`plants.notifications:${owner.id}`, {
+  // Group multiple due plants without leaking another account's plants.
+  await prisma.plant.updateMany({ where: { userId: owner.id }, data: { remindersEnabled: false } });
+  await prisma.plantAlert.updateMany({ where: { plant: { userId: owner.id } }, data: { finishedAt: now } });
+  await prisma.linkDeviceEvent.deleteMany({ where: { deviceId: approved.id } });
+  const telegramMessages: string[] = [];
+  const originalFetch = globalThis.fetch;
+  await saveTelegram({ enabled: true, botToken: "12345:local-test-token-not-real-000000", chatId: "local-test", proxyUrl: "", quietHours: "" });
+  globalThis.fetch = async (input, init) => {
+    assert.ok(String(input).startsWith("https://api.telegram.org/bot12345:"), "Only the fake Telegram transport may run.");
+    telegramMessages.push(JSON.parse(String(init?.body)).text);
+    return new Response(JSON.stringify({ ok: true }), { status: 200 });
+  };
+  await settings(request("/api/link/plants/settings", "PATCH", {
+    enabled: true, app: true, telegram: true, time: "00:00", timeZone: "UTC", repeatDays: 1,
+  }));
+  const groupIds = [randomUUID(), randomUUID()];
+  for (const [index, clientId] of groupIds.entries()) {
+    await change(request("/api/link/plants", "POST", {
+      ...payload, clientId, intervalDays: 2, name: index === 0 ? "Фикус" : "Алоэ",
+    }));
+  }
+  const beforeDigest = await prisma.event.count({ where: { userId: owner.id, type: "plant-care" } });
+  await processPlantReminders(now, true);
+  const digestEvents = await prisma.linkDeviceEvent.findMany({ where: { deviceId: approved.id } });
+  assert.equal(digestEvents.length, 1, "Due plants arrive in one device notification.");
+  const digest = JSON.parse(digestEvents[0].payload);
+  assert.ok(digest.body.includes("Фикус") && digest.body.includes("Алоэ"));
+  assert.equal(digest.url, "/plants");
+  assert.equal(telegramMessages.length, 1, "Telegram also receives a single grouped message.");
+  assert.ok(telegramMessages[0].includes("Фикус") && telegramMessages[0].includes("Алоэ"));
+  assert.equal(await prisma.event.count({ where: { userId: owner.id, type: "plant-care" } }), beforeDigest + 1);
+  await processPlantReminders(new Date(now.getTime() + 61_000), true);
+  assert.equal(await prisma.linkDeviceEvent.count({ where: { deviceId: approved.id } }), 1);
+  assert.equal(telegramMessages.length, 1, "Successful Telegram delivery must not repeat in the same slot.");
+  const waterGrouped = async (clientId: string, at: Date) => {
+    const plant = await prisma.plant.findUniqueOrThrow({ where: { userId_clientId: { userId: owner.id, clientId } } });
+    assert.equal((await change(request("/api/link/plants", "POST", {
+      action: "water", clientId, revision: plant.revision, lastWateredAt: at.toISOString(),
+    }))).status, 200);
+  };
+  await waterGrouped(groupIds[0], now);
+  const remainingDigest = await prisma.linkDeviceEvent.findFirstOrThrow({ where: { deviceId: approved.id } });
+  assert.ok(!JSON.parse(remainingDigest.payload).body.includes("Фикус"), "Sleeping devices must not receive already-watered plants.");
+  assert.ok(JSON.parse(remainingDigest.payload).body.includes("Алоэ"));
+  const tomorrow = new Date(now.getTime() + 86_400_000);
+  await processPlantReminders(tomorrow, true);
+  const repeated = await prisma.linkDeviceEvent.findMany({ where: { deviceId: approved.id } });
+  assert.equal(repeated.length, 1, "Sleeping devices keep the latest digest, not a backlog of daily reminders.");
+  assert.ok(JSON.parse(repeated[0].payload).body.includes("Алоэ"));
+  assert.ok(!JSON.parse(repeated[0].payload).body.includes("Фикус"), "Watered plants leave subsequent reminders until due again.");
+  assert.equal(telegramMessages.length, 2, "Unwatered plants trigger the next daily digest.");
+  assert.ok(!telegramMessages[1].includes("Фикус"));
+  await waterGrouped(groupIds[0], tomorrow);
+  await waterGrouped(groupIds[1], tomorrow);
+  assert.equal(await prisma.linkDeviceEvent.count({ where: { deviceId: approved.id, deliveredAt: null } }), 0);
+  globalThis.fetch = originalFetch;
+
+  await setSetting(`plants.notifications:${owner.id}`, {
       enabled: true,
       app: true,
       telegram: false,

@@ -1,7 +1,8 @@
 import "server-only";
+import { createHash } from "node:crypto";
 import { z } from "zod";
 import { prisma, getSetting, setSetting } from "./db";
-import { normalizePlantSettings, validPlantTimeZone } from "./plantCare";
+import { normalizePlantSettings, validPlantTimeZone, plantReminderMessage, plantReminderSlot } from "./plantCare";
 import { removePlantPhoto } from "./plantPhotoStorage";
 
 const clientId = z.string().uuid();
@@ -249,6 +250,36 @@ export async function changePlant(
         payload: { contains: `"tag":"plant-${input.clientId}"` },
       },
     });
+    await refreshPlantDigests(userId);
   }
   return { status: 200, body: { plant: plant ? plantDto(plant) : null } };
+}
+
+/** Rewrite pending digests after watering, rather than dropping other due plants. */
+async function refreshPlantDigests(userId: string) {
+  const tag = plantReminderTag(userId);
+  const user = await prisma.user.findUniqueOrThrow({ where: { id: userId }, select: { locale: true } });
+  const settings = await plantSettings(userId);
+  const plants = await prisma.plant.findMany({ where: { userId, deletedAt: null, remindersEnabled: true } });
+  const remaining = plants.filter((plant) => plantReminderSlot(plant, settings, new Date()) !== null);
+  const pending = await prisma.linkDeviceEvent.findMany({
+    where: { device: { userId }, kind: "notification.deliver", deliveredAt: null, payload: { contains: `"tag":"${tag}"` } },
+    select: { id: true, payload: true },
+  });
+  if (!remaining.length) {
+    await prisma.linkDeviceEvent.deleteMany({ where: { id: { in: pending.map((e) => e.id) }, deliveredAt: null } });
+    return;
+  }
+  const message = plantReminderMessage(remaining, user.locale);
+  for (const event of pending) {
+    await prisma.linkDeviceEvent.updateMany({
+      where: { id: event.id, deliveredAt: null, payload: event.payload },
+      data: { payload: JSON.stringify({ ...JSON.parse(event.payload), ...message }) },
+    });
+  }
+}
+
+/** Stable per-account tag replaces stale reminders on sleeping devices. */
+export function plantReminderTag(userId: string) {
+  return `plant-care-${createHash("sha256").update(userId).digest("hex")}`;
 }

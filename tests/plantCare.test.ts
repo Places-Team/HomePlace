@@ -1,10 +1,26 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import {
+  plantReminderMessage,
   normalizePlantSettings,
   plantReminderSlot,
   plantWateringState,
 } from "../src/lib/plantCare";
+
+test("watering digests list plants and locations in the account language", () => {
+  const plants = [{ name: "Фикус", location: "Кухня" }, { name: "Алоэ", location: "" }];
+  const ru = plantReminderMessage(plants, "ru");
+  assert.equal(ru.title, "Пора полить растения (2)");
+  assert.ok(ru.body.includes("Фикус — Кухня") && ru.body.includes("Алоэ"));
+  assert.equal(ru.url, "/plants");
+  assert.equal(plantReminderMessage(plants, "en").title, "Plants need watering (2)");
+});
+
+test("large watering digests stay inside native notification payload limits", () => {
+  const message = plantReminderMessage(Array.from({ length: 100 }, (_, i) => ({ name: `Plant ${i} ${"x".repeat(70)}`, location: "y".repeat(120) })), "en");
+  assert.ok(message.body.length <= 2000);
+  assert.match(message.body, /And \d+ more\./);
+});
 import {
   plantPhotoType,
   readPlantPhotoBody,

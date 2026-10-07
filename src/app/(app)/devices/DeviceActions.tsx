@@ -63,7 +63,7 @@ export function DeviceActions({
   plantsAccessEnabled?: boolean;
   ownerAssigned?: boolean;
   compact?: boolean;
-  d: Dictionary;
+  d: Pick<Dictionary, "common" | "devices">;
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
@@ -192,13 +192,13 @@ export function DeviceActions({
         </Button>
       )}
       {!compact && canNotify && (
-        <Button disabled={pending} onClick={() => startTransition(() => sendDeviceTestNotification(id))}>
+        <Button disabled={pending} onClick={() => startTransition(async () => { await sendDeviceTestNotification(id); })}>
           {d.devices.testNotification}
         </Button>
       )}
       {!compact && <Button
         disabled={pending}
-        onClick={() => startTransition(() => updateDeviceQuickSharing(id, !quickSharingEnabled))}
+        onClick={() => startTransition(async () => { await updateDeviceQuickSharing(id, !quickSharingEnabled); })}
       >
         {quickSharingEnabled ? d.devices.disableQuickSharing : d.devices.enableQuickSharing}
       </Button>}
@@ -206,7 +206,7 @@ export function DeviceActions({
         disabled={pending}
         onClick={() => {
           if (!clipboardRelayEnabled && !window.confirm(d.devices.clipboardRelayConfirm)) return;
-          startTransition(() => updateDeviceClipboardRelay(id, !clipboardRelayEnabled));
+          startTransition(async () => { await updateDeviceClipboardRelay(id, !clipboardRelayEnabled); });
         }}
       >
         {clipboardRelayEnabled ? d.devices.disableClipboardRelay : d.devices.enableClipboardRelay}
@@ -244,7 +244,7 @@ export function DeviceActions({
       {plantsAccessError && <p role="alert" className="text-sm text-danger">{d.devices.plantsAccessError}</p>}
       {!compact && <Button
         disabled={pending}
-        onClick={() => startTransition(() => updateDeviceHouseholdSharing(id, !allowHouseholdShares))}
+        onClick={() => startTransition(async () => { await updateDeviceHouseholdSharing(id, !allowHouseholdShares); })}
       >
         {allowHouseholdShares ? d.devices.disableHouseholdSharing : d.devices.enableHouseholdSharing}
       </Button>}

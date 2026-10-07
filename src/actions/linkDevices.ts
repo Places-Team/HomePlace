@@ -31,28 +31,32 @@ export async function revokeDevice(id: string): Promise<void> {
   revalidatePath("/devices");
 }
 
-export async function sendDeviceTestNotification(id: string): Promise<void> {
+export async function sendDeviceTestNotification(id: string): Promise<boolean> {
   await requireRole("admin");
-  await queueTestNotification(id);
+  const changed = await queueTestNotification(id);
   revalidatePath("/devices");
+  return changed;
 }
 
-export async function updateDeviceHouseholdSharing(id: string, enabled: boolean): Promise<void> {
+export async function updateDeviceHouseholdSharing(id: string, enabled: boolean): Promise<boolean> {
   await requireRole("admin");
-  await setHouseholdSharing(id, enabled);
+  const changed = await setHouseholdSharing(id, enabled);
   revalidatePath("/devices");
+  return changed;
 }
 
-export async function updateDeviceQuickSharing(id: string, enabled: boolean): Promise<void> {
+export async function updateDeviceQuickSharing(id: string, enabled: boolean): Promise<boolean> {
   await requireRole("admin");
-  await setLinkDevicePermission(id, "share.relay", enabled);
+  const changed = await setLinkDevicePermission(id, "share.relay", enabled);
   revalidatePath("/devices");
+  return changed;
 }
 
-export async function updateDeviceClipboardRelay(id: string, enabled: boolean): Promise<void> {
+export async function updateDeviceClipboardRelay(id: string, enabled: boolean): Promise<boolean> {
   await requireRole("admin");
-  await setLinkDevicePermission(id, "clipboard.relay", enabled);
+  const changed = await setLinkDevicePermission(id, "clipboard.relay", enabled);
   revalidatePath("/devices");
+  return changed;
 }
 
 export async function updateDeviceIdeasAccess(id: string, enabled: boolean): Promise<boolean> {

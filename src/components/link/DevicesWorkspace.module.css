@@ -1,0 +1,47 @@
+.canvas {
+  position: relative;
+  overflow: hidden;
+  height: clamp(32rem, 65vh, 40rem);
+  border: 1px solid rgb(var(--line));
+  border-radius: 1.2rem;
+  background: radial-gradient(ellipse at 50% 25%, rgb(var(--accent) / .05), transparent 65%), rgb(var(--raised) / .5);
+  touch-action: none;
+  cursor: grab;
+  user-select: none;
+}
+.canvas:active { cursor: grabbing; }
+.scene { position: absolute; inset: 0 auto auto 0; transform-origin: 0 0; will-change: transform; }
+.node {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: 1rem;
+  text-align: left;
+  border: 1px solid rgb(var(--line));
+  border-radius: 1rem;
+  background: rgb(var(--surface));
+  color: rgb(var(--text));
+  box-shadow: 0 3px 12px rgb(var(--text) / .035);
+  cursor: pointer;
+  transition: border-color .18s, box-shadow .18s, background-color .18s;
+}
+.node:hover { border-color: rgb(var(--accent) / .65); box-shadow: 0 5px 20px rgb(var(--accent) / .07); }
+.selected { border-color: rgb(var(--accent)); box-shadow: 0 0 0 3px rgb(var(--accent) / .12); }
+.server { background: rgb(var(--accent) / .08); border-color: rgb(var(--accent) / .3); }
+.edge { fill: none; stroke: rgb(var(--line)); stroke-width: 1.8; }
+.activeEdge { stroke: rgb(var(--accent) / .65); }
+.inactiveEdge { stroke-dasharray: 5 5; }
+.apple { filter: none; }
+:global([data-theme="dark"]) .apple { filter: invert(1); }
+@media (prefers-color-scheme: dark) {
+  :global(html:not([data-theme="light"])) .apple { filter: invert(1); }
+}
+.permissionSwitch { width: 2.5rem; height: 1.5rem; border-radius: 1rem; background: rgb(var(--line)); padding: .2rem; transition: background-color .2s; flex-shrink: 0; }
+.permissionSwitch span { display: block; height: 1.1rem; width: 1.1rem; border-radius: 50%; background: rgb(var(--surface)); box-shadow: 0 1px 3px rgb(var(--text) / .15); transition: transform .2s; }
+.permissionSwitch[aria-checked="true"] { background: rgb(var(--accent)); }
+.permissionSwitch[aria-checked="true"] span { transform: translateX(1rem); }
+.permissionSwitch:disabled { opacity: .45; cursor: not-allowed; }
+@media (prefers-reduced-motion: reduce) {
+  .node, .permissionSwitch, .permissionSwitch span { transition: none; }
+}

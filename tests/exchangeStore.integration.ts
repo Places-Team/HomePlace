@@ -11,13 +11,48 @@ import {
   openExchangeFile,
   openExchangeText,
 } from "../src/lib/exchange";
-import type { ExchangeOptions } from "../src/lib/exchangePolicy";
+import { parseExchangeOptions, type ExchangeOptions } from "../src/lib/exchangePolicy";
 
 if (!process.env.DATABASE_URL?.includes("homeplace-exchange-test")) {
   throw new Error("Run this integration test only against a disposable homeplace-exchange-test database");
 }
 
 const once: ExchangeOptions = { access: "link", deleteAfterOpen: true, expiresInSeconds: 600 };
+
+test("legacy public one-time payload creates short text and file links with actual quick expiry", async () => {
+  const user = await prisma.user.create({ data: { name: "Legacy exchange test" } });
+  try {
+    const options = parseExchangeOptions({ access: "link", deleteAfterOpen: true, expiresInSeconds: 86400, quick: false });
+    assert.ok(options);
+    const text = await createTextExchange(user.id, "legacy text", options);
+    const bytes = new TextEncoder().encode("driver fixture");
+    const file = await createFileExchange(user.id, {
+      filename: "driver.bin", mimeType: "application/octet-stream", size: bytes.byteLength,
+      stream: new ReadableStream({ start(controller) { controller.enqueue(bytes); controller.close(); } }),
+    }, options);
+    for (const exchange of [text, file]) {
+      assert.equal(exchange.shortCode?.length, 5);
+      assert.equal(exchange.access, "link");
+      assert.equal(exchange.deleteAfterOpen, true);
+      const remaining = new Date(exchange.expiresAt).getTime() - Date.now();
+      assert.ok(remaining > 590000 && remaining <= 600000);
+      assert.equal(await getShortExchangeToken(exchange.shortCode!), exchange.token);
+    }
+    const textRecord = await getExchange(text.token);
+    assert.ok(textRecord);
+    assert.equal(await openExchangeText(textRecord), "legacy text");
+    assert.equal(await getShortExchangeToken(text.shortCode!), null);
+    const fileRecord = await getExchange(file.token);
+    assert.ok(fileRecord);
+    const download = await openExchangeFile(fileRecord);
+    assert.ok(download);
+    const data = await new Response(download.stream).text();
+    assert.equal(data, "driver fixture");
+    assert.equal(await getShortExchangeToken(file.shortCode!), null);
+  } finally {
+    await prisma.user.delete({ where: { id: user.id } });
+  }
+});
 
 test("one-time text and encrypted file exchanges are consumed and removed", async () => {
   const user = await prisma.user.create({ data: { name: "Exchange test" } });

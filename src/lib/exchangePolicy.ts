@@ -21,7 +21,10 @@ export function parseExchangeOptions(value: unknown): ExchangeOptions | null {
   if (access !== "account" && access !== "link") return null;
   if (typeof deleteAfterOpen !== "boolean") return null;
   if (input.quick !== undefined && typeof input.quick !== "boolean") return null;
-  if (input.quick === true) return { expiresInSeconds: 600, access: "link", deleteAfterOpen: true, quick: true };
+  // Public one-time sharing is the quick flow, including requests from older clients.
+  if (input.quick === true || (access === "link" && deleteAfterOpen)) {
+    return { expiresInSeconds: 600, access: "link", deleteAfterOpen: true, quick: true };
+  }
   return { expiresInSeconds: expiresInSeconds as ExchangeOptions["expiresInSeconds"], access, deleteAfterOpen };
 }
 
